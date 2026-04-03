@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.23;
+pragma solidity 0.8.28;
 
 import {OrganizationFactory, IOrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {CircleRegistry, ICircleRegistry} from 'contracts/CircleRegistry.sol';
@@ -58,7 +58,14 @@ contract UnitOrganizationFactory is Test {
 
   function setUp() external {
     _mockNameWrapper = new MockNameWrapper();
-    _factory = new OrganizationFactory(address(_mockNameWrapper), _parentNode, _resolver);
+
+    address roleRegistryImpl = address(new RoleRegistry());
+    address circleRegistryImpl = address(new CircleRegistry());
+    address governanceProcessImpl = address(new GovernanceProcess());
+
+    _factory = new OrganizationFactory(
+      roleRegistryImpl, circleRegistryImpl, governanceProcessImpl, address(_mockNameWrapper), _parentNode, _resolver
+    );
   }
 
   /*///////////////////////////////////////////////////////////////
