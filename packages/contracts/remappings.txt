@@ -1,4 +1,6 @@
 forge-std/=node_modules/forge-std/src
+@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
 
 contracts/=src/contracts
 interfaces/=src/interfaces
+libraries/=src/libraries
