@@ -9,6 +9,7 @@
     "scripts": {
         "build": "forge build",
         "clean": "rm -rf out && rm -rf cache",
+        "deploy:local": "forge script script/DeployLocal.s.sol --tc DeployLocal --rpc-url http://127.0.0.1:8545 --broadcast -vvv",
         "lint": "forge fmt",
         "lint:fix": "forge fmt && pnpm lint:sol-tests --fix && pnpm lint:sol-logic --fix",
         "lint:sol-logic": "solhint -c .solhint.json 'src/**/*.sol'",

@@ -50,15 +50,24 @@ contract OrganizationFactory is IOrganizationFactory {
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Deploys implementation contracts and stores ENS references
+  /// @notice Stores pre-deployed implementation addresses and ENS references
+  /// @param _roleRegistryImpl The RoleRegistry implementation address
+  /// @param _circleRegistryImpl The CircleRegistry implementation address
+  /// @param _governanceProcessImpl The GovernanceProcess implementation address
   /// @param _nameWrapper The ENS NameWrapper contract address
   /// @param _parentNode The namehash of the parent node (hollab.eth)
   /// @param _resolver The ENS resolver address
-  constructor(address _nameWrapper, bytes32 _parentNode, address _resolver) {
-    // Deploy implementation contracts
-    roleRegistryImplementation = address(new RoleRegistry());
-    circleRegistryImplementation = address(new CircleRegistry());
-    governanceProcessImplementation = address(new GovernanceProcess());
+  constructor(
+    address _roleRegistryImpl,
+    address _circleRegistryImpl,
+    address _governanceProcessImpl,
+    address _nameWrapper,
+    bytes32 _parentNode,
+    address _resolver
+  ) {
+    roleRegistryImplementation = _roleRegistryImpl;
+    circleRegistryImplementation = _circleRegistryImpl;
+    governanceProcessImplementation = _governanceProcessImpl;
 
     ENS_NAMEWRAPPER = INameWrapper(_nameWrapper);
     PARENT_NODE = _parentNode;
