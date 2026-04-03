@@ -1,110 +1,59 @@
-# ts-turborepo-boilerplate
+# dao-contracts
 
-## Features
+DAO governance contracts implementing a Holacracy-inspired organizational structure on-chain.
 
-### Boilerplate monorepo setup
+## Specifications
 
-Quickly start developing your offchain monorepo project with
-minimal configuration overhead using Turborepo
+The `specs/` directory contains the full specification suite derived from the [Holacracy Constitution v5.0](https://www.holacracy.org/constitution/5-0/):
 
-### Sample library with Viem
+| Spec                                                                    | Title                                                    |
+| ----------------------------------------------------------------------- | -------------------------------------------------------- |
+| [00 — Overview](./specs/00-overview.md)                                 | Architecture overview, actors, and lifecycle             |
+| [01 — Organizational Structure](./specs/01-organizational-structure.md) | Roles, Circles, Circle Leads                             |
+| [02 — Rules of Cooperation](./specs/02-rules-of-cooperation.md)         | Transparency, Processing, Prioritization duties          |
+| [03 — Tactical Meetings](./specs/03-tactical-meetings.md)               | Tactical Meeting process and outputs                     |
+| [04 — Distributed Authority](./specs/04-distributed-authority.md)       | Domains, spending, interpretation, Individual Initiative |
+| [05 — Governance Process](./specs/05-governance-process.md)             | Proposals, Objections, Elections, Process Breakdown      |
+| [06 — Glossary](./specs/06-glossary.md)                                 | All defined terms and enum types                         |
 
-Simple provider that uses Viem client to query account balances
+## Setup
 
-### Sample contracts with Foundry
-
-Basic Greeter contract with an external interface
-
-Foundry configuration out-of-the-box
-
-### Sample app that consumes the library
-
-How much ETH do Vitalik and the Zero address hold together?
-
-### Testing
-
-Unit test setup with Vitest framework
-
-### Lint and format
-
-Use ESLint and Prettier to easily find issues as you code
-
-### Github workflows CI
-
-Lint code and check commit messages format on every push.
-
-Run all tests and see the coverage before merging changes.
-
-## Overview
-
-This repository is a monorepo consisting of 2 packages and 1 app:
-
--   [`@ts-turborepo-boilerplate/contracts`](./packages/contracts): A library for writing all required smart contracts
--   [`@ts-turborepo-boilerplate/sample-lib`](./packages/sample-lib): A sample library for querying account balances
--   [`@ts-turborepo-boilerplate/sample-app`](./apps/sample-app): A demo sample app that uses the sample-lib
-
-## 📋 Prerequisites
-
--   Ensure you have `node 20` and `pnpm 9.7.1` installed.
-
-## Tech stack
-
--   [pnpm](https://pnpm.io/): package and workspace manager
--   [turborepo](https://turbo.build/repo/docs): for managing the monorepo and the build system
--   [foundry](https://book.getfoundry.sh/forge/): for writing Solidity smart contracts
--   [husky](https://typicode.github.io/husky/): tool for managing git hooks
--   tsc: for transpiling TS and building source code
--   [prettier](https://prettier.io/): code formatter
--   [eslint](https://typescript-eslint.io/): code linter
--   [vitest](https://vitest.dev/): modern testing framework
--   [Viem](https://viem.sh/): lightweight library to interface with EVM based blockchains
-
-### Configuring Prettier sort import plugin
-
-You can further add sorting rules for your monorepo, for example in `.prettierrc` you can add:
-
-```json
-    ...
-    "importOrder": [
-        "<TYPES>",
-        ...
-        "",
-        "<TYPES>^@myproject", //added
-        "^@myproject/(.*)$", //added
-        "",
-        ...
-    ],
-    ...
-```
-
-We use [IanVs prettier-plugin-sort-imports](https://github.com/IanVS/prettier-plugin-sort-imports)
+1. Install dependencies running `pnpm install`
 
 ## Available Scripts
 
-### `create-package`
+| Script        | Description                                             |
+| ------------- | ------------------------------------------------------- |
+| `build`       | Build library using tsc                                 |
+| `check-types` | Check types issues using tsc                            |
+| `clean`       | Remove `dist` folder                                    |
+| `lint`        | Run ESLint to check for coding standards                |
+| `lint:fix`    | Run linter and automatically fix code formatting issues |
+| `format`      | Check code formatting and style using Prettier          |
+| `format:fix`  | Run formatter and automatically fix issues              |
+| `test`        | Run tests using vitest                                  |
+| `test:cov`    | Run tests with coverage report                          |
 
-The `create-package` script allows you to create a new package within the `packages` directory. It automates the setup of a new package with the necessary directory structure and initial files scaffolded.
+## License & Attribution
 
-#### Usage
+### Project Code
 
-To create a new package, run the following command:
+See the repository root [LICENSE](./LICENSE) file.
 
-```bash
-pnpm run create-package <package-name>
-```
+### Holacracy Constitution
 
-Replace `<package-name>` with your desired package name. This command will generate the package directory with predefined templates and configuration files.
+The specification documents in `specs/` are derived from the **Holacracy Constitution v5.0** by HolacracyOne, LLC.
 
-## Contributing
+-   **License:** [Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/)
+-   **Original source:** [holacracy.org/constitution](https://www.holacracy.org/constitution/5-0/) and [GitHub](https://github.com/holacracyone/Holacracy-Constitution)
+-   **Copyright:** HolacracyOne, LLC
 
-Wonderland is a team of top Web3 researchers, developers, and operators who believe that the future needs to be open-source, permissionless, and decentralized.
+Under CC BY-SA 4.0, you are free to share and adapt the material for any purpose (including commercial), provided you:
 
-[DeFi sucks](https://defi.sucks), but Wonderland is here to make it better.
+1. **Give appropriate credit** to HolacracyOne, LLC as the original author
+2. **Indicate changes** — our specs are a derivative work that restructures the Constitution into smart-contract specifications
+3. **Share alike** — distribute derivative works under the same or a compatible license
 
-### 💻 Conventional Commits
+### Trademark Notice
 
-We follow the Conventional Commits [specification](https://www.conventionalcommits.org/en/v1.0.0/#specification).
-
-## License
-
-The primary license for the boilerplate is MIT. See the [`LICENSE`](./LICENSE) file for details.
+**Holacracy** is a registered trademark of HolacracyOne, LLC. This project references Holacracy for attribution purposes as required by the CC BY-SA 4.0 license. If the governance rules implemented here diverge from the official Constitution, the resulting system should not be marketed or represented as "Holacracy" without explicit permission from HolacracyOne, LLC.
