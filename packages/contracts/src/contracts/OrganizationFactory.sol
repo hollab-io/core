@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import {AccessManager} from '@openzeppelin/contracts/access/manager/AccessManager.sol';
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
@@ -104,6 +105,9 @@ contract OrganizationFactory is IOrganizationFactory {
     // Create anchor circle with caller as first circle lead
     uint256 _anchorCircleId = _circleRegistry.createAnchorCircle(_subname, _purpose);
 
+    // Deploy AccessManager with org creator as initial admin
+    AccessManager _accessManager = new AccessManager(msg.sender);
+
     // Register ENS subname — org creator becomes the subname owner
     ENS_NAMEWRAPPER.setSubnodeRecord(PARENT_NODE, _subname, msg.sender, ENS_RESOLVER, 0, 0, type(uint64).max);
 
@@ -117,6 +121,7 @@ contract OrganizationFactory is IOrganizationFactory {
     _org.roleRegistry = address(_roleRegistry);
     _org.circleRegistry = address(_circleRegistry);
     _org.governanceProcess = address(_governanceProcess);
+    _org.accessManager = address(_accessManager);
     _org.anchorCircleId = _anchorCircleId;
     _org.createdAt = block.timestamp;
 
