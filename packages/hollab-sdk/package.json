@@ -1,5 +1,5 @@
 {
-    "name": "@ts-turborepo-boilerplate/hollab-sdk",
+    "name": "@hollab-io/hollab-sdk",
     "version": "0.0.1",
     "private": true,
     "description": "HolLab private data layer SDK — key management, encrypted 0G storage, org client, event indexer",

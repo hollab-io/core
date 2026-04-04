@@ -7,14 +7,14 @@ import type {
     PartnerRecord,
     TacticalMeetingRecord,
     WorkspaceSnapshot,
-} from "@hollab/viem-extension";
+} from "@hollab-io/viem-extension";
 import type { PropsWithChildren } from "react";
 import {
     createCircleMap,
     createPartnerMap,
     createRoleMap,
     getMockWorkspaceSnapshot,
-} from "@hollab/viem-extension";
+} from "@hollab-io/viem-extension";
 import { createContext, createElement, useCallback, useContext, useMemo, useState } from "react";
 
 import { DEFAULT_PROJECT_BOARD_CIRCLE_ID } from "../config/workspace";

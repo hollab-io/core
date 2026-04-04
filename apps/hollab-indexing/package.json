@@ -12,6 +12,7 @@
         "typecheck": "tsc"
     },
     "dependencies": {
+        "@hollab-io/contracts": "workspace:*",
         "hono": "^4.5.0",
         "ponder": "^0.16.6",
         "viem": "^2.21.3"

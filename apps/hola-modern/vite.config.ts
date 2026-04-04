@@ -11,7 +11,7 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            "@hollab/viem-extension": path.resolve(
+            "@hollab-io/viem-extension": path.resolve(
                 __dirname,
                 "../../packages/viem-extension/src/index.ts",
             ),
