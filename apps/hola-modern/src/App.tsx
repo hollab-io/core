@@ -60,7 +60,13 @@ function App() {
             case "actions":
                 return <ActionsList />;
             case "calendar":
-                return <CalendarView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />;
+                return (
+                    <CalendarView
+                        isDarkMode={isDarkMode}
+                        searchQuery={searchQuery}
+                        setSearchQuery={setSearchQuery}
+                    />
+                );
             case "governance":
                 return <GovernanceWorkspace searchQuery={searchQuery} />;
             case "members":
@@ -90,17 +96,9 @@ function App() {
     }
 
     return (
-        <div
-            className={`flex h-screen w-full overflow-hidden font-sans transition-colors duration-300 ${
-                isCalendarTab ? "bg-[#202124]" : "bg-white dark:bg-slate-950"
-            }`}
-        >
+        <div className="flex h-screen w-full overflow-hidden bg-white font-sans transition-colors duration-300 dark:bg-slate-950">
             <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-            <div
-                className={`relative flex h-full min-w-0 flex-1 flex-col ${
-                    isCalendarTab ? "bg-[#202124]" : ""
-                }`}
-            >
+            <div className="relative flex h-full min-w-0 flex-1 flex-col">
                 {!isCalendarTab && (
                     <Topbar
                         activeTab={activeTab}
@@ -116,7 +114,7 @@ function App() {
                 <main
                     className={`min-w-0 flex-1 transition-colors duration-300 ${
                         isCalendarTab
-                            ? "overflow-hidden bg-[#202124]"
+                            ? "overflow-hidden bg-white dark:bg-slate-950"
                             : "custom-scrollbar overflow-auto bg-slate-50/50 p-4 dark:bg-slate-900/40 sm:p-6"
                     }`}
                 >

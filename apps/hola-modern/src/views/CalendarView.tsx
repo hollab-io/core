@@ -40,6 +40,7 @@ type MeetingRecord = {
 type CalendarViewType = "dayGridMonth" | "timeGridWeek" | "listWeek";
 
 type CalendarViewProps = {
+    isDarkMode: boolean;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
 };
@@ -239,7 +240,11 @@ function renderDayHeaderContent(dayHeaderInfo: DayHeaderContentArg) {
     );
 }
 
-export default function CalendarView({ searchQuery, setSearchQuery }: CalendarViewProps) {
+export default function CalendarView({
+    isDarkMode,
+    searchQuery,
+    setSearchQuery,
+}: CalendarViewProps) {
     const { snapshot, partnerMap, activeMeetingId, openMeeting } = useWorkspaceSnapshot();
     const calendarReference = useRef<FullCalendar | null>(null);
     const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -304,7 +309,7 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
         allDay: meeting.allDay,
         backgroundColor: meeting.accent,
         borderColor: meeting.accent,
-        textColor: meeting.allDay ? "#1f1f1f" : "#e8eaed",
+        textColor: meeting.allDay ? "#1f1f1f" : isDarkMode ? "#e8eaed" : "#0f172a",
     }));
 
     const miniMonthDays = buildMiniMonthDays(calendarMeta.focusedDate, calendarMeta.focusedDate);
@@ -318,6 +323,75 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
         meetings.map((meeting) => [meeting.category, meeting.accent]),
     );
     const calendarGroups = useMemo(() => buildCalendarGroups(categories), [categories]);
+    const calendarTheme = isDarkMode
+        ? {
+              shell: "bg-[#202124] text-[#e8eaed]",
+              sidebar: "border-[#3c4043] bg-[#1f1f1f]",
+              createButton: "bg-[#3c4043] text-[#e8eaed] transition-colors hover:bg-[#4a4d52]",
+              title: "text-[#e8eaed]",
+              muted: "text-[#9aa0a6]",
+              miniMonthSelected: "bg-[#8ab4f8] font-semibold text-[#202124]",
+              miniMonthToday: "border border-[#8ab4f8] text-[#8ab4f8]",
+              miniMonthCurrent: "text-[#e8eaed] hover:bg-[#2b2c2f]",
+              miniMonthOther: "text-[#5f6368] hover:bg-[#2b2c2f]",
+              categoryButton: "text-[#e8eaed] hover:bg-[#2b2c2f]",
+              checkboxBorder: "border-[#5f6368]",
+              checkboxMark: "text-[#202124]",
+              upcomingActive: "border-[#8ab4f8] bg-[#2b3646]",
+              upcomingCard: "border-[#3c4043] bg-[#282a2d] hover:bg-[#2f3135]",
+              emptyCard: "border-[#3c4043] text-[#9aa0a6]",
+              tacticalCard:
+                  "border-blue-400/20 bg-[linear-gradient(180deg,rgba(66,133,244,0.18),rgba(22,29,42,0.96))]",
+              tacticalEyebrow: "text-blue-100",
+              tacticalTitle: "text-white",
+              tacticalText: "text-blue-50/80",
+              tacticalButton: "bg-white text-[#1f1f1f] hover:bg-blue-50",
+              mainPanel: "bg-[#202124]",
+              headerBorder: "border-[#3c4043]",
+              iconBox: "bg-[#2b2c2f] text-[#8ab4f8]",
+              todayButton: "border-[#5f6368] text-[#e8eaed] hover:bg-[#2b2c2f]",
+              navBorder: "border-[#5f6368]",
+              searchIcon: "text-[#9aa0a6]",
+              searchInput:
+                  "border-[#3c4043] bg-[#2b2c2f] text-[#e8eaed] placeholder:text-[#9aa0a6] focus:border-[#8ab4f8]",
+              viewSwitch: "border-[#5f6368] bg-[#2b2c2f]",
+              viewActive: "bg-[#8ab4f8] text-[#202124]",
+              viewInactive: "text-[#e8eaed] hover:bg-[#35363a]",
+          }
+        : {
+              shell: "bg-white text-slate-900",
+              sidebar: "border-slate-200 bg-[#F8FAFD]",
+              createButton:
+                  "bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 transition-colors hover:bg-slate-50",
+              title: "text-slate-900",
+              muted: "text-slate-500",
+              miniMonthSelected: "bg-[#3481FF] font-semibold text-white",
+              miniMonthToday: "border border-[#3481FF] text-[#3481FF]",
+              miniMonthCurrent: "text-slate-700 hover:bg-[#EDF4FF]",
+              miniMonthOther: "text-slate-400 hover:bg-slate-100",
+              categoryButton: "text-slate-700 hover:bg-[#EDF4FF]",
+              checkboxBorder: "border-slate-300",
+              checkboxMark: "text-white",
+              upcomingActive: "border-[#93BBFF] bg-[#EDF4FF]",
+              upcomingCard: "border-slate-200 bg-white hover:bg-slate-50",
+              emptyCard: "border-slate-300 text-slate-500",
+              tacticalCard: "border-[#DCE7FF] bg-[linear-gradient(180deg,#F6FAFF,#EEF5FF)]",
+              tacticalEyebrow: "text-[#3481FF]",
+              tacticalTitle: "text-slate-900",
+              tacticalText: "text-slate-600",
+              tacticalButton: "bg-[#3481FF] text-white hover:bg-blue-600",
+              mainPanel: "bg-white",
+              headerBorder: "border-slate-200",
+              iconBox: "bg-[#EDF4FF] text-[#3481FF]",
+              todayButton: "border-slate-300 text-slate-700 hover:bg-slate-50",
+              navBorder: "border-slate-300",
+              searchIcon: "text-slate-400",
+              searchInput:
+                  "border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-[#3481FF]",
+              viewSwitch: "border-slate-200 bg-white",
+              viewActive: "bg-[#3481FF] text-white",
+              viewInactive: "text-slate-600 hover:bg-slate-50",
+          };
 
     const handleDatesSet = (datesInfo: DatesSetArg) => {
         const calendarApi = calendarReference.current?.getApi();
@@ -378,12 +452,18 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
     };
 
     return (
-        <section className="calendar-google-shell h-full min-h-0 bg-[#202124] text-[#e8eaed]">
+        <section
+            className={`calendar-google-shell calendar-theme--${
+                isDarkMode ? "dark" : "light"
+            } h-full min-h-0 ${calendarTheme.shell}`}
+        >
             <div className="flex h-full min-h-0">
-                <aside className="calendar-google-sidebar custom-scrollbar hidden w-[320px] shrink-0 overflow-y-auto border-r border-[#3c4043] bg-[#1f1f1f] px-3 py-4 lg:block">
+                <aside
+                    className={`calendar-google-sidebar custom-scrollbar hidden w-[320px] shrink-0 overflow-y-auto border-r px-3 py-4 lg:block ${calendarTheme.sidebar}`}
+                >
                     <button
                         type="button"
-                        className="inline-flex h-12 items-center gap-3 rounded-2xl bg-[#3c4043] px-5 text-[15px] font-medium text-[#e8eaed] transition-colors hover:bg-[#4a4d52]"
+                        className={`inline-flex h-12 items-center gap-3 rounded-2xl px-5 text-[15px] font-medium ${calendarTheme.createButton}`}
                         aria-label="Create event"
                     >
                         <Plus size={20} aria-hidden="true" />
@@ -393,7 +473,7 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
 
                     <div className="mt-6 px-2">
                         <div className="mb-3 flex items-center justify-between">
-                            <h2 className="text-[22px] font-medium text-[#e8eaed]">
+                            <h2 className={`text-[22px] font-medium ${calendarTheme.title}`}>
                                 {miniMonthTitle}
                             </h2>
                             <div className="flex items-center gap-1">
@@ -420,7 +500,7 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                             {weekdayLabels.map((label) => (
                                 <span
                                     key={label}
-                                    className="text-[11px] font-medium uppercase text-[#9aa0a6]"
+                                    className={`text-[11px] font-medium uppercase ${calendarTheme.muted}`}
                                 >
                                     {label}
                                 </span>
@@ -432,12 +512,12 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                     onClick={() => handleMiniMonthSelect(day.date)}
                                     className={`mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm transition-colors ${
                                         day.isSelected
-                                            ? "bg-[#8ab4f8] font-semibold text-[#202124]"
+                                            ? calendarTheme.miniMonthSelected
                                             : day.isToday
-                                              ? "border border-[#8ab4f8] text-[#8ab4f8]"
+                                              ? calendarTheme.miniMonthToday
                                               : day.isCurrentMonth
-                                                ? "text-[#e8eaed] hover:bg-[#2b2c2f]"
-                                                : "text-[#5f6368] hover:bg-[#2b2c2f]"
+                                                ? calendarTheme.miniMonthCurrent
+                                                : calendarTheme.miniMonthOther
                                     }`}
                                     aria-label={`Go to ${shortDateFormatter.format(day.date)}`}
                                 >
@@ -451,7 +531,7 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                         {calendarGroups.map((group) => (
                             <section key={group.title}>
                                 <div className="mb-3 flex items-center justify-between">
-                                    <h3 className="text-sm font-medium text-[#e8eaed]">
+                                    <h3 className={`text-sm font-medium ${calendarTheme.title}`}>
                                         {group.title}
                                     </h3>
                                     <button
@@ -471,13 +551,13 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                                 key={category}
                                                 type="button"
                                                 onClick={() => toggleCategory(category)}
-                                                className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-sm text-[#e8eaed] transition-colors hover:bg-[#2b2c2f]"
+                                                className={`flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-sm transition-colors ${calendarTheme.categoryButton}`}
                                             >
                                                 <span
                                                     className={`flex h-4 w-4 items-center justify-center rounded-[4px] border ${
                                                         isEnabled
                                                             ? "border-transparent"
-                                                            : "border-[#5f6368]"
+                                                            : calendarTheme.checkboxBorder
                                                     }`}
                                                     style={{
                                                         backgroundColor: isEnabled
@@ -487,7 +567,9 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                                     }}
                                                 >
                                                     {isEnabled && (
-                                                        <span className="text-[10px] font-bold text-[#202124]">
+                                                        <span
+                                                            className={`text-[10px] font-bold ${calendarTheme.checkboxMark}`}
+                                                        >
                                                             ✓
                                                         </span>
                                                     )}
@@ -502,8 +584,10 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
 
                         <section>
                             <div className="mb-3 flex items-center justify-between">
-                                <h3 className="text-sm font-medium text-[#e8eaed]">Upcoming</h3>
-                                <span className="text-xs text-[#9aa0a6]">
+                                <h3 className={`text-sm font-medium ${calendarTheme.title}`}>
+                                    Upcoming
+                                </h3>
+                                <span className={`text-xs ${calendarTheme.muted}`}>
                                     {upcomingMeetings.length}
                                 </span>
                             </div>
@@ -516,8 +600,8 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                             onClick={() => handleMeetingFocus(meeting)}
                                             className={`w-full rounded-2xl border px-3 py-3 text-left transition-colors ${
                                                 meeting.id === highlightedMeetingId
-                                                    ? "border-[#8ab4f8] bg-[#2b3646]"
-                                                    : "border-[#3c4043] bg-[#282a2d] hover:bg-[#2f3135]"
+                                                    ? calendarTheme.upcomingActive
+                                                    : calendarTheme.upcomingCard
                                             }`}
                                         >
                                             <div className="flex items-start gap-3">
@@ -526,10 +610,14 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                                     style={{ backgroundColor: meeting.accent }}
                                                 />
                                                 <div className="min-w-0 flex-1">
-                                                    <div className="truncate text-sm font-medium text-[#e8eaed]">
+                                                    <div
+                                                        className={`truncate text-sm font-medium ${calendarTheme.title}`}
+                                                    >
                                                         {meeting.title}
                                                     </div>
-                                                    <div className="mt-1 text-xs text-[#9aa0a6]">
+                                                    <div
+                                                        className={`mt-1 text-xs ${calendarTheme.muted}`}
+                                                    >
                                                         {shortDateFormatter.format(
                                                             parseMeetingDate(
                                                                 meeting.start,
@@ -543,20 +631,30 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                         </button>
                                     ))
                                 ) : (
-                                    <div className="rounded-2xl border border-dashed border-[#3c4043] px-3 py-4 text-sm text-[#9aa0a6]">
+                                    <div
+                                        className={`rounded-2xl border border-dashed px-3 py-4 text-sm ${calendarTheme.emptyCard}`}
+                                    >
                                         No meetings match the current filters.
                                     </div>
                                 )}
                             </div>
 
-                            <div className="mt-4 rounded-[26px] border border-blue-400/20 bg-[linear-gradient(180deg,rgba(66,133,244,0.18),rgba(22,29,42,0.96))] p-4">
-                                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-100">
+                            <div
+                                className={`mt-4 rounded-[26px] border p-4 ${calendarTheme.tacticalCard}`}
+                            >
+                                <div
+                                    className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${calendarTheme.tacticalEyebrow}`}
+                                >
                                     Tactical workflow
                                 </div>
-                                <h4 className="mt-2 text-lg font-semibold text-white">
+                                <h4
+                                    className={`mt-2 text-lg font-semibold ${calendarTheme.tacticalTitle}`}
+                                >
                                     Open the live meeting room
                                 </h4>
-                                <p className="mt-2 text-sm leading-6 text-blue-50/80">
+                                <p
+                                    className={`mt-2 text-sm leading-6 ${calendarTheme.tacticalText}`}
+                                >
                                     Run the full facilitation flow, review agenda, and push outputs
                                     straight into actions and projects.
                                 </p>
@@ -571,7 +669,7 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                             handleMeetingFocus(tacticalMeeting);
                                         }
                                     }}
-                                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#1f1f1f] transition-colors hover:bg-blue-50"
+                                    className={`mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${calendarTheme.tacticalButton}`}
                                 >
                                     Open tactical room
                                 </button>
@@ -580,13 +678,19 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                     </div>
                 </aside>
 
-                <div className="flex min-w-0 flex-1 flex-col bg-[#202124]">
-                    <header className="flex min-h-16 flex-wrap items-center gap-3 border-b border-[#3c4043] px-4 py-3 lg:px-6">
+                <div className={`flex min-w-0 flex-1 flex-col ${calendarTheme.mainPanel}`}>
+                    <header
+                        className={`flex min-h-16 flex-wrap items-center gap-3 border-b px-4 py-3 lg:px-6 ${calendarTheme.headerBorder}`}
+                    >
                         <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2b2c2f] text-[#8ab4f8]">
+                            <div
+                                className={`flex h-10 w-10 items-center justify-center rounded-xl ${calendarTheme.iconBox}`}
+                            >
                                 <CalendarDays size={20} aria-hidden="true" />
                             </div>
-                            <h1 className="text-[1.7rem] font-normal tracking-[-0.02em] text-[#e8eaed]">
+                            <h1
+                                className={`text-[1.7rem] font-normal tracking-[-0.02em] ${calendarTheme.title}`}
+                            >
                                 Calendar
                             </h1>
                         </div>
@@ -594,12 +698,14 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                         <button
                             type="button"
                             onClick={handleToday}
-                            className="rounded-full border border-[#5f6368] px-4 py-2 text-sm font-medium text-[#e8eaed] transition-colors hover:bg-[#2b2c2f]"
+                            className={`rounded-full border px-4 py-2 text-sm font-medium transition-colors ${calendarTheme.todayButton}`}
                         >
                             Today
                         </button>
 
-                        <div className="flex overflow-hidden rounded-full border border-[#5f6368]">
+                        <div
+                            className={`flex overflow-hidden rounded-full border ${calendarTheme.navBorder}`}
+                        >
                             <button
                                 type="button"
                                 onClick={() => handleNavigate("prev")}
@@ -618,13 +724,17 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                             </button>
                         </div>
 
-                        <div className="min-w-0 text-[1.85rem] font-normal tracking-[-0.03em] text-[#e8eaed]">
+                        <div
+                            className={`min-w-0 text-[1.85rem] font-normal tracking-[-0.03em] ${calendarTheme.title}`}
+                        >
                             {calendarMeta.title}
                         </div>
 
                         <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-3 xl:w-auto">
                             <label className="relative min-w-[220px] flex-1 xl:w-[280px] xl:flex-none">
-                                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-[#9aa0a6]">
+                                <span
+                                    className={`pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 ${calendarTheme.searchIcon}`}
+                                >
                                     <Search size={16} aria-hidden="true" />
                                 </span>
                                 <input
@@ -632,7 +742,7 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                     value={searchQuery}
                                     onChange={(event) => setSearchQuery(event.target.value)}
                                     placeholder="Search meetings"
-                                    className="h-11 w-full rounded-full border border-[#3c4043] bg-[#2b2c2f] pl-10 pr-4 text-sm text-[#e8eaed] outline-none transition-colors placeholder:text-[#9aa0a6] focus:border-[#8ab4f8]"
+                                    className={`h-11 w-full rounded-full border pl-10 pr-4 text-sm outline-none transition-colors ${calendarTheme.searchInput}`}
                                 />
                             </label>
 
@@ -651,7 +761,9 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                 <Settings size={18} aria-hidden="true" />
                             </button>
 
-                            <div className="inline-flex overflow-hidden rounded-full border border-[#5f6368] bg-[#2b2c2f]">
+                            <div
+                                className={`inline-flex overflow-hidden rounded-full border ${calendarTheme.viewSwitch}`}
+                            >
                                 {VIEW_OPTIONS.map((viewOption) => {
                                     const isActive = calendarMeta.viewType === viewOption.id;
 
@@ -662,8 +774,8 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                             onClick={() => handleViewChange(viewOption.id)}
                                             className={`px-4 py-2 text-sm font-medium transition-colors ${
                                                 isActive
-                                                    ? "bg-[#8ab4f8] text-[#202124]"
-                                                    : "text-[#e8eaed] hover:bg-[#35363a]"
+                                                    ? calendarTheme.viewActive
+                                                    : calendarTheme.viewInactive
                                             }`}
                                             aria-pressed={isActive}
                                         >
