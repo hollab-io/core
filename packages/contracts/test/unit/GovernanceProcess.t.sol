@@ -938,4 +938,117 @@ contract UnitGovernanceProcess is Test {
     HolacracyTypes.Proposal memory _proposal = _governance.getProposal(_proposalId);
     assertEq(uint256(_proposal.status), uint256(HolacracyTypes.ProposalStatus.Withdrawn));
   }
+
+  /*///////////////////////////////////////////////////////////////
+                    SET DAO VOTE REQUIRED
+  //////////////////////////////////////////////////////////////*/
+
+  function test_SetDaoVoteRequiredWhenDeployer() external {
+    assertFalse(_governance.daoVoteRequired());
+
+    vm.prank(_deployer);
+    _governance.setDaoVoteRequired(true);
+
+    assertTrue(_governance.daoVoteRequired());
+
+    vm.prank(_deployer);
+    _governance.setDaoVoteRequired(false);
+
+    assertFalse(_governance.daoVoteRequired());
+  }
+
+  function test_SetDaoVoteRequiredWhenNotDeployer() external {
+    vm.prank(_stranger);
+    vm.expectRevert(IGovernanceProcess.GovernanceProcess_Unauthorized.selector);
+    _governance.setDaoVoteRequired(true);
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                    ESCALATE FROM MEETING
+  //////////////////////////////////////////////////////////////*/
+
+  function _setupMeeting() internal returns (address _meetingAddr) {
+    _meetingAddr = makeAddr('meeting');
+    _governance.setGovernanceMeeting(_meetingAddr);
+  }
+
+  function test_EscalateFromMeetingWhenValid() external {
+    (address _gov,) = _setupDAO();
+    address _meetingAddr = _setupMeeting();
+
+    // Submit proposal from meeting
+    vm.prank(_meetingAddr);
+    uint256 _proposalId = _governance.submitProposalFromMeeting(
+      _member1, _anchorCircleId, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange()
+    );
+
+    uint256 _expectedDaoId = MockDAOGovernor(_gov).nextProposalId();
+
+    vm.expectEmit(true, true, false, false, address(_governance));
+    emit ProposalEscalated(_proposalId, _expectedDaoId);
+
+    vm.prank(_meetingAddr);
+    uint256 _daoId = _governance.escalateFromMeeting(_proposalId, 'Meeting escalation');
+
+    assertEq(_daoId, _expectedDaoId);
+
+    HolacracyTypes.Proposal memory _proposal = _governance.getProposal(_proposalId);
+    assertEq(uint256(_proposal.status), uint256(HolacracyTypes.ProposalStatus.Escalated));
+  }
+
+  function test_EscalateFromMeetingWhenNotMeeting() external {
+    _setupDAO();
+    address _meetingAddr = _setupMeeting();
+
+    vm.prank(_meetingAddr);
+    uint256 _proposalId = _governance.submitProposalFromMeeting(
+      _member1, _anchorCircleId, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange()
+    );
+
+    vm.prank(_stranger);
+    vm.expectRevert(abi.encodeWithSelector(IGovernanceProcess.GovernanceProcess_NotFacilitator.selector, 0));
+    _governance.escalateFromMeeting(_proposalId, 'Sneaky');
+  }
+
+  function test_EscalateFromMeetingWhenDAONotSet() external {
+    address _meetingAddr = _setupMeeting();
+
+    vm.prank(_meetingAddr);
+    uint256 _proposalId = _governance.submitProposalFromMeeting(
+      _member1, _anchorCircleId, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange()
+    );
+
+    vm.prank(_meetingAddr);
+    vm.expectRevert(IGovernanceProcess.GovernanceProcess_DAONotSet.selector);
+    _governance.escalateFromMeeting(_proposalId, 'No DAO');
+  }
+
+  function test_ExecuteEscalatedProposalFromMeetingFlow() external {
+    (, address _tl) = _setupDAO();
+    address _meetingAddr = _setupMeeting();
+
+    // Submit proposal from meeting
+    vm.prank(_meetingAddr);
+    uint256 _proposalId = _governance.submitProposalFromMeeting(
+      _member1, _anchorCircleId, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange()
+    );
+
+    // Escalate from meeting
+    vm.prank(_meetingAddr);
+    _governance.escalateFromMeeting(_proposalId, 'Meeting escalation');
+
+    uint256 _rolesBefore = _roleRegistry.getCircleRoleIds(_anchorCircleId).length;
+
+    // Timelock executes
+    vm.prank(_tl);
+    _governance.executeEscalatedProposal(_proposalId);
+
+    // Proposal is Adopted
+    HolacracyTypes.Proposal memory _proposal = _governance.getProposal(_proposalId);
+    assertEq(uint256(_proposal.status), uint256(HolacracyTypes.ProposalStatus.Adopted));
+    assertGt(_proposal.resolvedAt, 0);
+
+    // Change was applied (CreateRole)
+    assertEq(_roleRegistry.getCircleRoleIds(_anchorCircleId).length, _rolesBefore + 1);
+  }
 }

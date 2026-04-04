@@ -118,6 +118,9 @@ interface IGovernanceProcess {
   /// @notice Thrown when setDAOGovernor is called after the DAO is already set
   error GovernanceProcess_DAOAlreadySet();
 
+  /// @notice Thrown when a deployer-only function is called by a non-deployer
+  error GovernanceProcess_Unauthorized();
+
   /*///////////////////////////////////////////////////////////////
                             VARIABLES
   //////////////////////////////////////////////////////////////*/
@@ -305,4 +308,20 @@ interface IGovernanceProcess {
   ///      Applies the governance change and marks the proposal as Adopted.
   /// @param _proposalId The holacracy proposal ID
   function executeEscalatedProposal(uint256 _proposalId) external;
+
+  /// @notice Returns whether meeting proposals require DAO vote before adoption
+  function daoVoteRequired() external view returns (bool);
+
+  /// @notice Sets whether meeting proposals require DAO vote before adoption
+  /// @dev Only callable by the deployer
+  /// @param _required Whether DAO vote is required
+  function setDaoVoteRequired(bool _required) external;
+
+  /// @notice Escalates a meeting proposal to a DAO governor vote
+  /// @dev Only callable by the governance meeting contract. Creates a governor proposal
+  ///      whose execution calls executeEscalatedProposal on this contract.
+  /// @param _proposalId The holacracy proposal to escalate
+  /// @param _description Human-readable description forwarded to the governor proposal
+  /// @return _daoProposalId The ID of the created governor proposal
+  function escalateFromMeeting(uint256 _proposalId, string calldata _description) external returns (uint256 _daoProposalId);
 }

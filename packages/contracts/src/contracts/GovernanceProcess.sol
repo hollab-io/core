@@ -60,6 +60,9 @@ contract GovernanceProcess is IGovernanceProcess {
   /// @notice The governance meeting contract (authorized to submit/adopt on behalf of participants)
   address public governanceMeeting;
 
+  /// @notice Whether meeting proposals require DAO vote before adoption
+  bool public daoVoteRequired;
+
   /// @notice Whether the contract has been initialized
   bool internal _initialized;
 
@@ -375,6 +378,38 @@ contract GovernanceProcess is IGovernanceProcess {
     _executeChange(_proposal.circleId, _proposal.change);
 
     emit ProposalAdopted(_proposalId);
+  }
+
+  /// @inheritdoc IGovernanceProcess
+  function setDaoVoteRequired(bool _required) external {
+    if (msg.sender != circleRegistry.deployer()) revert GovernanceProcess_Unauthorized();
+    daoVoteRequired = _required;
+  }
+
+  /// @inheritdoc IGovernanceProcess
+  function escalateFromMeeting(uint256 _proposalId, string calldata _description) external returns (uint256 _daoProposalId) {
+    if (msg.sender != governanceMeeting) revert GovernanceProcess_NotFacilitator(0);
+    if (daoGovernor == address(0)) revert GovernanceProcess_DAONotSet();
+
+    HolacracyTypes.Proposal storage _proposal = _proposals[_proposalId];
+    if (_proposal.id == 0) revert GovernanceProcess_ProposalNotFound(_proposalId);
+    if (_proposal.status != HolacracyTypes.ProposalStatus.Active) {
+      revert GovernanceProcess_InvalidProposalStatus(_proposalId, HolacracyTypes.ProposalStatus.Active);
+    }
+
+    _proposal.status = HolacracyTypes.ProposalStatus.Escalated;
+
+    address[] memory _targets = new address[](1);
+    _targets[0] = address(this);
+
+    uint256[] memory _values = new uint256[](1);
+
+    bytes[] memory _calldatas = new bytes[](1);
+    _calldatas[0] = abi.encodeCall(this.executeEscalatedProposal, (_proposalId));
+
+    _daoProposalId = IDAOGovernor(daoGovernor).propose(_targets, _values, _calldatas, _description);
+
+    emit ProposalEscalated(_proposalId, _daoProposalId);
   }
 
   /// @inheritdoc IGovernanceProcess

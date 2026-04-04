@@ -121,6 +121,10 @@ contract OrganizationFactory is IOrganizationFactory {
     // circle proposals can be escalated to a DAO vote via escalateToDAO().
     _governanceProcess.setDAOGovernor(_gov.governor, _gov.timelock);
 
+    if (_govConfig.daoVoteRequired) {
+      _governanceProcess.setDaoVoteRequired(true);
+    }
+
     // Register ENS subname — the subdomain resolves to the governor address.
     ENS_REGISTRAR.registerSubnode(keccak256(bytes(_subname)), _gov.governor);
 

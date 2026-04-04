@@ -9,6 +9,20 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
 import {Test} from 'forge-std/Test.sol';
 
+/// @notice Mock DAO governor for meeting escalation tests
+contract MockDAOGovernorMeeting {
+  uint256 internal _nextId = 100;
+
+  function propose(
+    address[] memory,
+    uint256[] memory,
+    bytes[] memory,
+    string memory
+  ) external returns (uint256) {
+    return _nextId;
+  }
+}
+
 contract UnitGovernanceMeeting is Test {
   RoleRegistry internal _roleRegistry;
   CircleRegistry internal _circleRegistry;
@@ -777,5 +791,56 @@ contract UnitGovernanceMeeting is Test {
 
     HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
     assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.Active));
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                    DAO VOTE GATE
+  //////////////////////////////////////////////////////////////*/
+
+  function _setupDAOForMeeting() internal {
+    MockDAOGovernorMeeting _gov = new MockDAOGovernorMeeting();
+    address _tl = makeAddr('timelock');
+    _governance.setDAOGovernor(address(_gov), _tl);
+  }
+
+  function test_CompleteProposalItemWhenDaoVoteRequired() external {
+    _setupDAOForMeeting();
+
+    // Enable DAO vote gate
+    vm.prank(_deployer);
+    _governance.setDaoVoteRequired(true);
+
+    uint256 _meetingId = _setupActiveMeeting();
+
+    // Present proposal
+    vm.prank(_member1);
+    uint256 _proposalId =
+      _meeting.presentProposal(_meetingId, 1, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange());
+
+    // Complete — should escalate, not adopt
+    vm.prank(_facilitator);
+    vm.expectEmit(true, true, true, true, address(_meeting));
+    emit AgendaItemCompleted(_meetingId, 1);
+    _meeting.completeProposalItem(_meetingId, 1, _proposalId);
+
+    // Proposal is Escalated (not Adopted)
+    HolacracyTypes.Proposal memory _p = _governance.getProposal(_proposalId);
+    assertEq(uint256(_p.status), uint256(HolacracyTypes.ProposalStatus.Escalated));
+  }
+
+  function test_CompleteProposalItemWhenDaoVoteNotRequired() external {
+    // daoVoteRequired defaults to false — existing behavior
+    uint256 _meetingId = _setupActiveMeeting();
+
+    vm.prank(_member1);
+    uint256 _proposalId =
+      _meeting.presentProposal(_meetingId, 1, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange());
+
+    vm.prank(_facilitator);
+    _meeting.completeProposalItem(_meetingId, 1, _proposalId);
+
+    // Proposal is Adopted directly
+    HolacracyTypes.Proposal memory _p = _governance.getProposal(_proposalId);
+    assertEq(uint256(_p.status), uint256(HolacracyTypes.ProposalStatus.Adopted));
   }
 }

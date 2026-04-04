@@ -81,7 +81,8 @@ contract DeployLocal is Script {
         votingPeriod: 50,
         proposalThreshold: 0,
         quorumNumerator: 4,
-        treasuryTimelockDelay: 1 days
+        treasuryTimelockDelay: 1 days,
+        daoVoteRequired: false
       })
     );
 

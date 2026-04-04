@@ -106,7 +106,8 @@ contract HolacracyENSForkTest is Test {
         votingPeriod: uint32(50),
         proposalThreshold: 0,
         quorumNumerator: 4,
-        treasuryTimelockDelay: 0
+        treasuryTimelockDelay: 0,
+        daoVoteRequired: false
       })
     );
 

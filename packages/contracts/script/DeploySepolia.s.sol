@@ -118,7 +118,8 @@ contract DeploySepolia is Script {
                 votingPeriod: uint32(vm.envOr("VOTING_PERIOD", uint256(1 weeks))),
                 proposalThreshold: 0,
                 quorumNumerator: vm.envOr("QUORUM_NUMERATOR", uint256(4)),
-                treasuryTimelockDelay: vm.envOr("TREASURY_DELAY", uint256(1 days))
+                treasuryTimelockDelay: vm.envOr("TREASURY_DELAY", uint256(1 days)),
+                daoVoteRequired: false
             })
         );
 

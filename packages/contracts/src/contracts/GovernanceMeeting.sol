@@ -271,7 +271,13 @@ contract GovernanceMeeting is IGovernanceMeeting {
   /// @inheritdoc IGovernanceMeeting
   function completeProposalItem(uint256 _meetingId, uint256 _itemId, uint256 _proposalId) external {
     _assertActiveMeetingFacilitator(_meetingId);
-    governanceProcess.adoptProposalFromMeeting(_proposalId);
+
+    if (governanceProcess.daoVoteRequired()) {
+      governanceProcess.escalateFromMeeting(_proposalId, '');
+    } else {
+      governanceProcess.adoptProposalFromMeeting(_proposalId);
+    }
+
     emit AgendaItemCompleted(_meetingId, _itemId);
   }
 

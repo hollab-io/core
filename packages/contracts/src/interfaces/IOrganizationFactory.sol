@@ -26,6 +26,7 @@ interface IOrganizationFactory {
     uint256 proposalThreshold;
     uint256 quorumNumerator;
     uint256 treasuryTimelockDelay;
+    bool daoVoteRequired;
   }
 
   /*///////////////////////////////////////////////////////////////
