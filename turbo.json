@@ -28,7 +28,8 @@
             "inputs": ["$TURBO_DEFAULT$", "src/**/*.ts", "src/**/*.json"]
         },
         "dev": {
-            "cache": false
+            "cache": false,
+            "persistent": true
         },
         "start": {
             "dependsOn": ["build"]
