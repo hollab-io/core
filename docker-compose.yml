@@ -48,6 +48,9 @@ services:
             context: .
             dockerfile: Dockerfile
             target: hola-modern
+            args:
+                VITE_DYNAMIC_ENVIRONMENT_ID: "0b12312c-6584-4e59-bb4f-ba10b5bc0a5b"
+                VITE_INDEXER_URL: "https://indexer.hollab.io"
         restart: unless-stopped
         networks:
             - internal
