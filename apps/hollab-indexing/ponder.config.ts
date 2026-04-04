@@ -8,10 +8,23 @@ import { HolGovernorFactoryAbi } from "./abis/HolGovernorFactoryAbi";
 import { OrganizationFactoryAbi } from "./abis/OrganizationFactoryAbi";
 import { RoleRegistryAbi } from "./abis/RoleRegistryAbi";
 
-// Placeholder addresses — replace with real values in .env.local after deployment.
-// Each env var falls back to a zero-like address so the app starts without crashing.
 const addr = (key: string) =>
     (process.env[key] ?? "0x0000000000000000000000000000000000000001") as `0x${string}`;
+
+const orgFactoryAddr = addr("ORGANIZATION_FACTORY_ADDRESS");
+const govFactoryAddr = addr("HOL_GOVERNOR_FACTORY_ADDRESS");
+const startBlock = Number(process.env.START_BLOCK ?? 0);
+
+// Resolve the OrgComponentsDeployed event object once for reuse across factory configs
+const orgComponentsDeployedEvent = OrganizationFactoryAbi.find(
+    (e): e is (typeof OrganizationFactoryAbi)[number] & { type: "event" } =>
+        e.type === "event" && (e as { name?: string }).name === "OrgComponentsDeployed",
+)!;
+
+const governorDeployedEvent = HolGovernorFactoryAbi.find(
+    (e): e is (typeof HolGovernorFactoryAbi)[number] & { type: "event" } =>
+        e.type === "event" && (e as { name?: string }).name === "GovernorDeployed",
+)!;
 
 export default createConfig({
     chains: {
@@ -21,61 +34,68 @@ export default createConfig({
         },
     },
     contracts: {
-        // ── Fixed factory contracts (one per deployment) ─────────────────────────
+        // ── Fixed factory contracts ───────────────────────────────────────────────
         OrganizationFactory: {
             chain: "sepolia",
             abi: OrganizationFactoryAbi,
-            address: addr("ORGANIZATION_FACTORY_ADDRESS"),
-            startBlock: Number(process.env.START_BLOCK ?? 0),
-        },
-        HolGovernorFactory: {
-            chain: "sepolia",
-            abi: HolGovernorFactoryAbi,
-            address: addr("HOL_GOVERNOR_FACTORY_ADDRESS"),
-            startBlock: Number(process.env.START_BLOCK ?? 0),
+            address: orgFactoryAddr,
+            startBlock,
         },
 
-        // ── Per-org contracts (clones) ────────────────────────────────────────────
-        // When multiple orgs exist, set each address as a comma-separated list or
-        // use Ponder's factory pattern once OrganizationFactory emits clone addresses.
+        // ── Per-org clones: auto-discovered from OrgComponentsDeployed ────────────
         CircleRegistry: {
             chain: "sepolia",
             abi: CircleRegistryAbi,
-            address: addr("CIRCLE_REGISTRY_ADDRESS"),
-            startBlock: Number(process.env.START_BLOCK ?? 0),
+            address: {
+                address: orgFactoryAddr,
+                event: orgComponentsDeployedEvent,
+                parameter: "_circleRegistry",
+            },
+            startBlock,
         },
         RoleRegistry: {
             chain: "sepolia",
             abi: RoleRegistryAbi,
-            address: addr("ROLE_REGISTRY_ADDRESS"),
-            startBlock: Number(process.env.START_BLOCK ?? 0),
+            address: {
+                address: orgFactoryAddr,
+                event: orgComponentsDeployedEvent,
+                parameter: "_roleRegistry",
+            },
+            startBlock,
         },
         GovernanceProcess: {
             chain: "sepolia",
             abi: GovernanceProcessAbi,
-            address: addr("GOVERNANCE_PROCESS_ADDRESS"),
-            startBlock: Number(process.env.START_BLOCK ?? 0),
-        },
-        CircleTreasury: {
-            chain: "sepolia",
-            abi: CircleTreasuryAbi,
-            address: addr("CIRCLE_TREASURY_ADDRESS"),
-            startBlock: Number(process.env.START_BLOCK ?? 0),
+            address: {
+                address: orgFactoryAddr,
+                event: orgComponentsDeployedEvent,
+                parameter: "_governanceProcess",
+            },
+            startBlock,
         },
 
-        // ── Per-org governor (factory pattern: discovered from GovernorDeployed) ──
+        // ── Per-org governor: auto-discovered from GovernorDeployed ──────────────
         HolGovernor: {
             chain: "sepolia",
             abi: HolGovernorAbi,
             address: {
-                address: addr("HOL_GOVERNOR_FACTORY_ADDRESS"),
-                event: HolGovernorFactoryAbi.find(
-                    (e): e is (typeof HolGovernorFactoryAbi)[number] & { type: "event" } =>
-                        e.type === "event" && (e as { name?: string }).name === "GovernorDeployed",
-                )!,
+                address: govFactoryAddr,
+                event: governorDeployedEvent,
                 parameter: "governor",
             },
-            startBlock: Number(process.env.START_BLOCK ?? 0),
+            startBlock,
+        },
+
+        // ── Per-org treasury: auto-discovered from OrgComponentsDeployed ─────────
+        CircleTreasury: {
+            chain: "sepolia",
+            abi: CircleTreasuryAbi,
+            address: {
+                address: orgFactoryAddr,
+                event: orgComponentsDeployedEvent,
+                parameter: "_treasury",
+            },
+            startBlock,
         },
     },
 });
