@@ -36,6 +36,10 @@ contract CircleTreasury is ICircleTreasury {
   /// @notice The underlying TimelockController that holds funds and executes operations
   TimelockController public immutable TIMELOCK;
 
+  /// @notice Facilitator address last granted `CANCELLER_ROLE` (constructor or `syncFacilitator`)
+  /// @dev Used to revoke from the previous facilitator when the role rotates in `CircleRegistry`
+  address public syncedFacilitator;
+
   /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
@@ -63,6 +67,7 @@ contract CircleTreasury is ICircleTreasury {
     if (_facilitator != address(0)) {
       TIMELOCK.grantRole(TIMELOCK.CANCELLER_ROLE(), _facilitator);
     }
+    syncedFacilitator = _facilitator;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -106,13 +111,18 @@ contract CircleTreasury is ICircleTreasury {
     TIMELOCK.revokeRole(TIMELOCK.PROPOSER_ROLE(), _account);
   }
 
-  /// @notice Updates the CANCELLER role to the current facilitator
+  /// @notice Aligns timelock `CANCELLER_ROLE` with the current facilitator in `CircleRegistry`
   function syncFacilitator() external {
-    address _facilitator = CIRCLE_REGISTRY.getElectedRole(CIRCLE_ID, HolacracyTypes.ElectedRole.Facilitator);
+    address _current = CIRCLE_REGISTRY.getElectedRole(CIRCLE_ID, HolacracyTypes.ElectedRole.Facilitator);
+    address _prev = syncedFacilitator;
 
-    if (_facilitator != address(0)) {
-      TIMELOCK.grantRole(TIMELOCK.CANCELLER_ROLE(), _facilitator);
+    if (_prev != address(0) && _prev != _current) {
+      TIMELOCK.revokeRole(TIMELOCK.CANCELLER_ROLE(), _prev);
     }
+    if (_current != address(0)) {
+      TIMELOCK.grantRole(TIMELOCK.CANCELLER_ROLE(), _current);
+    }
+    syncedFacilitator = _current;
   }
 
   /// @notice Revokes CANCELLER role from an address (only callable by circle leads)
