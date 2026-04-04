@@ -297,14 +297,31 @@ contract UnitCircleTreasury is Test {
     TimelockController _tl = _treasury.TIMELOCK();
     address _newFacilitator = makeAddr('newFacilitator');
 
+    assertTrue(_tl.hasRole(_tl.CANCELLER_ROLE(), _facilitator));
+
     // Change facilitator in CircleRegistry
     vm.prank(_deployer);
     _circleRegistry.setElectedRole(_anchorCircleId, HolacracyTypes.ElectedRole.Facilitator, _newFacilitator);
 
-    // Sync
+    // Sync — previous facilitator must lose CANCELLER, not only grant the new one
     _treasury.syncFacilitator();
 
+    assertFalse(_tl.hasRole(_tl.CANCELLER_ROLE(), _facilitator));
     assertTrue(_tl.hasRole(_tl.CANCELLER_ROLE(), _newFacilitator));
+    assertEq(_treasury.syncedFacilitator(), _newFacilitator);
+  }
+
+  function test_SyncFacilitator_RevokesCancellerWhenFacilitatorCleared() external {
+    TimelockController _tl = _treasury.TIMELOCK();
+    assertTrue(_tl.hasRole(_tl.CANCELLER_ROLE(), _facilitator));
+
+    vm.prank(_deployer);
+    _circleRegistry.setElectedRole(_anchorCircleId, HolacracyTypes.ElectedRole.Facilitator, address(0));
+
+    _treasury.syncFacilitator();
+
+    assertFalse(_tl.hasRole(_tl.CANCELLER_ROLE(), _facilitator));
+    assertEq(_treasury.syncedFacilitator(), address(0));
   }
 
   function test_RevokeCancellerByCircleLead() external {
