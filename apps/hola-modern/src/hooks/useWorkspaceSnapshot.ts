@@ -3,6 +3,8 @@ import type {
     GovernanceChangeRecord,
     GovernanceMeetingPhase,
     GovernanceMeetingRecord,
+    OrganizationRecord,
+    PartnerRecord,
     TacticalMeetingRecord,
     WorkspaceSnapshot,
 } from "@hollab/viem-extension";
@@ -18,6 +20,7 @@ import { createContext, createElement, useCallback, useContext, useMemo, useStat
 import { DEFAULT_PROJECT_BOARD_CIRCLE_ID } from "../config/workspace";
 
 type ProjectRecord = WorkspaceSnapshot["projects"][number];
+type PersistedPartnerRecord = PartnerRecord;
 type PolicyRecord = WorkspaceSnapshot["policies"][number];
 type GovernanceProposalRecord = WorkspaceSnapshot["governanceProposals"][number];
 type GovernanceObjectionRecord = WorkspaceSnapshot["governanceObjections"][number];
@@ -55,7 +58,23 @@ type DeclareProcessBreakdownInput = {
     additionalCircleLeadId?: string;
 };
 
+type CreateOrganizationInput = {
+    name: string;
+    ownerName: string;
+    ownerWalletAddress: string;
+    purpose?: string;
+};
+
+type InviteMemberInput = {
+    email?: string;
+    name: string;
+    walletAddress: string;
+};
+
 const CUSTOM_PROJECTS_STORAGE_KEY = "hola-modern:workspace:custom-projects";
+const CUSTOM_PARTNERS_STORAGE_KEY = "hola-modern:workspace:custom-partners";
+const ORGANIZATION_STORAGE_KEY = "hola-modern:workspace:organization";
+const CURRENT_PARTNER_STORAGE_KEY = "hola-modern:workspace:current-partner-id";
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null;
@@ -75,6 +94,35 @@ function isValidProjectRecord(value: unknown): value is ProjectRecord {
         (value.ownerId === undefined || typeof value.ownerId === "string") &&
         (value.subtitle === undefined || typeof value.subtitle === "string") &&
         (value.sourceMeetingId === undefined || typeof value.sourceMeetingId === "string")
+    );
+}
+
+function isValidPartnerRecord(value: unknown): value is PersistedPartnerRecord {
+    return (
+        isObjectRecord(value) &&
+        typeof value.id === "string" &&
+        typeof value.name === "string" &&
+        typeof value.avatarSeed === "string" &&
+        (value.walletAddress === undefined || typeof value.walletAddress === "string") &&
+        (value.email === undefined || typeof value.email === "string") &&
+        (value.status === undefined ||
+            (typeof value.status === "string" && ["active", "invited"].includes(value.status))) &&
+        (value.invitedById === undefined || typeof value.invitedById === "string") &&
+        (value.invitedAt === undefined || typeof value.invitedAt === "string") &&
+        (value.joinedAt === undefined || typeof value.joinedAt === "string")
+    );
+}
+
+function isValidOrganizationRecord(value: unknown): value is OrganizationRecord {
+    return (
+        isObjectRecord(value) &&
+        typeof value.id === "string" &&
+        typeof value.name === "string" &&
+        typeof value.slug === "string" &&
+        typeof value.purpose === "string" &&
+        typeof value.ownerPartnerId === "string" &&
+        typeof value.ownerWalletAddress === "string" &&
+        typeof value.createdAt === "string"
     );
 }
 
@@ -98,6 +146,56 @@ function readPersistedProjects() {
     }
 }
 
+function readPersistedPartners() {
+    if (typeof window === "undefined") {
+        return [] as PersistedPartnerRecord[];
+    }
+
+    try {
+        const rawValue = window.localStorage.getItem(CUSTOM_PARTNERS_STORAGE_KEY);
+
+        if (!rawValue) {
+            return [];
+        }
+
+        const parsedValue: unknown = JSON.parse(rawValue);
+
+        return Array.isArray(parsedValue) ? parsedValue.filter(isValidPartnerRecord) : [];
+    } catch {
+        return [];
+    }
+}
+
+function readPersistedOrganization() {
+    if (typeof window === "undefined") {
+        return undefined;
+    }
+
+    try {
+        const rawValue = window.localStorage.getItem(ORGANIZATION_STORAGE_KEY);
+
+        if (!rawValue) {
+            return undefined;
+        }
+
+        const parsedValue: unknown = JSON.parse(rawValue);
+
+        return isValidOrganizationRecord(parsedValue) ? parsedValue : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function readPersistedCurrentPartnerId() {
+    if (typeof window === "undefined") {
+        return undefined;
+    }
+
+    const rawValue = window.localStorage.getItem(CURRENT_PARTNER_STORAGE_KEY);
+
+    return rawValue && rawValue.trim() ? rawValue : undefined;
+}
+
 function mergeProjects(baseProjects: ProjectRecord[], customProjects: ProjectRecord[]) {
     const projectsById = new Map(baseProjects.map((project) => [project.id, project]));
 
@@ -106,6 +204,73 @@ function mergeProjects(baseProjects: ProjectRecord[], customProjects: ProjectRec
     });
 
     return Array.from(projectsById.values());
+}
+
+function mergePartners(basePartners: PartnerRecord[], customPartners: PersistedPartnerRecord[]) {
+    const partnersById = new Map(basePartners.map((partner) => [partner.id, partner]));
+
+    customPartners.forEach((partner) => {
+        partnersById.set(partner.id, partner);
+    });
+
+    return Array.from(partnersById.values());
+}
+
+function getCustomPartnersForPersistence(partners: PersistedPartnerRecord[]) {
+    const basePartnerIds = new Set(
+        getMockWorkspaceSnapshot().partners.map((partner) => partner.id),
+    );
+
+    return partners.filter((partner) => !basePartnerIds.has(partner.id));
+}
+
+function persistPartners(partners: PersistedPartnerRecord[]) {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    window.localStorage.setItem(
+        CUSTOM_PARTNERS_STORAGE_KEY,
+        JSON.stringify(getCustomPartnersForPersistence(partners)),
+    );
+}
+
+function persistOrganization(organization: OrganizationRecord | undefined) {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    if (!organization) {
+        window.localStorage.removeItem(ORGANIZATION_STORAGE_KEY);
+        return;
+    }
+
+    window.localStorage.setItem(ORGANIZATION_STORAGE_KEY, JSON.stringify(organization));
+}
+
+function persistCurrentPartnerId(partnerId: string) {
+    if (typeof window === "undefined") {
+        return;
+    }
+
+    window.localStorage.setItem(CURRENT_PARTNER_STORAGE_KEY, partnerId);
+}
+
+function normalizeWalletAddress(address: string) {
+    return address.trim().toLowerCase();
+}
+
+function createOrganizationSlug(name: string) {
+    return name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 48);
+}
+
+function createWalletPartnerId(walletAddress: string) {
+    return `partner-${normalizeWalletAddress(walletAddress).slice(2, 10)}`;
 }
 
 function buildGovernanceAuditEntry(
@@ -150,6 +315,8 @@ type WorkspaceContextValue = {
     activeGovernanceMeetingId: string | null;
     activeMeeting: TacticalMeetingRecord | null;
     activeMeetingId: string | null;
+    authenticatedUserEmail: string | null;
+    authenticatedWalletAddress: string | null;
     activateGovernanceProposal: (proposalId: string) => void;
     addProject: (project: WorkspaceSnapshot["projects"][number]) => void;
     adoptGovernanceProposal: (proposalId: string) => boolean;
@@ -157,13 +324,16 @@ type WorkspaceContextValue = {
     circleMap: ReturnType<typeof createCircleMap>;
     closeGovernanceMeeting: () => void;
     closeMeeting: () => void;
+    createOrganization: (input: CreateOrganizationInput) => OrganizationRecord | null;
     createGovernanceProposal: (
         input: CreateGovernanceProposalInput,
     ) => GovernanceProposalRecord | null;
     declareProcessBreakdown: (input: DeclareProcessBreakdownInput) => ProcessBreakdownRecord | null;
     discardGovernanceProposal: (proposalId: string, reason: string) => void;
     governanceMeetingMap: Record<string, GovernanceMeetingRecord>;
+    inviteMember: (input: InviteMemberInput) => PersistedPartnerRecord | null;
     meetingMap: Record<string, TacticalMeetingRecord>;
+    organization: OrganizationRecord | undefined;
     openGovernanceMeeting: (meetingId: string) => void;
     openMeeting: (meetingId: string) => void;
     partnerMap: ReturnType<typeof createPartnerMap>;
@@ -178,6 +348,10 @@ type WorkspaceContextValue = {
     setGovernanceMeetingPhase: (meetingId: string, phase: GovernanceMeetingPhase) => void;
     setProjectBoardCircleId: (circleId: string) => void;
     snapshot: WorkspaceSnapshot;
+    syncAuthenticatedIdentity: (input: {
+        email?: string | null;
+        walletAddress?: string | null;
+    }) => void;
     startGovernanceIntegration: (proposalId: string) => void;
     toggleActionCompletion: (actionId: string) => void;
     withdrawGovernanceProposal: (proposalId: string, meetingId?: string) => void;
@@ -188,9 +362,18 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 export function WorkspaceProvider({ children }: PropsWithChildren) {
     const [snapshot, setSnapshot] = useState<WorkspaceSnapshot>(() => {
         const baseSnapshot = getMockWorkspaceSnapshot();
+        const persistedOrganization = readPersistedOrganization();
+        const persistedPartners = readPersistedPartners();
+        const persistedCurrentPartnerId = readPersistedCurrentPartnerId();
 
         return {
             ...baseSnapshot,
+            currentPartnerId:
+                persistedCurrentPartnerId ??
+                persistedOrganization?.ownerPartnerId ??
+                baseSnapshot.currentPartnerId,
+            organization: persistedOrganization,
+            partners: mergePartners(baseSnapshot.partners, persistedPartners),
             projects: mergeProjects(baseSnapshot.projects, readPersistedProjects()),
         };
     });
@@ -199,6 +382,10 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     const [projectBoardCircleId, setProjectBoardCircleId] = useState(
         DEFAULT_PROJECT_BOARD_CIRCLE_ID,
     );
+    const [authenticatedWalletAddress, setAuthenticatedWalletAddress] = useState<string | null>(
+        null,
+    );
+    const [authenticatedUserEmail, setAuthenticatedUserEmail] = useState<string | null>(null);
 
     const partnerMap = useMemo(() => createPartnerMap(snapshot), [snapshot]);
     const circleMap = useMemo(() => createCircleMap(snapshot), [snapshot]);
@@ -271,6 +458,171 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             ...currentSnapshot,
             projects: mergeProjects(currentSnapshot.projects, [project]),
         }));
+    }, []);
+
+    const syncAuthenticatedIdentity = useCallback(
+        (input: { email?: string | null; walletAddress?: string | null }) => {
+            const normalizedWallet = input.walletAddress
+                ? normalizeWalletAddress(input.walletAddress)
+                : null;
+            const normalizedEmail = input.email?.trim() || null;
+
+            setAuthenticatedWalletAddress(normalizedWallet);
+            setAuthenticatedUserEmail(normalizedEmail);
+
+            if (!normalizedWallet) {
+                return;
+            }
+
+            setSnapshot((currentSnapshot) => {
+                const matchingPartner = currentSnapshot.partners.find(
+                    (partner) =>
+                        partner.walletAddress &&
+                        normalizeWalletAddress(partner.walletAddress) === normalizedWallet,
+                );
+
+                if (!matchingPartner) {
+                    return currentSnapshot;
+                }
+
+                const nextPartners: PersistedPartnerRecord[] = currentSnapshot.partners.map(
+                    (partner): PersistedPartnerRecord =>
+                        partner.id === matchingPartner.id
+                            ? {
+                                  ...partner,
+                                  email: normalizedEmail ?? partner.email,
+                                  joinedAt:
+                                      partner.status === "invited" && !partner.joinedAt
+                                          ? new Date().toISOString()
+                                          : partner.joinedAt,
+                                  status: "active",
+                                  walletAddress: normalizedWallet,
+                              }
+                            : partner,
+                );
+
+                persistPartners(nextPartners);
+                persistCurrentPartnerId(matchingPartner.id);
+
+                return {
+                    ...currentSnapshot,
+                    currentPartnerId: matchingPartner.id,
+                    partners: nextPartners,
+                };
+            });
+        },
+        [],
+    );
+
+    const createOrganization = useCallback(
+        (input: CreateOrganizationInput) => {
+            const normalizedName = input.name.trim();
+            const normalizedOwnerName = input.ownerName.trim();
+            const normalizedWallet = normalizeWalletAddress(input.ownerWalletAddress);
+
+            if (!normalizedName || !normalizedOwnerName || !normalizedWallet) {
+                return null;
+            }
+
+            const now = new Date().toISOString();
+            const organizationId = `org-${Date.now()}`;
+            let nextOrganization: OrganizationRecord | null = null;
+
+            setSnapshot((currentSnapshot) => {
+                const existingOwner = currentSnapshot.partners.find(
+                    (partner) =>
+                        partner.walletAddress &&
+                        normalizeWalletAddress(partner.walletAddress) === normalizedWallet,
+                );
+                const ownerPartnerId = existingOwner?.id ?? createWalletPartnerId(normalizedWallet);
+                const ownerPartner: PersistedPartnerRecord = {
+                    avatarSeed: normalizedOwnerName,
+                    email: authenticatedUserEmail ?? existingOwner?.email,
+                    id: ownerPartnerId,
+                    joinedAt: now,
+                    name: normalizedOwnerName,
+                    status: "active",
+                    walletAddress: normalizedWallet,
+                };
+                const organization: OrganizationRecord = {
+                    createdAt: now,
+                    id: organizationId,
+                    name: normalizedName,
+                    ownerPartnerId,
+                    ownerWalletAddress: normalizedWallet,
+                    purpose:
+                        input.purpose?.trim() ||
+                        "Run circles, governance, and tactical work in one shared organizational workspace.",
+                    slug: createOrganizationSlug(normalizedName) || organizationId,
+                };
+                const partners = mergePartners(currentSnapshot.partners, [ownerPartner]);
+                const roles = currentSnapshot.roles.map((role) =>
+                    role.id === "ceo" && !role.memberIds.includes(ownerPartnerId)
+                        ? { ...role, memberIds: [ownerPartnerId, ...role.memberIds] }
+                        : role,
+                );
+
+                persistOrganization(organization);
+                persistPartners(partners);
+                persistCurrentPartnerId(ownerPartnerId);
+                nextOrganization = organization;
+
+                return {
+                    ...currentSnapshot,
+                    currentPartnerId: ownerPartnerId,
+                    organization,
+                    partners,
+                    roles,
+                    updatedAt: now,
+                };
+            });
+
+            return nextOrganization;
+        },
+        [authenticatedUserEmail],
+    );
+
+    const inviteMember = useCallback((input: InviteMemberInput) => {
+        const normalizedName = input.name.trim();
+        const normalizedWallet = normalizeWalletAddress(input.walletAddress);
+        const normalizedEmail = input.email?.trim() || undefined;
+
+        if (!normalizedName || !normalizedWallet) {
+            return null;
+        }
+
+        let nextPartnerRecord: PersistedPartnerRecord | null = null;
+
+        setSnapshot((currentSnapshot) => {
+            const existingPartner = currentSnapshot.partners.find(
+                (partner) =>
+                    partner.walletAddress &&
+                    normalizeWalletAddress(partner.walletAddress) === normalizedWallet,
+            );
+            const nextPartner: PersistedPartnerRecord = {
+                avatarSeed: normalizedName,
+                email: normalizedEmail ?? existingPartner?.email,
+                id: existingPartner?.id ?? createWalletPartnerId(normalizedWallet),
+                invitedAt: existingPartner?.invitedAt ?? new Date().toISOString(),
+                invitedById: currentSnapshot.currentPartnerId,
+                joinedAt: existingPartner?.joinedAt,
+                name: normalizedName,
+                status: existingPartner?.status === "active" ? "active" : "invited",
+                walletAddress: normalizedWallet,
+            };
+            const partners = mergePartners(currentSnapshot.partners, [nextPartner]);
+
+            persistPartners(partners);
+            nextPartnerRecord = nextPartner;
+
+            return {
+                ...currentSnapshot,
+                partners,
+                updatedAt: new Date().toISOString(),
+            };
+        });
+
+        return nextPartnerRecord;
     }, []);
 
     const createGovernanceProposal = useCallback(
@@ -803,6 +1155,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             activeGovernanceMeetingId,
             activeMeeting,
             activeMeetingId,
+            authenticatedUserEmail,
+            authenticatedWalletAddress,
             activateGovernanceProposal,
             addProject,
             adoptGovernanceProposal,
@@ -810,11 +1164,14 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             circleMap,
             closeGovernanceMeeting,
             closeMeeting,
+            createOrganization,
             createGovernanceProposal,
             declareProcessBreakdown,
             discardGovernanceProposal,
             governanceMeetingMap,
+            inviteMember,
             meetingMap,
+            organization: snapshot.organization,
             openGovernanceMeeting,
             openMeeting,
             partnerMap,
@@ -827,6 +1184,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             setGovernanceMeetingPhase,
             setProjectBoardCircleId,
             snapshot,
+            syncAuthenticatedIdentity,
             startGovernanceIntegration,
             toggleActionCompletion,
             withdrawGovernanceProposal,
@@ -836,6 +1194,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             activeGovernanceMeetingId,
             activeMeeting,
             activeMeetingId,
+            authenticatedUserEmail,
+            authenticatedWalletAddress,
             activateGovernanceProposal,
             addProject,
             adoptGovernanceProposal,
@@ -843,10 +1203,12 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             circleMap,
             closeGovernanceMeeting,
             closeMeeting,
+            createOrganization,
             createGovernanceProposal,
             declareProcessBreakdown,
             discardGovernanceProposal,
             governanceMeetingMap,
+            inviteMember,
             meetingMap,
             openGovernanceMeeting,
             openMeeting,
@@ -860,6 +1222,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             setGovernanceMeetingPhase,
             setProjectBoardCircleId,
             snapshot,
+            syncAuthenticatedIdentity,
             startGovernanceIntegration,
             toggleActionCompletion,
             withdrawGovernanceProposal,

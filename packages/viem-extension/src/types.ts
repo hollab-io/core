@@ -2,6 +2,22 @@ export type PartnerRecord = {
     id: string;
     name: string;
     avatarSeed: string;
+    walletAddress?: string;
+    email?: string;
+    status?: "active" | "invited";
+    invitedById?: string;
+    invitedAt?: string;
+    joinedAt?: string;
+};
+
+export type OrganizationRecord = {
+    id: string;
+    name: string;
+    slug: string;
+    purpose: string;
+    ownerPartnerId: string;
+    ownerWalletAddress: string;
+    createdAt: string;
 };
 
 export type CircleRecord = {
@@ -262,6 +278,7 @@ export type GovernanceAuditEntryRecord = {
 };
 
 export type WorkspaceSnapshot = {
+    organization?: OrganizationRecord;
     currentPartnerId: string;
     updatedAt: string;
     partners: PartnerRecord[];

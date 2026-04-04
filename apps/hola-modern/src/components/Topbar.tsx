@@ -7,27 +7,33 @@ import DynamicAuthControl from "./DynamicAuthControl";
 
 type TopbarProps = {
     activeTab: AppTabId;
+    okrView: "timeframe" | "hierarchy";
+    organizationName: string;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
     isDarkMode: boolean;
+    setOkrView: (view: "timeframe" | "hierarchy") => void;
     setIsDarkMode: (isDark: boolean) => void;
 };
 
 export default function Topbar({
     activeTab,
+    okrView,
+    organizationName,
     searchQuery,
     setSearchQuery,
     isDarkMode,
+    setOkrView,
     setIsDarkMode,
 }: TopbarProps) {
     const [chartView, setChartView] = useState<"roles" | "chart">("chart");
-    const [okrView, setOkrView] = useState<"timeframe" | "hierarchy">("hierarchy");
     const searchPlaceholders: Partial<Record<AppTabId, string>> = {
         chart: "Search a role",
         projects: "Search projects",
         actions: "Search actions",
         calendar: "Search meetings",
         governance: "Search proposals and elections",
+        members: "Search members",
     };
 
     const renderSegmentedControl = (
@@ -67,13 +73,7 @@ export default function Topbar({
             <div className="flex min-h-12 flex-wrap items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
                     <h1 className="flex items-center gap-2 truncate text-[22px] font-semibold text-slate-800 dark:text-slate-100">
-                        {activeTab === "chart" ? (
-                            <>
-                                Holaspirit <span className="text-xl">🇬🇧</span>
-                            </>
-                        ) : (
-                            TAB_TITLES[activeTab]
-                        )}
+                        {activeTab === "chart" ? <>{organizationName}</> : TAB_TITLES[activeTab]}
                     </h1>
                     <button
                         type="button"
@@ -111,7 +111,8 @@ export default function Topbar({
                         activeTab === "projects" ||
                         activeTab === "actions" ||
                         activeTab === "calendar" ||
-                        activeTab === "governance") && (
+                        activeTab === "governance" ||
+                        activeTab === "members") && (
                         <label className="relative block">
                             <span className="sr-only">Search inside {TAB_TITLES[activeTab]}</span>
                             <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
