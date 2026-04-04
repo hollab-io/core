@@ -18,6 +18,8 @@ export default defineConfig({
         "GovToken.sol/**",
         "HolGovernor.sol/**",
         "HolGovernorFactory.sol/**",
+        "GovernanceMeeting.sol/**",
+        "TacticalMeeting.sol/**",
       ],
     }),
   ],
