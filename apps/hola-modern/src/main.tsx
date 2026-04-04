@@ -1,4 +1,5 @@
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
+import { ZeroDevSmartWalletConnectors } from "@dynamic-labs/ethereum-aa";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -14,7 +15,7 @@ createRoot(document.getElementById("root")!).render(
             <DynamicContextProvider
                 settings={{
                     environmentId: import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID,
-                    walletConnectors: [EthereumWalletConnectors],
+                    walletConnectors: [EthereumWalletConnectors, ZeroDevSmartWalletConnectors],
                 }}
             >
                 <WorkspaceProvider>

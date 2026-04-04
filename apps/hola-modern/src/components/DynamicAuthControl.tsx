@@ -1,5 +1,8 @@
+import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { DynamicWidget, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { ShieldAlert, Wallet2 } from "lucide-react";
+
+import DynamicGasSponsorshipBadge from "./DynamicGasSponsorshipBadge";
 
 const dynamicEnvironmentId = import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID;
 
@@ -18,6 +21,12 @@ function ConnectedWalletMeta() {
         return null;
     }
 
+    const walletMetaLabel = user?.email
+        ? user.email
+        : isEthereumWallet(primaryWallet)
+          ? `Chain ${primaryWallet.chain}`
+          : "Non-EVM wallet";
+
     return (
         <div className="hidden items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left xl:flex dark:border-slate-700 dark:bg-slate-800">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#3481FF]/10 text-[#3481FF]">
@@ -28,7 +37,7 @@ function ConnectedWalletMeta() {
                     {formatAddress(primaryWallet.address)}
                 </div>
                 <div className="truncate text-xs text-slate-500 dark:text-slate-400">
-                    {user?.email ?? `Chain ${primaryWallet.chain}`}
+                    {walletMetaLabel}
                 </div>
             </div>
             <button
@@ -61,6 +70,7 @@ export default function DynamicAuthControl() {
 
     return (
         <div className="flex items-center gap-3">
+            <DynamicGasSponsorshipBadge />
             <div className="rounded-2xl border border-slate-200 bg-white px-2 py-2 shadow-sm dark:border-slate-700 dark:bg-slate-800">
                 <DynamicWidget />
             </div>
