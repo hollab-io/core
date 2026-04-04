@@ -26,26 +26,27 @@ contract UnitGovernanceMeeting is Test {
   uint256 internal _role1Id;
   uint256 internal _role2Id;
 
-  string[] internal _domains;
-  string[] internal _accountabilities;
-
   // Events
   event MeetingScheduled(
-    uint256 indexed _meetingId, uint256 indexed _circleId, address indexed _scheduledBy, bool _isSpecial
+    uint256 indexed _meetingId,
+    uint256 indexed _circleId,
+    address indexed _scheduledBy,
+    bool _isSpecial,
+    address _requester,
+    string _intention,
+    string _limits
   );
   event MeetingStarted(uint256 indexed _meetingId);
-  event MeetingPhaseChanged(uint256 indexed _meetingId, HolacracyTypes.MeetingStatus _phase);
   event MeetingCompleted(uint256 indexed _meetingId);
   event MeetingCancelled(uint256 indexed _meetingId);
-  event MeetingExtended(uint256 indexed _meetingId, uint256 _newDuration);
   event ParticipantJoined(uint256 indexed _meetingId, address indexed _participant);
-  event GuestInvited(uint256 indexed _meetingId, address indexed _guest, address indexed _invitedBy);
   event CheckInRecorded(uint256 indexed _meetingId, address indexed _participant);
   event ClosingRecorded(uint256 indexed _meetingId, address indexed _participant);
   event AgendaItemAdded(
     uint256 indexed _meetingId,
     uint256 indexed _itemId,
     address indexed _owner,
+    string _label,
     HolacracyTypes.AgendaItemType _itemType
   );
   event AgendaItemStarted(uint256 indexed _meetingId, uint256 indexed _itemId);
@@ -63,12 +64,15 @@ contract UnitGovernanceMeeting is Test {
     uint256 indexed _meetingId, uint256 indexed _itemId, address indexed _nominator, address _newCandidate
   );
   event CandidateProposed(uint256 indexed _meetingId, uint256 indexed _itemId, address _candidate);
-  event ElectionCompleted(uint256 indexed _meetingId, uint256 indexed _itemId, address _elected);
+  event ElectionCompleted(
+    uint256 indexed _meetingId,
+    uint256 indexed _itemId,
+    uint256 indexed _circleId,
+    HolacracyTypes.ElectedRole _targetRole,
+    address _elected
+  );
 
   function setUp() external {
-    _domains.push('TestDomain');
-    _accountabilities.push('TestAccountability');
-
     // Deploy implementations
     RoleRegistry _rrImpl = new RoleRegistry();
     CircleRegistry _crImpl = new CircleRegistry();
@@ -83,17 +87,21 @@ contract UnitGovernanceMeeting is Test {
 
     _roleRegistry.initialize();
     _governance.initialize(_circleRegistry, _roleRegistry);
-    _governance.setGovernanceMeeting(address(_meeting));
-    _meeting.initialize(_circleRegistry, _roleRegistry, _governance);
 
     vm.startPrank(_deployer);
     _circleRegistry.initialize(_roleRegistry, _deployer, address(_governance));
+    _governance.setGovernanceMeeting(address(_meeting));
+    _meeting.initialize(_circleRegistry, _roleRegistry, _governance);
     _circleRegistry.setGovernanceMeeting(address(_meeting));
 
     // Create anchor circle
     _anchorCircleId = _circleRegistry.createAnchorCircle('HolLab', 'Build tools');
 
     // Create roles and assign members
+    string[] memory _domains = new string[](1);
+    _domains[0] = 'TestDomain';
+    string[] memory _accountabilities = new string[](1);
+    _accountabilities[0] = 'TestAccountability';
     _role1Id = _circleRegistry.createRoleInCircle(_anchorCircleId, 'Dev', 'Develop', _domains, _accountabilities);
     _role2Id = _circleRegistry.createRoleInCircle(_anchorCircleId, 'Design', 'Design', _domains, _accountabilities);
     _circleRegistry.assignRoleLeadInCircle(_anchorCircleId, _role1Id, _member1);
@@ -111,17 +119,16 @@ contract UnitGovernanceMeeting is Test {
   //////////////////////////////////////////////////////////////*/
 
   function _defaultChange() internal pure returns (HolacracyTypes.GovernanceChange memory) {
-    string[] memory _emptyArr = new string[](0);
     return HolacracyTypes.GovernanceChange({
       changeType: HolacracyTypes.ChangeType.CreateRole,
       targetId: 0,
-      encodedData: abi.encode('NewRole', 'NewPurpose', _emptyArr, _emptyArr)
+      encodedData: abi.encode('NewRole', 'NewPurpose', new string[](0), new string[](0))
     });
   }
 
   function _scheduleMeeting() internal returns (uint256 _meetingId) {
     vm.prank(_secretary);
-    _meetingId = _meeting.scheduleMeeting(_anchorCircleId, 3600, block.timestamp + 1 days);
+    _meetingId = _meeting.scheduleMeeting(_anchorCircleId);
   }
 
   function _startMeeting(uint256 _meetingId) internal {
@@ -129,34 +136,16 @@ contract UnitGovernanceMeeting is Test {
     _meeting.startMeeting(_meetingId);
   }
 
-  function _joinAndCheckIn(uint256 _meetingId, address _participant) internal {
-    vm.startPrank(_participant);
+  function _joinMeeting(uint256 _meetingId, address _participant) internal {
+    vm.prank(_participant);
     _meeting.joinMeeting(_meetingId);
-    _meeting.recordCheckIn(_meetingId);
-    vm.stopPrank();
   }
 
   function _setupActiveMeeting() internal returns (uint256 _meetingId) {
     _meetingId = _scheduleMeeting();
     _startMeeting(_meetingId);
-    _joinAndCheckIn(_meetingId, _member1);
-    _joinAndCheckIn(_meetingId, _member2);
-    vm.prank(_facilitator);
-    _meeting.startAgendaBuilding(_meetingId);
-  }
-
-  function _addAndStartProposalItem(uint256 _meetingId) internal returns (uint256 _itemId) {
-    vm.prank(_member1);
-    _itemId = _meeting.addAgendaItem(_meetingId, 'My tension', HolacracyTypes.AgendaItemType.Proposal);
-    vm.prank(_facilitator);
-    _meeting.startProcessingItem(_meetingId, _itemId);
-  }
-
-  function _addAndStartElectionItem(uint256 _meetingId) internal returns (uint256 _itemId) {
-    vm.prank(_member1);
-    _itemId = _meeting.addAgendaItem(_meetingId, 'Elect facilitator', HolacracyTypes.AgendaItemType.Election);
-    vm.prank(_facilitator);
-    _meeting.startProcessingItem(_meetingId, _itemId);
+    _joinMeeting(_meetingId, _member1);
+    _joinMeeting(_meetingId, _member2);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -176,9 +165,9 @@ contract UnitGovernanceMeeting is Test {
     vm.prank(_secretary);
 
     vm.expectEmit(true, true, true, true, address(_meeting));
-    emit MeetingScheduled(1, _anchorCircleId, _secretary, false);
+    emit MeetingScheduled(1, _anchorCircleId, _secretary, false, address(0), '', '');
 
-    uint256 _meetingId = _meeting.scheduleMeeting(_anchorCircleId, 3600, block.timestamp + 1 days);
+    uint256 _meetingId = _meeting.scheduleMeeting(_anchorCircleId);
 
     assertEq(_meeting.meetingCount(), 1);
 
@@ -186,13 +175,7 @@ contract UnitGovernanceMeeting is Test {
     assertEq(_m.id, 1);
     assertEq(_m.circleId, _anchorCircleId);
     assertEq(_m.scheduledBy, _secretary);
-    assertEq(_m.isSpecial, false);
     assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.Scheduled));
-    assertEq(_m.duration, 3600);
-
-    uint256[] memory _circleMeetings = _meeting.getCircleMeetings(_anchorCircleId);
-    assertEq(_circleMeetings.length, 1);
-    assertEq(_circleMeetings[0], _meetingId);
   }
 
   function test_ScheduleMeetingWhenNotSecretary() external {
@@ -200,22 +183,16 @@ contract UnitGovernanceMeeting is Test {
     vm.expectRevert(
       abi.encodeWithSelector(IGovernanceMeeting.GovernanceMeeting_NotSecretary.selector, _anchorCircleId)
     );
-    _meeting.scheduleMeeting(_anchorCircleId, 3600, block.timestamp + 1 days);
+    _meeting.scheduleMeeting(_anchorCircleId);
   }
 
   function test_ScheduleSpecialMeetingWhenSecretary() external {
     vm.prank(_secretary);
 
     vm.expectEmit(true, true, true, true, address(_meeting));
-    emit MeetingScheduled(1, _anchorCircleId, _secretary, true);
+    emit MeetingScheduled(1, _anchorCircleId, _secretary, true, _member1, 'Discuss Dev role', 'Only Dev role');
 
-    uint256 _meetingId = _meeting.scheduleSpecialMeeting(
-      _anchorCircleId, 3600, block.timestamp + 1 days, _member1, 'Discuss Dev role', 'Only Dev role'
-    );
-
-    HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
-    assertEq(_m.isSpecial, true);
-    assertEq(_m.requester, _member1);
+    _meeting.scheduleSpecialMeeting(_anchorCircleId, _member1, 'Discuss Dev role', 'Only Dev role');
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -243,7 +220,7 @@ contract UnitGovernanceMeeting is Test {
     vm.prank(_secretary);
     vm.expectRevert(
       abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidPhase.selector,
+        IGovernanceMeeting.GovernanceMeeting_InvalidStatus.selector,
         _meetingId,
         HolacracyTypes.MeetingStatus.Scheduled
       )
@@ -262,39 +239,6 @@ contract UnitGovernanceMeeting is Test {
   }
 
   /*///////////////////////////////////////////////////////////////
-                      EXTEND MEETING
-  //////////////////////////////////////////////////////////////*/
-
-  function test_ExtendMeetingWhenActive() external {
-    uint256 _meetingId = _scheduleMeeting();
-    _startMeeting(_meetingId);
-
-    vm.prank(_secretary);
-
-    vm.expectEmit(true, true, true, true, address(_meeting));
-    emit MeetingExtended(_meetingId, 7200);
-
-    _meeting.extendMeeting(_meetingId, 3600);
-
-    HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
-    assertEq(_m.duration, 7200);
-  }
-
-  function test_ExtendMeetingWhenNotStarted() external {
-    uint256 _meetingId = _scheduleMeeting();
-
-    vm.prank(_secretary);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidPhase.selector,
-        _meetingId,
-        HolacracyTypes.MeetingStatus.CheckIn
-      )
-    );
-    _meeting.extendMeeting(_meetingId, 3600);
-  }
-
-  /*///////////////////////////////////////////////////////////////
                       START MEETING
   //////////////////////////////////////////////////////////////*/
 
@@ -306,19 +250,10 @@ contract UnitGovernanceMeeting is Test {
     vm.expectEmit(true, true, true, true, address(_meeting));
     emit MeetingStarted(_meetingId);
 
-    vm.expectEmit(true, true, true, true, address(_meeting));
-    emit MeetingPhaseChanged(_meetingId, HolacracyTypes.MeetingStatus.CheckIn);
-
     _meeting.startMeeting(_meetingId);
 
     HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
-    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.CheckIn));
-    assertGt(_m.startedAt, 0);
-
-    // Facilitator auto-joined
-    address[] memory _participants = _meeting.getMeetingParticipants(_meetingId);
-    assertEq(_participants.length, 1);
-    assertEq(_participants[0], _facilitator);
+    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.Active));
   }
 
   function test_StartMeetingWhenNotFacilitator() external {
@@ -338,7 +273,7 @@ contract UnitGovernanceMeeting is Test {
     vm.prank(_facilitator);
     vm.expectRevert(
       abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidPhase.selector,
+        IGovernanceMeeting.GovernanceMeeting_InvalidStatus.selector,
         _meetingId,
         HolacracyTypes.MeetingStatus.Scheduled
       )
@@ -350,6 +285,38 @@ contract UnitGovernanceMeeting is Test {
     vm.prank(_facilitator);
     vm.expectRevert(abi.encodeWithSelector(IGovernanceMeeting.GovernanceMeeting_MeetingNotFound.selector, 999));
     _meeting.startMeeting(999);
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                      COMPLETE MEETING
+  //////////////////////////////////////////////////////////////*/
+
+  function test_CompleteMeetingWhenValid() external {
+    uint256 _meetingId = _setupActiveMeeting();
+
+    vm.prank(_facilitator);
+
+    vm.expectEmit(true, true, true, true, address(_meeting));
+    emit MeetingCompleted(_meetingId);
+
+    _meeting.completeMeeting(_meetingId);
+
+    HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
+    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.Completed));
+  }
+
+  function test_CompleteMeetingWhenNotActive() external {
+    uint256 _meetingId = _scheduleMeeting();
+
+    vm.prank(_facilitator);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IGovernanceMeeting.GovernanceMeeting_InvalidStatus.selector,
+        _meetingId,
+        HolacracyTypes.MeetingStatus.Active
+      )
+    );
+    _meeting.completeMeeting(_meetingId);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -366,10 +333,6 @@ contract UnitGovernanceMeeting is Test {
     emit ParticipantJoined(_meetingId, _member1);
 
     _meeting.joinMeeting(_meetingId);
-
-    address[] memory _participants = _meeting.getMeetingParticipants(_meetingId);
-    // facilitator + member1
-    assertEq(_participants.length, 2);
   }
 
   function test_JoinMeetingWhenNotCircleMember() external {
@@ -389,60 +352,20 @@ contract UnitGovernanceMeeting is Test {
     vm.prank(_member1);
     vm.expectRevert(
       abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidPhase.selector,
+        IGovernanceMeeting.GovernanceMeeting_InvalidStatus.selector,
         _meetingId,
-        HolacracyTypes.MeetingStatus.CheckIn
+        HolacracyTypes.MeetingStatus.Active
       )
     );
     _meeting.joinMeeting(_meetingId);
   }
 
   /*///////////////////////////////////////////////////////////////
-                      INVITE GUEST
-  //////////////////////////////////////////////////////////////*/
-
-  function test_InviteGuestWhenParticipant() external {
-    uint256 _meetingId = _scheduleMeeting();
-    _startMeeting(_meetingId);
-
-    address _guest = makeAddr('guest');
-
-    vm.prank(_facilitator);
-
-    vm.expectEmit(true, true, true, true, address(_meeting));
-    emit GuestInvited(_meetingId, _guest, _facilitator);
-
-    _meeting.inviteGuest(_meetingId, _guest);
-
-    // Guest can now join
-    vm.prank(_guest);
-    _meeting.joinMeeting(_meetingId);
-
-    address[] memory _participants = _meeting.getMeetingParticipants(_meetingId);
-    assertEq(_participants.length, 2); // facilitator + guest
-  }
-
-  function test_InviteGuestWhenNotParticipant() external {
-    uint256 _meetingId = _scheduleMeeting();
-    _startMeeting(_meetingId);
-
-    vm.prank(_member1); // not yet joined
-    vm.expectRevert(
-      abi.encodeWithSelector(IGovernanceMeeting.GovernanceMeeting_NotParticipant.selector, _meetingId, _member1)
-    );
-    _meeting.inviteGuest(_meetingId, makeAddr('guest'));
-  }
-
-  /*///////////////////////////////////////////////////////////////
-                      CHECK-IN ROUND
+                      CHECK-IN / CLOSING
   //////////////////////////////////////////////////////////////*/
 
   function test_RecordCheckInWhenValid() external {
-    uint256 _meetingId = _scheduleMeeting();
-    _startMeeting(_meetingId);
-
-    vm.prank(_member1);
-    _meeting.joinMeeting(_meetingId);
+    uint256 _meetingId = _setupActiveMeeting();
 
     vm.prank(_member1);
 
@@ -452,140 +375,28 @@ contract UnitGovernanceMeeting is Test {
     _meeting.recordCheckIn(_meetingId);
   }
 
-  function test_RecordCheckInWhenAlreadyCheckedIn() external {
+  function test_RecordCheckInWhenNotActive() external {
     uint256 _meetingId = _scheduleMeeting();
-    _startMeeting(_meetingId);
-    _joinAndCheckIn(_meetingId, _member1);
 
     vm.prank(_member1);
     vm.expectRevert(
-      abi.encodeWithSelector(IGovernanceMeeting.GovernanceMeeting_AlreadyCheckedIn.selector, _meetingId, _member1)
-    );
-    _meeting.recordCheckIn(_meetingId);
-  }
-
-  function test_RecordCheckInWhenWrongPhase() external {
-    uint256 _meetingId = _setupActiveMeeting();
-
-    vm.prank(_facilitator);
-    vm.expectRevert(
       abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidPhase.selector,
+        IGovernanceMeeting.GovernanceMeeting_InvalidStatus.selector,
         _meetingId,
-        HolacracyTypes.MeetingStatus.CheckIn
+        HolacracyTypes.MeetingStatus.Active
       )
     );
     _meeting.recordCheckIn(_meetingId);
   }
-
-  /*///////////////////////////////////////////////////////////////
-                      PHASE TRANSITIONS
-  //////////////////////////////////////////////////////////////*/
-
-  function test_StartAgendaBuildingWhenValid() external {
-    uint256 _meetingId = _scheduleMeeting();
-    _startMeeting(_meetingId);
-
-    vm.prank(_facilitator);
-
-    vm.expectEmit(true, true, true, true, address(_meeting));
-    emit MeetingPhaseChanged(_meetingId, HolacracyTypes.MeetingStatus.AgendaBuilding);
-
-    _meeting.startAgendaBuilding(_meetingId);
-
-    HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
-    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.AgendaBuilding));
-  }
-
-  function test_StartAgendaBuildingWhenWrongPhase() external {
-    uint256 _meetingId = _scheduleMeeting();
-
-    vm.prank(_facilitator);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidPhase.selector,
-        _meetingId,
-        HolacracyTypes.MeetingStatus.CheckIn
-      )
-    );
-    _meeting.startAgendaBuilding(_meetingId);
-  }
-
-  function test_StartClosingRoundWhenFromAgendaBuilding() external {
-    uint256 _meetingId = _setupActiveMeeting();
-
-    vm.prank(_facilitator);
-
-    vm.expectEmit(true, true, true, true, address(_meeting));
-    emit MeetingPhaseChanged(_meetingId, HolacracyTypes.MeetingStatus.Closing);
-
-    _meeting.startClosingRound(_meetingId);
-
-    HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
-    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.Closing));
-  }
-
-  function test_CompleteMeetingWhenValid() external {
-    uint256 _meetingId = _setupActiveMeeting();
-
-    vm.prank(_facilitator);
-    _meeting.startClosingRound(_meetingId);
-
-    vm.prank(_facilitator);
-
-    vm.expectEmit(true, true, true, true, address(_meeting));
-    emit MeetingCompleted(_meetingId);
-
-    _meeting.completeMeeting(_meetingId);
-
-    HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
-    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.Completed));
-    assertGt(_m.completedAt, 0);
-  }
-
-  function test_CompleteMeetingWhenNotClosing() external {
-    uint256 _meetingId = _setupActiveMeeting();
-
-    vm.prank(_facilitator);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidPhase.selector,
-        _meetingId,
-        HolacracyTypes.MeetingStatus.Closing
-      )
-    );
-    _meeting.completeMeeting(_meetingId);
-  }
-
-  /*///////////////////////////////////////////////////////////////
-                      CLOSING ROUND
-  //////////////////////////////////////////////////////////////*/
 
   function test_RecordClosingWhenValid() external {
     uint256 _meetingId = _setupActiveMeeting();
-
-    vm.prank(_facilitator);
-    _meeting.startClosingRound(_meetingId);
 
     vm.prank(_member1);
 
     vm.expectEmit(true, true, true, true, address(_meeting));
     emit ClosingRecorded(_meetingId, _member1);
 
-    _meeting.recordClosing(_meetingId);
-  }
-
-  function test_RecordClosingWhenWrongPhase() external {
-    uint256 _meetingId = _setupActiveMeeting();
-
-    vm.prank(_member1);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidPhase.selector,
-        _meetingId,
-        HolacracyTypes.MeetingStatus.Closing
-      )
-    );
     _meeting.recordClosing(_meetingId);
   }
 
@@ -599,21 +410,9 @@ contract UnitGovernanceMeeting is Test {
     vm.prank(_member1);
 
     vm.expectEmit(true, true, true, true, address(_meeting));
-    emit AgendaItemAdded(_meetingId, 1, _member1, HolacracyTypes.AgendaItemType.Proposal);
+    emit AgendaItemAdded(_meetingId, 1, _member1, 'My tension', HolacracyTypes.AgendaItemType.Proposal);
 
-    uint256 _itemId = _meeting.addAgendaItem(_meetingId, 'My tension', HolacracyTypes.AgendaItemType.Proposal);
-
-    HolacracyTypes.GovernanceAgendaItem memory _item = _meeting.getAgendaItem(_itemId);
-    assertEq(_item.id, _itemId);
-    assertEq(_item.meetingId, _meetingId);
-    assertEq(_item.owner, _member1);
-    assertEq(_item.label, 'My tension');
-    assertEq(uint256(_item.itemType), uint256(HolacracyTypes.AgendaItemType.Proposal));
-    assertEq(uint256(_item.status), uint256(HolacracyTypes.AgendaItemStatus.Pending));
-
-    uint256[] memory _items = _meeting.getAgendaItems(_meetingId);
-    assertEq(_items.length, 1);
-    assertEq(_items[0], _itemId);
+    _meeting.addAgendaItem(_meetingId, 1, 'My tension', HolacracyTypes.AgendaItemType.Proposal);
   }
 
   function test_AddAgendaItemWhenNotParticipant() external {
@@ -623,76 +422,39 @@ contract UnitGovernanceMeeting is Test {
     vm.expectRevert(
       abi.encodeWithSelector(IGovernanceMeeting.GovernanceMeeting_NotParticipant.selector, _meetingId, _stranger)
     );
-    _meeting.addAgendaItem(_meetingId, 'Tension', HolacracyTypes.AgendaItemType.Proposal);
-  }
-
-  function test_AddAgendaItemWhenWrongPhase() external {
-    uint256 _meetingId = _scheduleMeeting();
-    _startMeeting(_meetingId);
-
-    _joinAndCheckIn(_meetingId, _member1);
-
-    vm.prank(_member1);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidPhase.selector,
-        _meetingId,
-        HolacracyTypes.MeetingStatus.AgendaBuilding
-      )
-    );
-    _meeting.addAgendaItem(_meetingId, 'Tension', HolacracyTypes.AgendaItemType.Proposal);
+    _meeting.addAgendaItem(_meetingId, 1, 'Tension', HolacracyTypes.AgendaItemType.Proposal);
   }
 
   function test_StartProcessingItemWhenValid() external {
     uint256 _meetingId = _setupActiveMeeting();
 
-    vm.prank(_member1);
-    uint256 _itemId = _meeting.addAgendaItem(_meetingId, 'Tension', HolacracyTypes.AgendaItemType.Proposal);
-
     vm.prank(_facilitator);
 
     vm.expectEmit(true, true, true, true, address(_meeting));
-    emit AgendaItemStarted(_meetingId, _itemId);
+    emit AgendaItemStarted(_meetingId, 1);
 
-    _meeting.startProcessingItem(_meetingId, _itemId);
-
-    HolacracyTypes.GovernanceAgendaItem memory _item = _meeting.getAgendaItem(_itemId);
-    assertEq(uint256(_item.status), uint256(HolacracyTypes.AgendaItemStatus.Active));
-
-    HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
-    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.Processing));
+    _meeting.startProcessingItem(_meetingId, 1);
   }
 
   function test_StartProcessingItemWhenNotFacilitator() external {
     uint256 _meetingId = _setupActiveMeeting();
 
     vm.prank(_member1);
-    uint256 _itemId = _meeting.addAgendaItem(_meetingId, 'Tension', HolacracyTypes.AgendaItemType.Proposal);
-
-    vm.prank(_member1);
     vm.expectRevert(
       abi.encodeWithSelector(IGovernanceMeeting.GovernanceMeeting_NotFacilitator.selector, _anchorCircleId)
     );
-    _meeting.startProcessingItem(_meetingId, _itemId);
+    _meeting.startProcessingItem(_meetingId, 1);
   }
 
-  function test_DropAgendaItemWhenActive() external {
+  function test_DropAgendaItemWhenValid() external {
     uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartProposalItem(_meetingId);
 
     vm.prank(_facilitator);
 
     vm.expectEmit(true, true, true, true, address(_meeting));
-    emit AgendaItemDropped(_meetingId, _itemId);
+    emit AgendaItemDropped(_meetingId, 1);
 
-    _meeting.dropAgendaItem(_meetingId, _itemId);
-
-    HolacracyTypes.GovernanceAgendaItem memory _item = _meeting.getAgendaItem(_itemId);
-    assertEq(uint256(_item.status), uint256(HolacracyTypes.AgendaItemStatus.Dropped));
-
-    // Meeting goes back to AgendaBuilding
-    HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
-    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.AgendaBuilding));
+    _meeting.dropAgendaItem(_meetingId, 1);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -701,158 +463,71 @@ contract UnitGovernanceMeeting is Test {
 
   function test_PresentProposalWhenValid() external {
     uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartProposalItem(_meetingId);
 
     vm.prank(_member1);
 
+    vm.expectEmit(true, true, false, true, address(_meeting));
+    emit ProposalPresented(_meetingId, 1, 1);
+
     uint256 _proposalId =
-      _meeting.presentProposal(_meetingId, _itemId, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange());
+      _meeting.presentProposal(_meetingId, 1, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange());
 
     // Proposal was created in GovernanceProcess
     assertGt(_proposalId, 0);
     HolacracyTypes.Proposal memory _p = _governance.getProposal(_proposalId);
     assertEq(uint256(_p.status), uint256(HolacracyTypes.ProposalStatus.Active));
-
-    // Agenda item links to proposal
-    HolacracyTypes.GovernanceAgendaItem memory _item = _meeting.getAgendaItem(_itemId);
-    assertEq(_item.proposalId, _proposalId);
-
-    // IDM step set
-    assertEq(uint256(_meeting.getIDMStep(_itemId)), uint256(HolacracyTypes.IDMStep.PresentProposal));
   }
 
-  function test_PresentProposalWhenNotOwner() external {
+  function test_PresentProposalWhenNotParticipant() external {
     uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartProposalItem(_meetingId);
 
-    vm.prank(_member2);
+    vm.prank(_stranger);
     vm.expectRevert(
-      abi.encodeWithSelector(IGovernanceMeeting.GovernanceMeeting_NotAgendaItemOwner.selector, _itemId, _member2)
+      abi.encodeWithSelector(IGovernanceMeeting.GovernanceMeeting_NotParticipant.selector, _meetingId, _stranger)
     );
-    _meeting.presentProposal(_meetingId, _itemId, _role2Id, 'Tension', 'Example', 'Explanation', _defaultChange());
+    _meeting.presentProposal(_meetingId, 1, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange());
   }
 
-  function test_AdvanceIDMStepWhenFullFlow() external {
+  function test_AdvanceIDMStepWhenValid() external {
     uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartProposalItem(_meetingId);
 
-    // Present proposal
-    vm.prank(_member1);
-    _meeting.presentProposal(_meetingId, _itemId, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange());
-
-    // PresentProposal → ClarifyingQuestions
     vm.prank(_facilitator);
-    _meeting.advanceIDMStep(_meetingId, _itemId);
-    assertEq(uint256(_meeting.getIDMStep(_itemId)), uint256(HolacracyTypes.IDMStep.ClarifyingQuestions));
 
-    // ClarifyingQuestions → ReactionRound
-    vm.prank(_facilitator);
-    _meeting.advanceIDMStep(_meetingId, _itemId);
-    assertEq(uint256(_meeting.getIDMStep(_itemId)), uint256(HolacracyTypes.IDMStep.ReactionRound));
+    vm.expectEmit(true, true, true, true, address(_meeting));
+    emit IDMStepAdvanced(_meetingId, 1, HolacracyTypes.IDMStep.ClarifyingQuestions);
 
-    // ReactionRound → ClarifyOption
-    vm.prank(_facilitator);
-    _meeting.advanceIDMStep(_meetingId, _itemId);
-    assertEq(uint256(_meeting.getIDMStep(_itemId)), uint256(HolacracyTypes.IDMStep.ClarifyOption));
-
-    // ClarifyOption → ObjectionRound
-    vm.prank(_facilitator);
-    _meeting.advanceIDMStep(_meetingId, _itemId);
-    assertEq(uint256(_meeting.getIDMStep(_itemId)), uint256(HolacracyTypes.IDMStep.ObjectionRound));
-  }
-
-  function test_AdvanceIDMStepWhenObjectionRoundToIntegration() external {
-    uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartProposalItem(_meetingId);
-
-    vm.prank(_member1);
-    _meeting.presentProposal(_meetingId, _itemId, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange());
-
-    // Advance to ObjectionRound
-    for (uint256 _i; _i < 4; ++_i) {
-      vm.prank(_facilitator);
-      _meeting.advanceIDMStep(_meetingId, _itemId);
-    }
-    assertEq(uint256(_meeting.getIDMStep(_itemId)), uint256(HolacracyTypes.IDMStep.ObjectionRound));
-
-    // ObjectionRound → Integration
-    vm.prank(_facilitator);
-    _meeting.advanceIDMStep(_meetingId, _itemId);
-    assertEq(uint256(_meeting.getIDMStep(_itemId)), uint256(HolacracyTypes.IDMStep.Integration));
-
-    // Integration → back to ObjectionRound
-    vm.prank(_facilitator);
-    _meeting.advanceIDMStep(_meetingId, _itemId);
-    assertEq(uint256(_meeting.getIDMStep(_itemId)), uint256(HolacracyTypes.IDMStep.ObjectionRound));
+    _meeting.advanceIDMStep(_meetingId, 1, HolacracyTypes.IDMStep.ClarifyingQuestions);
   }
 
   function test_AdvanceIDMStepWhenNotFacilitator() external {
     uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartProposalItem(_meetingId);
-
-    vm.prank(_member1);
-    _meeting.presentProposal(_meetingId, _itemId, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange());
 
     vm.prank(_member1);
     vm.expectRevert(
       abi.encodeWithSelector(IGovernanceMeeting.GovernanceMeeting_NotFacilitator.selector, _anchorCircleId)
     );
-    _meeting.advanceIDMStep(_meetingId, _itemId);
+    _meeting.advanceIDMStep(_meetingId, 1, HolacracyTypes.IDMStep.ClarifyingQuestions);
   }
 
-  function test_CompleteProposalItemWhenCleanObjectionRound() external {
+  function test_CompleteProposalItemWhenValid() external {
     uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartProposalItem(_meetingId);
 
-    // Present and advance to ObjectionRound
+    // Present proposal
     vm.prank(_member1);
     uint256 _proposalId =
-      _meeting.presentProposal(_meetingId, _itemId, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange());
-
-    for (uint256 _i; _i < 4; ++_i) {
-      vm.prank(_facilitator);
-      _meeting.advanceIDMStep(_meetingId, _itemId);
-    }
+      _meeting.presentProposal(_meetingId, 1, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange());
 
     // Complete the item (adopt proposal)
     vm.prank(_facilitator);
 
     vm.expectEmit(true, true, true, true, address(_meeting));
-    emit AgendaItemCompleted(_meetingId, _itemId);
+    emit AgendaItemCompleted(_meetingId, 1);
 
-    _meeting.completeProposalItem(_meetingId, _itemId);
+    _meeting.completeProposalItem(_meetingId, 1, _proposalId);
 
     // Proposal adopted
     HolacracyTypes.Proposal memory _p = _governance.getProposal(_proposalId);
     assertEq(uint256(_p.status), uint256(HolacracyTypes.ProposalStatus.Adopted));
-
-    // Item completed
-    HolacracyTypes.GovernanceAgendaItem memory _item = _meeting.getAgendaItem(_itemId);
-    assertEq(uint256(_item.status), uint256(HolacracyTypes.AgendaItemStatus.Completed));
-
-    // Meeting back to AgendaBuilding
-    HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
-    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.AgendaBuilding));
-  }
-
-  function test_CompleteProposalItemWhenNotObjectionRound() external {
-    uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartProposalItem(_meetingId);
-
-    vm.prank(_member1);
-    _meeting.presentProposal(_meetingId, _itemId, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange());
-
-    // Still at PresentProposal step
-    vm.prank(_facilitator);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidIDMStep.selector,
-        _meetingId,
-        _itemId,
-        HolacracyTypes.IDMStep.ObjectionRound
-      )
-    );
-    _meeting.completeProposalItem(_meetingId, _itemId);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -861,7 +536,6 @@ contract UnitGovernanceMeeting is Test {
 
   function test_AmendRoleThroughMeetingIDM() external {
     uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartProposalItem(_meetingId);
 
     // Build an AmendRole change
     string[] memory _newDomains = new string[](1);
@@ -878,17 +552,11 @@ contract UnitGovernanceMeeting is Test {
     // Present the AmendRole proposal
     vm.prank(_member1);
     uint256 _proposalId =
-      _meeting.presentProposal(_meetingId, _itemId, _role1Id, 'Role needs update', 'Workload shifted', 'Update role', _change);
-
-    // Advance through IDM to ObjectionRound
-    for (uint256 _i; _i < 4; ++_i) {
-      vm.prank(_facilitator);
-      _meeting.advanceIDMStep(_meetingId, _itemId);
-    }
+      _meeting.presentProposal(_meetingId, 1, _role1Id, 'Role needs update', 'Workload shifted', 'Update role', _change);
 
     // Complete — adopts the proposal and executes the role change
     vm.prank(_facilitator);
-    _meeting.completeProposalItem(_meetingId, _itemId);
+    _meeting.completeProposalItem(_meetingId, 1, _proposalId);
 
     // Verify the role was actually updated
     HolacracyTypes.Role memory _role = _roleRegistry.getRole(_role1Id);
@@ -908,208 +576,65 @@ contract UnitGovernanceMeeting is Test {
                       ELECTION PROCESS
   //////////////////////////////////////////////////////////////*/
 
-  function test_StartElectionWhenValid() external {
+  function test_ElectionStepAdvanceWhenValid() external {
     uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartElectionItem(_meetingId);
 
     vm.prank(_facilitator);
 
     vm.expectEmit(true, true, true, true, address(_meeting));
-    emit ElectionStepAdvanced(_meetingId, _itemId, HolacracyTypes.ElectionStep.DescribeRole);
+    emit ElectionStepAdvanced(_meetingId, 1, HolacracyTypes.ElectionStep.Nominate);
 
-    _meeting.startElection(_meetingId, _itemId, HolacracyTypes.ElectedRole.Facilitator, 365 days);
-
-    HolacracyTypes.MeetingElection memory _e = _meeting.getElectionState(_itemId);
-    assertEq(_e.agendaItemId, _itemId);
-    assertEq(_e.circleId, _anchorCircleId);
-    assertEq(uint256(_e.targetRole), uint256(HolacracyTypes.ElectedRole.Facilitator));
-    assertEq(_e.term, 365 days);
-    assertEq(uint256(_e.currentStep), uint256(HolacracyTypes.ElectionStep.DescribeRole));
+    _meeting.advanceElectionStep(_meetingId, 1, HolacracyTypes.ElectionStep.Nominate);
   }
 
-  function test_ElectionFullFlowWhenValid() external {
+  function test_CastNominationWhenValid() external {
     uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartElectionItem(_meetingId);
 
-    // Start election for Secretary
-    vm.prank(_facilitator);
-    _meeting.startElection(_meetingId, _itemId, HolacracyTypes.ElectedRole.Secretary, 180 days);
-
-    // DescribeRole → Nominate
-    vm.prank(_facilitator);
-    _meeting.advanceElectionStep(_meetingId, _itemId);
-    assertEq(uint256(_meeting.getElectionState(_itemId).currentStep), uint256(HolacracyTypes.ElectionStep.Nominate));
-
-    // Cast nominations
     vm.prank(_member1);
-    _meeting.castNomination(_meetingId, _itemId, _member2);
 
-    vm.prank(_member2);
-    _meeting.castNomination(_meetingId, _itemId, _member2);
+    vm.expectEmit(true, true, true, true, address(_meeting));
+    emit NominationCast(_meetingId, 1, _member1, _member2);
 
-    HolacracyTypes.Nomination[] memory _noms = _meeting.getNominations(_itemId);
-    assertEq(_noms.length, 2);
-    assertEq(_noms[0].candidate, _member2);
-    assertEq(_noms[1].candidate, _member2);
+    _meeting.castNomination(_meetingId, 1, _member2);
+  }
 
-    // Nominate → NominationSharing
-    vm.prank(_facilitator);
-    _meeting.advanceElectionStep(_meetingId, _itemId);
+  function test_ChangeNominationWhenValid() external {
+    uint256 _meetingId = _setupActiveMeeting();
 
-    // NominationSharing → NominationChange
-    vm.prank(_facilitator);
-    _meeting.advanceElectionStep(_meetingId, _itemId);
-
-    // Member1 changes nomination
     vm.prank(_member1);
-    _meeting.changeNomination(_meetingId, _itemId, _member1);
 
-    HolacracyTypes.Nomination[] memory _noms2 = _meeting.getNominations(_itemId);
-    assertEq(_noms2[0].changed, true);
-    assertEq(_noms2[0].changedTo, _member1);
+    vm.expectEmit(true, true, true, true, address(_meeting));
+    emit NominationChanged(_meetingId, 1, _member1, _member2);
 
-    // NominationChange → MakeProposal
-    vm.prank(_facilitator);
-    _meeting.advanceElectionStep(_meetingId, _itemId);
+    _meeting.changeNomination(_meetingId, 1, _member2);
+  }
 
-    // Facilitator proposes the candidate with most nominations
+  function test_ProposeCandidateWhenValid() external {
+    uint256 _meetingId = _setupActiveMeeting();
+
     vm.prank(_facilitator);
 
     vm.expectEmit(true, true, true, true, address(_meeting));
-    emit CandidateProposed(_meetingId, _itemId, _member2);
+    emit CandidateProposed(_meetingId, 1, _member2);
 
-    _meeting.proposeCandidate(_meetingId, _itemId, _member2);
+    _meeting.proposeCandidate(_meetingId, 1, _member2);
+  }
 
-    // MakeProposal → ObjectionRound
-    vm.prank(_facilitator);
-    _meeting.advanceElectionStep(_meetingId, _itemId);
+  function test_CompleteElectionWhenValid() external {
+    uint256 _meetingId = _setupActiveMeeting();
 
-    // Complete the election
     vm.prank(_facilitator);
 
     vm.expectEmit(true, true, true, true, address(_meeting));
-    emit ElectionCompleted(_meetingId, _itemId, _member2);
+    emit ElectionCompleted(_meetingId, 1, _anchorCircleId, HolacracyTypes.ElectedRole.Secretary, _member2);
 
-    _meeting.completeElection(_meetingId, _itemId);
+    _meeting.completeElection(_meetingId, 1, _anchorCircleId, HolacracyTypes.ElectedRole.Secretary, _member2);
 
     // Verify the elected role was set
     assertEq(
       _circleRegistry.getElectedRole(_anchorCircleId, HolacracyTypes.ElectedRole.Secretary),
       _member2
     );
-
-    // Item completed, meeting back to AgendaBuilding
-    HolacracyTypes.GovernanceAgendaItem memory _item = _meeting.getAgendaItem(_itemId);
-    assertEq(uint256(_item.status), uint256(HolacracyTypes.AgendaItemStatus.Completed));
-
-    HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
-    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.AgendaBuilding));
-  }
-
-  function test_CastNominationWhenWrongStep() external {
-    uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartElectionItem(_meetingId);
-
-    vm.prank(_facilitator);
-    _meeting.startElection(_meetingId, _itemId, HolacracyTypes.ElectedRole.Facilitator, 365 days);
-
-    // Still at DescribeRole, not Nominate
-    vm.prank(_member1);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidElectionStep.selector,
-        _meetingId,
-        _itemId,
-        HolacracyTypes.ElectionStep.Nominate
-      )
-    );
-    _meeting.castNomination(_meetingId, _itemId, _member2);
-  }
-
-  function test_CastNominationWhenAlreadyNominated() external {
-    uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartElectionItem(_meetingId);
-
-    vm.prank(_facilitator);
-    _meeting.startElection(_meetingId, _itemId, HolacracyTypes.ElectedRole.Facilitator, 365 days);
-
-    vm.prank(_facilitator);
-    _meeting.advanceElectionStep(_meetingId, _itemId);
-
-    vm.prank(_member1);
-    _meeting.castNomination(_meetingId, _itemId, _member2);
-
-    vm.prank(_member1);
-    vm.expectRevert(
-      abi.encodeWithSelector(IGovernanceMeeting.GovernanceMeeting_AlreadyNominated.selector, _itemId, _member1)
-    );
-    _meeting.castNomination(_meetingId, _itemId, _member2);
-  }
-
-  function test_ChangeNominationWhenWrongStep() external {
-    uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartElectionItem(_meetingId);
-
-    vm.prank(_facilitator);
-    _meeting.startElection(_meetingId, _itemId, HolacracyTypes.ElectedRole.Facilitator, 365 days);
-
-    vm.prank(_facilitator);
-    _meeting.advanceElectionStep(_meetingId, _itemId);
-
-    vm.prank(_member1);
-    _meeting.castNomination(_meetingId, _itemId, _member2);
-
-    // Still at Nominate, not NominationChange
-    vm.prank(_member1);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidElectionStep.selector,
-        _meetingId,
-        _itemId,
-        HolacracyTypes.ElectionStep.NominationChange
-      )
-    );
-    _meeting.changeNomination(_meetingId, _itemId, _member1);
-  }
-
-  function test_ProposeCandidateWhenWrongStep() external {
-    uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartElectionItem(_meetingId);
-
-    vm.prank(_facilitator);
-    _meeting.startElection(_meetingId, _itemId, HolacracyTypes.ElectedRole.Facilitator, 365 days);
-
-    // Still at DescribeRole
-    vm.prank(_facilitator);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidElectionStep.selector,
-        _meetingId,
-        _itemId,
-        HolacracyTypes.ElectionStep.MakeProposal
-      )
-    );
-    _meeting.proposeCandidate(_meetingId, _itemId, _member1);
-  }
-
-  function test_CompleteElectionWhenWrongStep() external {
-    uint256 _meetingId = _setupActiveMeeting();
-    uint256 _itemId = _addAndStartElectionItem(_meetingId);
-
-    vm.prank(_facilitator);
-    _meeting.startElection(_meetingId, _itemId, HolacracyTypes.ElectedRole.Facilitator, 365 days);
-
-    // Still at DescribeRole
-    vm.prank(_facilitator);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IGovernanceMeeting.GovernanceMeeting_InvalidElectionStep.selector,
-        _meetingId,
-        _itemId,
-        HolacracyTypes.ElectionStep.ObjectionRound
-      )
-    );
-    _meeting.completeElection(_meetingId, _itemId);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -1121,88 +646,88 @@ contract UnitGovernanceMeeting is Test {
     uint256 _meetingId = _scheduleMeeting();
     _startMeeting(_meetingId);
 
-    // Join and check in
-    _joinAndCheckIn(_meetingId, _member1);
-    _joinAndCheckIn(_meetingId, _member2);
+    // Join
+    _joinMeeting(_meetingId, _member1);
+    _joinMeeting(_meetingId, _member2);
+
+    // Check-in (event only)
+    vm.prank(_member1);
+    _meeting.recordCheckIn(_meetingId);
+    vm.prank(_member2);
+    _meeting.recordCheckIn(_meetingId);
     vm.prank(_facilitator);
     _meeting.recordCheckIn(_meetingId);
 
-    // Move to agenda building
-    vm.prank(_facilitator);
-    _meeting.startAgendaBuilding(_meetingId);
-
-    // Add two agenda items
+    // Add agenda items (event only)
     vm.prank(_member1);
-    uint256 _proposalItemId =
-      _meeting.addAgendaItem(_meetingId, 'Create ops role', HolacracyTypes.AgendaItemType.Proposal);
+    _meeting.addAgendaItem(_meetingId, 1, 'Create ops role', HolacracyTypes.AgendaItemType.Proposal);
 
     vm.prank(_member2);
-    uint256 _electionItemId =
-      _meeting.addAgendaItem(_meetingId, 'Elect new CircleRep', HolacracyTypes.AgendaItemType.Election);
+    _meeting.addAgendaItem(_meetingId, 2, 'Elect new CircleRep', HolacracyTypes.AgendaItemType.Election);
 
     // --- Process proposal item ---
     vm.prank(_facilitator);
-    _meeting.startProcessingItem(_meetingId, _proposalItemId);
+    _meeting.startProcessingItem(_meetingId, 1);
 
-    string[] memory _emptyArr = new string[](0);
     HolacracyTypes.GovernanceChange memory _change = HolacracyTypes.GovernanceChange({
       changeType: HolacracyTypes.ChangeType.CreateRole,
       targetId: 0,
-      encodedData: abi.encode('Ops', 'Operations', _emptyArr, _emptyArr)
+      encodedData: abi.encode('Ops', 'Operations', new string[](0), new string[](0))
     });
 
     vm.prank(_member1);
-    _meeting.presentProposal(
-      _meetingId, _proposalItemId, _role1Id, 'Need ops', 'Dropping balls', 'New ops role', _change
-    );
+    uint256 _proposalId = _meeting.presentProposal(_meetingId, 1, _role1Id, 'Need ops', 'Dropping balls', 'New ops role', _change);
 
-    // Advance through IDM
-    for (uint256 _i; _i < 4; ++_i) {
-      vm.prank(_facilitator);
-      _meeting.advanceIDMStep(_meetingId, _proposalItemId);
-    }
-
+    // Advance IDM steps (event only)
     vm.prank(_facilitator);
-    _meeting.completeProposalItem(_meetingId, _proposalItemId);
+    _meeting.advanceIDMStep(_meetingId, 1, HolacracyTypes.IDMStep.ClarifyingQuestions);
+    vm.prank(_facilitator);
+    _meeting.advanceIDMStep(_meetingId, 1, HolacracyTypes.IDMStep.ReactionRound);
+    vm.prank(_facilitator);
+    _meeting.advanceIDMStep(_meetingId, 1, HolacracyTypes.IDMStep.ClarifyOption);
+    vm.prank(_facilitator);
+    _meeting.advanceIDMStep(_meetingId, 1, HolacracyTypes.IDMStep.ObjectionRound);
+
+    // Adopt proposal
+    vm.prank(_facilitator);
+    _meeting.completeProposalItem(_meetingId, 1, _proposalId);
 
     // Verify role was created
     uint256 _newRoleCount = _roleRegistry.roleCount();
     HolacracyTypes.Role memory _newRole = _roleRegistry.getRole(_newRoleCount);
     assertEq(_newRole.name, 'Ops');
-    assertEq(_newRole.purpose, 'Operations');
 
     // --- Process election item ---
     vm.prank(_facilitator);
-    _meeting.startProcessingItem(_meetingId, _electionItemId);
+    _meeting.startProcessingItem(_meetingId, 2);
 
+    // Election steps (event only)
     vm.prank(_facilitator);
-    _meeting.startElection(_meetingId, _electionItemId, HolacracyTypes.ElectedRole.CircleRep, 180 days);
-
-    // Advance to Nominate
+    _meeting.advanceElectionStep(_meetingId, 2, HolacracyTypes.ElectionStep.DescribeRole);
     vm.prank(_facilitator);
-    _meeting.advanceElectionStep(_meetingId, _electionItemId);
+    _meeting.advanceElectionStep(_meetingId, 2, HolacracyTypes.ElectionStep.Nominate);
 
     vm.prank(_member1);
-    _meeting.castNomination(_meetingId, _electionItemId, _member1);
-
+    _meeting.castNomination(_meetingId, 2, _member1);
     vm.prank(_member2);
-    _meeting.castNomination(_meetingId, _electionItemId, _member1);
-
-    // Advance through NominationSharing → NominationChange → MakeProposal
-    for (uint256 _i; _i < 3; ++_i) {
-      vm.prank(_facilitator);
-      _meeting.advanceElectionStep(_meetingId, _electionItemId);
-    }
+    _meeting.castNomination(_meetingId, 2, _member1);
 
     vm.prank(_facilitator);
-    _meeting.proposeCandidate(_meetingId, _electionItemId, _member1);
-
-    // Advance to ObjectionRound
+    _meeting.advanceElectionStep(_meetingId, 2, HolacracyTypes.ElectionStep.NominationSharing);
     vm.prank(_facilitator);
-    _meeting.advanceElectionStep(_meetingId, _electionItemId);
+    _meeting.advanceElectionStep(_meetingId, 2, HolacracyTypes.ElectionStep.NominationChange);
+    vm.prank(_facilitator);
+    _meeting.advanceElectionStep(_meetingId, 2, HolacracyTypes.ElectionStep.MakeProposal);
 
     vm.prank(_facilitator);
-    _meeting.completeElection(_meetingId, _electionItemId);
+    _meeting.proposeCandidate(_meetingId, 2, _member1);
+
+    vm.prank(_facilitator);
+    _meeting.advanceElectionStep(_meetingId, 2, HolacracyTypes.ElectionStep.ObjectionRound);
+
+    // Complete election (outcome)
+    vm.prank(_facilitator);
+    _meeting.completeElection(_meetingId, 2, _anchorCircleId, HolacracyTypes.ElectedRole.CircleRep, _member1);
 
     assertEq(
       _circleRegistry.getElectedRole(_anchorCircleId, HolacracyTypes.ElectedRole.CircleRep),
@@ -1210,15 +735,10 @@ contract UnitGovernanceMeeting is Test {
     );
 
     // --- Closing ---
-    vm.prank(_facilitator);
-    _meeting.startClosingRound(_meetingId);
-
     vm.prank(_member1);
     _meeting.recordClosing(_meetingId);
-
     vm.prank(_member2);
     _meeting.recordClosing(_meetingId);
-
     vm.prank(_facilitator);
     _meeting.recordClosing(_meetingId);
 
@@ -1240,7 +760,7 @@ contract UnitGovernanceMeeting is Test {
 
     // Circle lead (deployer) can schedule
     vm.prank(_deployer);
-    uint256 _meetingId = _meeting.scheduleMeeting(_anchorCircleId, 3600, block.timestamp + 1 days);
+    uint256 _meetingId = _meeting.scheduleMeeting(_anchorCircleId);
     assertGt(_meetingId, 0);
   }
 
@@ -1256,6 +776,6 @@ contract UnitGovernanceMeeting is Test {
     _meeting.startMeeting(_meetingId);
 
     HolacracyTypes.GovernanceMeeting memory _m = _meeting.getMeeting(_meetingId);
-    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.CheckIn));
+    assertEq(uint256(_m.status), uint256(HolacracyTypes.MeetingStatus.Active));
   }
 }

@@ -65,10 +65,7 @@ library HolacracyTypes {
   /// @notice Status of a governance meeting
   enum MeetingStatus {
     Scheduled,
-    CheckIn,
-    AgendaBuilding,
-    Processing,
-    Closing,
+    Active,
     Completed,
     Cancelled
   }
@@ -191,50 +188,12 @@ library HolacracyTypes {
     address treasury;
   }
 
-  /// @notice A governance meeting (§5.4)
+  /// @notice A governance meeting (§5.4) — minimal on-chain struct
   struct GovernanceMeeting {
     uint256 id;
     uint256 circleId;
     address scheduledBy;
-    bool isSpecial;
-    address requester;
     MeetingStatus status;
-    uint256 scheduledAt;
-    uint256 startedAt;
-    uint256 completedAt;
-    uint256 duration;
-  }
-
-  /// @notice An agenda item in a governance meeting
-  struct GovernanceAgendaItem {
-    uint256 id;
-    uint256 meetingId;
-    address owner;
-    string label;
-    AgendaItemType itemType;
-    AgendaItemStatus status;
-    uint256 proposalId;
-    ElectedRole electedRole;
-    uint256 electionTerm;
-  }
-
-  /// @notice Election state during a meeting (§5.3.5)
-  struct MeetingElection {
-    uint256 agendaItemId;
-    uint256 circleId;
-    ElectedRole targetRole;
-    uint256 term;
-    ElectionStep currentStep;
-    address proposedCandidate;
-    bool completed;
-  }
-
-  /// @notice A nomination in an integrative election
-  struct Nomination {
-    address nominator;
-    address candidate;
-    bool changed;
-    address changedTo;
   }
 
   /// @notice An objection raised against a proposal
