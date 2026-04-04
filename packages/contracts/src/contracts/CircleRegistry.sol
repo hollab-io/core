@@ -27,6 +27,9 @@ contract CircleRegistry is ICircleRegistry {
   /// @notice The governance process contract (set after deployment)
   address public governanceProcess;
 
+  /// @notice The governance meeting contract (set after deployment)
+  address public governanceMeeting;
+
   /// @notice Auto-incrementing circle ID counter
   uint256 internal _circleCounter;
 
@@ -143,6 +146,14 @@ contract CircleRegistry is ICircleRegistry {
     if (governanceProcess != address(0)) revert CircleRegistry_Unauthorized();
     if (msg.sender != deployer) revert CircleRegistry_Unauthorized();
     governanceProcess = _governanceProcess;
+  }
+
+  /// @notice Sets the governance meeting contract (can only be set once)
+  /// @param _governanceMeeting The governance meeting address
+  function setGovernanceMeeting(address _governanceMeeting) external {
+    if (governanceMeeting != address(0)) revert CircleRegistry_Unauthorized();
+    if (msg.sender != deployer) revert CircleRegistry_Unauthorized();
+    governanceMeeting = _governanceMeeting;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -329,7 +340,10 @@ contract CircleRegistry is ICircleRegistry {
     HolacracyTypes.ElectedRole _electedRole,
     address _account
   ) external circleExists(_circleId) {
-    if (msg.sender != governanceProcess && !_isCircleLead[_circleId][msg.sender]) {
+    if (
+      msg.sender != governanceProcess && msg.sender != governanceMeeting
+        && !_isCircleLead[_circleId][msg.sender]
+    ) {
       revert CircleRegistry_Unauthorized();
     }
 

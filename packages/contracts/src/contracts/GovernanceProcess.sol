@@ -57,6 +57,9 @@ contract GovernanceProcess is IGovernanceProcess {
   /// @notice Circle ID => proposal IDs
   mapping(uint256 => uint256[]) internal _circleProposals;
 
+  /// @notice The governance meeting contract (authorized to submit/adopt on behalf of participants)
+  address public governanceMeeting;
+
   /// @notice Whether the contract has been initialized
   bool internal _initialized;
 
@@ -306,6 +309,72 @@ contract GovernanceProcess is IGovernanceProcess {
     _proposal.resolvedAt = block.timestamp;
 
     emit ProposalWithdrawn(_proposalId);
+  }
+
+  /// @notice Sets the governance meeting contract (can only be set once)
+  /// @param _governanceMeeting The governance meeting address
+  function setGovernanceMeeting(address _governanceMeeting) external {
+    if (governanceMeeting != address(0)) revert GovernanceProcess_DAOAlreadySet();
+    governanceMeeting = _governanceMeeting;
+  }
+
+  /// @notice Submits and activates a proposal on behalf of a meeting participant
+  /// @dev Only callable by the governance meeting contract. Skips circle member check
+  ///      (meeting contract has already verified participation) and sets status to Active directly.
+  function submitProposalFromMeeting(
+    address _proposer,
+    uint256 _circleId,
+    uint256 _proposerRoleId,
+    string calldata _tension,
+    string calldata _example,
+    string calldata _explanation,
+    HolacracyTypes.GovernanceChange calldata _change
+  ) external returns (uint256 _proposalId) {
+    if (msg.sender != governanceMeeting) revert GovernanceProcess_NotFacilitator(0);
+    if (bytes(_tension).length == 0) revert GovernanceProcess_EmptyTension();
+
+    _proposalId = ++_proposalCounter;
+
+    HolacracyTypes.Proposal storage _proposal = _proposals[_proposalId];
+    _proposal.id = _proposalId;
+    _proposal.circleId = _circleId;
+    _proposal.proposer = _proposer;
+    _proposal.proposerRoleId = _proposerRoleId;
+    _proposal.tension = _tension;
+    _proposal.example = _example;
+    _proposal.explanation = _explanation;
+    _proposal.change = _change;
+    _proposal.status = HolacracyTypes.ProposalStatus.Active;
+    _proposal.createdAt = block.timestamp;
+
+    _circleProposals[_circleId].push(_proposalId);
+
+    emit ProposalSubmitted(_proposalId, _circleId, _proposer);
+    emit ProposalActivated(_proposalId);
+  }
+
+  /// @notice Adopts a proposal on behalf of the governance meeting
+  /// @dev Only callable by the governance meeting contract. Skips facilitator check
+  ///      (meeting contract enforces its own IDM step validation).
+  function adoptProposalFromMeeting(uint256 _proposalId) external {
+    if (msg.sender != governanceMeeting) revert GovernanceProcess_NotFacilitator(0);
+
+    HolacracyTypes.Proposal storage _proposal = _proposals[_proposalId];
+    if (_proposal.id == 0) revert GovernanceProcess_ProposalNotFound(_proposalId);
+    if (_proposal.status != HolacracyTypes.ProposalStatus.Active) {
+      revert GovernanceProcess_InvalidProposalStatus(_proposalId, HolacracyTypes.ProposalStatus.Active);
+    }
+
+    if (!_allObjectionsResolved(_proposalId)) {
+      revert GovernanceProcess_UnresolvedObjections(_proposalId);
+    }
+
+    _proposal.status = HolacracyTypes.ProposalStatus.Adopted;
+    _proposal.resolvedAt = block.timestamp;
+
+    _executeChange(_proposal.circleId, _proposal.change);
+
+    emit ProposalAdopted(_proposalId);
   }
 
   /// @inheritdoc IGovernanceProcess

@@ -62,6 +62,51 @@ library HolacracyTypes {
     RoleEncrypted
   }
 
+  /// @notice Status of a governance meeting
+  enum MeetingStatus {
+    Scheduled,
+    CheckIn,
+    AgendaBuilding,
+    Processing,
+    Closing,
+    Completed,
+    Cancelled
+  }
+
+  /// @notice Type of agenda item in a governance meeting
+  enum AgendaItemType {
+    Proposal,
+    Election
+  }
+
+  /// @notice Processing step within Integrative Decision-Making
+  enum IDMStep {
+    PresentProposal,
+    ClarifyingQuestions,
+    ReactionRound,
+    ClarifyOption,
+    ObjectionRound,
+    Integration
+  }
+
+  /// @notice Processing step within Integrative Election
+  enum ElectionStep {
+    DescribeRole,
+    Nominate,
+    NominationSharing,
+    NominationChange,
+    MakeProposal,
+    ObjectionRound
+  }
+
+  /// @notice Status of an agenda item
+  enum AgendaItemStatus {
+    Pending,
+    Active,
+    Completed,
+    Dropped
+  }
+
   /*///////////////////////////////////////////////////////////////
                             STRUCTS
   //////////////////////////////////////////////////////////////*/
@@ -134,6 +179,7 @@ library HolacracyTypes {
     address roleRegistry;
     address circleRegistry;
     address governanceProcess;
+    address governanceMeeting;
     address accessManager;
     uint256 anchorCircleId;
     uint256 createdAt;
@@ -143,6 +189,52 @@ library HolacracyTypes {
     address timelock;
     // Anchor circle treasury
     address treasury;
+  }
+
+  /// @notice A governance meeting (§5.4)
+  struct GovernanceMeeting {
+    uint256 id;
+    uint256 circleId;
+    address scheduledBy;
+    bool isSpecial;
+    address requester;
+    MeetingStatus status;
+    uint256 scheduledAt;
+    uint256 startedAt;
+    uint256 completedAt;
+    uint256 duration;
+  }
+
+  /// @notice An agenda item in a governance meeting
+  struct GovernanceAgendaItem {
+    uint256 id;
+    uint256 meetingId;
+    address owner;
+    string label;
+    AgendaItemType itemType;
+    AgendaItemStatus status;
+    uint256 proposalId;
+    ElectedRole electedRole;
+    uint256 electionTerm;
+  }
+
+  /// @notice Election state during a meeting (§5.3.5)
+  struct MeetingElection {
+    uint256 agendaItemId;
+    uint256 circleId;
+    ElectedRole targetRole;
+    uint256 term;
+    ElectionStep currentStep;
+    address proposedCandidate;
+    bool completed;
+  }
+
+  /// @notice A nomination in an integrative election
+  struct Nomination {
+    address nominator;
+    address candidate;
+    bool changed;
+    address changedTo;
   }
 
   /// @notice An objection raised against a proposal
