@@ -408,4 +408,18 @@ contract UnitOrganizationFactory is Test {
     // it sets deployer correctly
     assertEq(_cr.deployer(), _creator1);
   }
+
+  function test_GovernanceProcessDAOLinkedCorrectly() external {
+    vm.prank(_creator1);
+    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultGovConfig());
+    HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
+
+    GovernanceProcess _gp = GovernanceProcess(_org.governanceProcess);
+
+    // it links daoGovernor on the governance process to the deployed governor
+    assertEq(_gp.daoGovernor(), _org.governor);
+
+    // it links timelockController on the governance process to the deployed timelock
+    assertEq(_gp.timelockController(), _org.timelock);
+  }
 }

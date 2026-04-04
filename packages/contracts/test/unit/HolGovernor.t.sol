@@ -172,6 +172,7 @@ contract UnitHolGovernor is Test {
     // Transfer half the supply to deployer so they can vote against
     uint256 half = _token.balanceOf(_voter) / 2;
     vm.startPrank(_voter);
+    // solhint-disable-next-line reentrancy
     _token.transfer(_deployer, half);
     vm.stopPrank();
 
@@ -182,6 +183,7 @@ contract UnitHolGovernor is Test {
     vm.roll(block.number + 1);
 
     vm.prank(_voter);
+    // solhint-disable-next-line reentrancy
     _proposalId = _governor.propose(_targets, _values, _calldatas, _description);
 
     _rollToActive();

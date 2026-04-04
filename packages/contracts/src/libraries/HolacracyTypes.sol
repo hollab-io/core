@@ -18,7 +18,8 @@ library HolacracyTypes {
     Integrating,
     Adopted,
     Withdrawn,
-    Discarded
+    Discarded,
+    Escalated
   }
 
   /// @notice Status of an objection to a proposal

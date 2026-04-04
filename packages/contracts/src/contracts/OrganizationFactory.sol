@@ -111,6 +111,10 @@ contract OrganizationFactory is IOrganizationFactory {
     // ENS registration is handled below, so subdomain is left empty here.
     HolGovernorFactory.Deployment memory _gov = GOV_FACTORY.deploy(_buildGovDeploymentConfig(_subname, _govConfig));
 
+    // Link the DAO governor and timelock to the holacracy governance process so that
+    // circle proposals can be escalated to a DAO vote via escalateToDAO().
+    _governanceProcess.setDAOGovernor(_gov.governor, _gov.timelock);
+
     // Register ENS subname — the subdomain resolves to the governor address.
     ENS_REGISTRAR.registerSubnode(keccak256(bytes(_subname)), _gov.governor);
 
