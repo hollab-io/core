@@ -8,6 +8,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 COPY apps/hollab-indexing/package.json  ./apps/hollab-indexing/
 COPY packages/contracts/package.json      ./packages/contracts/
+# generated/index.ts must exist before pnpm install so the workspace symlink
+# for @hollab-io/contracts/actions resolves correctly at install time.
+COPY packages/contracts/generated/        ./packages/contracts/generated/
 COPY packages/hollab-sdk/package.json     ./packages/hollab-sdk/
 COPY packages/viem-extension/package.json ./packages/viem-extension/
 
@@ -24,9 +27,8 @@ COPY apps/hollab-indexing/ponder.config.ts  ./apps/hollab-indexing/
 COPY apps/hollab-indexing/ponder.schema.ts  ./apps/hollab-indexing/
 COPY apps/hollab-indexing/package.json      ./apps/hollab-indexing/
 COPY apps/hollab-indexing/tsconfig.json     ./apps/hollab-indexing/
-# @hollab-io/contracts exports ./generated/index.ts — must be present at runtime
-COPY packages/contracts/package.json    ./packages/contracts/
-COPY packages/contracts/generated/      ./packages/contracts/generated/
+# contracts package (with generated ABIs) is copied from indexing-deps
+COPY --from=indexing-deps /app/packages/contracts ./packages/contracts
 
 WORKDIR /app/apps/hollab-indexing
 EXPOSE 42069
