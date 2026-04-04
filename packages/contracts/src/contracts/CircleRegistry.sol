@@ -521,6 +521,58 @@ contract CircleRegistry is ICircleRegistry {
   }
 
   /*///////////////////////////////////////////////////////////////
+                        ORG MEMBERS
+  //////////////////////////////////////////////////////////////*/
+
+  /// @inheritdoc ICircleRegistry
+  function addOrgMember(address _member) external {
+    if (msg.sender != deployer) revert CircleRegistry_Unauthorized();
+    _addOrgMember(_member);
+  }
+
+  /// @inheritdoc ICircleRegistry
+  function addOrgMembers(address[] calldata _members) external {
+    if (msg.sender != deployer) revert CircleRegistry_Unauthorized();
+    for (uint256 _i; _i < _members.length; ++_i) {
+      _addOrgMember(_members[_i]);
+    }
+  }
+
+  /// @inheritdoc ICircleRegistry
+  function removeOrgMember(address _member) external {
+    if (msg.sender != deployer) revert CircleRegistry_Unauthorized();
+
+    uint256 _anchor = _anchorCircleId;
+    if (!_isCircleLead[_anchor][_member]) {
+      revert CircleRegistry_NotACircleLead(_anchor, _member);
+    }
+
+    _isCircleLead[_anchor][_member] = false;
+
+    address[] storage _leads = _circleLeads[_anchor];
+    for (uint256 _i; _i < _leads.length; ++_i) {
+      if (_leads[_i] == _member) {
+        _leads[_i] = _leads[_leads.length - 1];
+        _leads.pop();
+        break;
+      }
+    }
+
+    emit CircleLeadRemoved(_anchor, _member);
+    emit OrgMemberRemoved(_member);
+  }
+
+  /// @inheritdoc ICircleRegistry
+  function getOrgMembers() external view returns (address[] memory _members) {
+    _members = _circleLeads[_anchorCircleId];
+  }
+
+  /// @inheritdoc ICircleRegistry
+  function isOrgMember(address _account) external view returns (bool _isMember) {
+    _isMember = _isCircleLead[_anchorCircleId][_account];
+  }
+
+  /*///////////////////////////////////////////////////////////////
                             INTERNAL
   //////////////////////////////////////////////////////////////*/
 
@@ -545,5 +597,19 @@ contract CircleRegistry is ICircleRegistry {
     if (_role.circleId != _circleId) {
       revert CircleRegistry_RoleNotInCircle(_roleId, _circleId);
     }
+  }
+
+  /// @notice Adds a member to the anchor circle as circle lead
+  function _addOrgMember(address _member) internal {
+    uint256 _anchor = _anchorCircleId;
+    if (_isCircleLead[_anchor][_member]) {
+      revert CircleRegistry_AlreadyCircleLead(_anchor, _member);
+    }
+
+    _isCircleLead[_anchor][_member] = true;
+    _circleLeads[_anchor].push(_member);
+
+    emit CircleLeadAdded(_anchor, _member);
+    emit OrgMemberAdded(_member);
   }
 }

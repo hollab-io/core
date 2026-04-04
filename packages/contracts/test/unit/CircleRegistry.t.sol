@@ -687,6 +687,8 @@ contract UnitCircleRegistry is Test {
                     TRANSFER DEPLOYER
   //////////////////////////////////////////////////////////////*/
 
+  event OrgMemberAdded(address indexed _member);
+  event OrgMemberRemoved(address indexed _member);
   event DeployerTransferProposed(address indexed _pendingDeployer);
   event DeployerTransferred(address indexed _oldDeployer, address indexed _newDeployer);
 
@@ -774,5 +776,122 @@ contract UnitCircleRegistry is Test {
     vm.prank(_newDeployer);
     _circleRegistry.addCircleLead(_anchorId, _stranger);
     assertTrue(_circleRegistry.isCircleLead(_anchorId, _stranger));
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                        ORG MEMBERS
+  //////////////////////////////////////////////////////////////*/
+
+  function test_AddOrgMemberWhenDeployer() external {
+    _createAnchorCircle();
+
+    vm.prank(_deployer);
+
+    // it emits OrgMemberAdded
+    vm.expectEmit(true, false, false, false, address(_circleRegistry));
+    emit OrgMemberAdded(_lead1);
+
+    _circleRegistry.addOrgMember(_lead1);
+
+    // it adds the member as anchor circle lead
+    assertTrue(_circleRegistry.isOrgMember(_lead1));
+    assertTrue(_circleRegistry.isCircleLead(_circleRegistry.anchorCircleId(), _lead1));
+  }
+
+  function test_AddOrgMemberWhenNotDeployer() external {
+    _createAnchorCircle();
+
+    vm.prank(_stranger);
+    // it reverts
+    vm.expectRevert(ICircleRegistry.CircleRegistry_Unauthorized.selector);
+    _circleRegistry.addOrgMember(_lead1);
+  }
+
+  function test_AddOrgMemberWhenAlreadyMember() external {
+    uint256 _anchorId = _createAnchorCircle();
+
+    vm.prank(_deployer);
+    // it reverts — deployer is already a member
+    vm.expectRevert(
+      abi.encodeWithSelector(ICircleRegistry.CircleRegistry_AlreadyCircleLead.selector, _anchorId, _deployer)
+    );
+    _circleRegistry.addOrgMember(_deployer);
+  }
+
+  function test_AddOrgMembersBatch() external {
+    _createAnchorCircle();
+
+    address[] memory _members = new address[](2);
+    _members[0] = _lead1;
+    _members[1] = _lead2;
+
+    vm.prank(_deployer);
+    _circleRegistry.addOrgMembers(_members);
+
+    // it adds all members
+    assertTrue(_circleRegistry.isOrgMember(_lead1));
+    assertTrue(_circleRegistry.isOrgMember(_lead2));
+
+    address[] memory _orgMembers = _circleRegistry.getOrgMembers();
+    assertEq(_orgMembers.length, 3); // deployer + lead1 + lead2
+  }
+
+  function test_RemoveOrgMember() external {
+    _createAnchorCircle();
+
+    vm.prank(_deployer);
+    _circleRegistry.addOrgMember(_lead1);
+
+    vm.prank(_deployer);
+
+    // it emits OrgMemberRemoved
+    vm.expectEmit(true, false, false, false, address(_circleRegistry));
+    emit OrgMemberRemoved(_lead1);
+
+    _circleRegistry.removeOrgMember(_lead1);
+
+    // it removes the member
+    assertFalse(_circleRegistry.isOrgMember(_lead1));
+  }
+
+  function test_RemoveOrgMemberWhenNotDeployer() external {
+    _createAnchorCircle();
+
+    vm.prank(_deployer);
+    _circleRegistry.addOrgMember(_lead1);
+
+    vm.prank(_stranger);
+    // it reverts
+    vm.expectRevert(ICircleRegistry.CircleRegistry_Unauthorized.selector);
+    _circleRegistry.removeOrgMember(_lead1);
+  }
+
+  function test_GetOrgMembers() external {
+    _createAnchorCircle();
+
+    vm.startPrank(_deployer);
+    _circleRegistry.addOrgMember(_lead1);
+    _circleRegistry.addOrgMember(_lead2);
+    vm.stopPrank();
+
+    address[] memory _members = _circleRegistry.getOrgMembers();
+    assertEq(_members.length, 3);
+    assertEq(_members[0], _deployer);
+    assertEq(_members[1], _lead1);
+    assertEq(_members[2], _lead2);
+  }
+
+  function test_IsOrgMember() external {
+    _createAnchorCircle();
+
+    // deployer is a member
+    assertTrue(_circleRegistry.isOrgMember(_deployer));
+    // stranger is not
+    assertFalse(_circleRegistry.isOrgMember(_stranger));
+
+    vm.prank(_deployer);
+    _circleRegistry.addOrgMember(_lead1);
+
+    assertTrue(_circleRegistry.isOrgMember(_lead1));
   }
 }
