@@ -17,8 +17,7 @@ interface ICircleRegistry {
 
   /// @notice Emitted when the anchor circle is created
   /// @param _circleId The ID of the anchor circle
-  /// @param _name The name of the organization
-  event AnchorCircleCreated(uint256 indexed _circleId, string _name);
+  event AnchorCircleCreated(uint256 indexed _circleId);
 
   /// @notice Emitted when a sub-circle is created
   /// @param _circleId The ID of the new sub-circle
@@ -203,10 +202,9 @@ interface ICircleRegistry {
   //////////////////////////////////////////////////////////////*/
 
   /// @notice Creates the anchor circle (organization root)
-  /// @param _name The organization name
   /// @param _purpose The organization purpose
   /// @return _circleId The anchor circle ID
-  function createAnchorCircle(string calldata _name, string calldata _purpose) external returns (uint256 _circleId);
+  function createAnchorCircle(string calldata _purpose) external returns (uint256 _circleId);
 
   /// @notice Breaks down a role into a sub-circle
   /// @dev Only callable by a circle lead of the circle containing the role

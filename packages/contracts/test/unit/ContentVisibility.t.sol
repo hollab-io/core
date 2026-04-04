@@ -48,7 +48,7 @@ contract UnitContentVisibility is Test {
     vm.startPrank(_deployer);
     _circleRegistry.initialize(_roleRegistry, _deployer, address(_governance));
 
-    _anchorCircleId = _circleRegistry.createAnchorCircle('HolLab', 'Build tools');
+    _anchorCircleId = _circleRegistry.createAnchorCircle('Build tools');
     _role1Id =
       _circleRegistry.createRoleInCircle(_anchorCircleId, 'Dev', 'Develop', _domains, _accountabilities);
     _circleRegistry.assignRoleLeadInCircle(_anchorCircleId, _role1Id, _member1);

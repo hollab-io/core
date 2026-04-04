@@ -37,7 +37,6 @@ export function decodeCircleRegistryEvent(log: DecodedLog): CircleChange | null 
                 ...base,
                 type: "AnchorCircleCreated",
                 circleId: args._circleId as bigint,
-                name: args._name as string,
             };
         case "SubCircleCreated":
             return {
