@@ -17,7 +17,8 @@
         "jsx": "react-jsx",
         "baseUrl": ".",
         "paths": {
-            "@hollab-io/viem-extension": ["../../packages/viem-extension/src/index.ts"]
+            "@hollab-io/viem-extension": ["../../packages/viem-extension/src/index.ts"],
+            "@hollab-io/indexing-client": ["../../packages/indexing-client/src/index.ts"]
         },
 
         /* Linting */

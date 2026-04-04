@@ -98,6 +98,15 @@ export const LIST_ORGANIZATIONS = `
     }
 `;
 
+export const LIST_ORGANIZATIONS_BY_CREATOR = `
+    query ListOrganizationsByCreator($creator: String!, $limit: Int, $after: String, $before: String) {
+        organizations(where: { creator: $creator }, limit: $limit, after: $after, before: $before, orderBy: "createdAt", orderDirection: "desc") {
+            items { ${ORGANIZATION_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
 export const LIST_CIRCLES_BY_ORG = `
     query ListCirclesByOrg($orgId: String!, $limit: Int, $after: String, $before: String) {
         circles(where: { orgId: $orgId }, limit: $limit, after: $after, before: $before) {

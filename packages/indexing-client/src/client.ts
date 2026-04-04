@@ -25,6 +25,7 @@ import {
     LIST_DEPOSITS_BY_TREASURY,
     LIST_OBJECTIONS_BY_PROPOSAL,
     LIST_ORGANIZATIONS,
+    LIST_ORGANIZATIONS_BY_CREATOR,
     LIST_POLICIES_BY_CIRCLE,
     LIST_PROPOSALS_BY_CIRCLE,
     LIST_ROLES_BY_CIRCLE,
@@ -50,6 +51,17 @@ export function createIndexingClient(url: string) {
             const data = await gql.request<{ organizations: PaginatedResult<Organization> }>(
                 LIST_ORGANIZATIONS,
                 opts,
+            );
+            return data.organizations;
+        },
+
+        async listOrganizationsByCreator(
+            creator: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<Organization>> {
+            const data = await gql.request<{ organizations: PaginatedResult<Organization> }>(
+                LIST_ORGANIZATIONS_BY_CREATOR,
+                { creator: creator.toLowerCase(), ...opts },
             );
             return data.organizations;
         },

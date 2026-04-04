@@ -15,6 +15,10 @@ export default defineConfig({
                 __dirname,
                 "../../packages/viem-extension/src/index.ts",
             ),
+            "@hollab-io/indexing-client": path.resolve(
+                __dirname,
+                "../../packages/indexing-client/src/index.ts",
+            ),
         },
     },
 });

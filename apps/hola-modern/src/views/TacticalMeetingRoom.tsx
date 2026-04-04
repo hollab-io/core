@@ -130,7 +130,7 @@ export default function TacticalMeetingRoom({
         setNewProjectTitle("");
         setNewProjectRoleId("");
         closeMeeting();
-        onNavigateToTab("projects");
+        onNavigateToTab("actions");
     }, [
         activeMeeting,
         newProjectTitle,
@@ -563,7 +563,7 @@ export default function TacticalMeetingRoom({
                                                 type="button"
                                                 onClick={() => {
                                                     closeMeeting();
-                                                    onNavigateToTab("calendar");
+                                                    onNavigateToTab("actions");
                                                 }}
                                                 className="flex w-full items-center justify-between rounded-2xl border border-slate-800 bg-[#131c2d] px-4 py-4 text-left transition-colors hover:border-slate-700 hover:bg-[#172133]"
                                             >
@@ -609,7 +609,7 @@ export default function TacticalMeetingRoom({
                                                 type="button"
                                                 onClick={() => {
                                                     closeMeeting();
-                                                    onNavigateToTab("projects");
+                                                    onNavigateToTab("actions");
                                                 }}
                                                 className="flex w-full items-center justify-between rounded-2xl border border-slate-800 bg-[#131c2d] px-4 py-4 text-left transition-colors hover:border-slate-700 hover:bg-[#172133]"
                                             >

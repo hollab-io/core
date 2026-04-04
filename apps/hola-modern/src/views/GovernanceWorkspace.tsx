@@ -13,9 +13,6 @@ import { useMemo, useState } from "react";
 
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
-type GovernanceWorkspaceProps = {
-    searchQuery: string;
-};
 
 type ProposalFormState = {
     circleId: string;
@@ -137,7 +134,8 @@ function buildEmptyObjectionForm(objectorRoleId: string): ObjectionFormState {
     };
 }
 
-export default function GovernanceWorkspace({ searchQuery }: GovernanceWorkspaceProps) {
+export default function GovernanceWorkspace() {
+    const searchQuery = "";
     const {
         activateGovernanceProposal,
         adoptGovernanceProposal,
