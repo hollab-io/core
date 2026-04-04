@@ -14,7 +14,7 @@ import {
     Sparkles,
     Target,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { AppTabId } from "../config/navigation";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
@@ -756,6 +756,8 @@ export default function OKRsTree({ onNavigateToTab, view }: OKRsTreeProps) {
     const [selectedObjectiveId, setSelectedObjectiveId] = useState<string | null>(null);
     const [selectedHierarchyNodeId, setSelectedHierarchyNodeId] = useState<string | null>(null);
     const [areHierarchyBranchesExpanded, setAreHierarchyBranchesExpanded] = useState(true);
+    const detailPanelRef = useRef<HTMLElement | null>(null);
+    const shouldRevealDetailsRef = useRef(false);
 
     const quarters = useMemo(() => createQuarterWindow(new Date(), timelineShift), [timelineShift]);
 
@@ -1110,6 +1112,30 @@ export default function OKRsTree({ onNavigateToTab, view }: OKRsTreeProps) {
             .filter(Boolean) as string[];
     }, [meetingMap, selectedDetails]);
 
+    useEffect(() => {
+        if (!selectedDetails || !shouldRevealDetailsRef.current) {
+            return;
+        }
+
+        shouldRevealDetailsRef.current = false;
+        requestAnimationFrame(() => {
+            detailPanelRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+        });
+    }, [selectedDetails]);
+
+    const handleObjectiveSelect = (objectiveId: string) => {
+        shouldRevealDetailsRef.current = true;
+        setSelectedObjectiveId(objectiveId);
+    };
+
+    const handleHierarchyNodeSelect = (nodeId: string) => {
+        shouldRevealDetailsRef.current = true;
+        setSelectedHierarchyNodeId(nodeId);
+    };
+
     return (
         <section className="mx-auto flex h-full w-full max-w-[1720px] flex-col gap-6 py-4">
             {view === "timeframe" ? (
@@ -1316,7 +1342,7 @@ export default function OKRsTree({ onNavigateToTab, view }: OKRsTreeProps) {
                                                             selectedDetails?.id === objective.id
                                                         }
                                                         onSelect={() =>
-                                                            setSelectedObjectiveId(objective.id)
+                                                            handleObjectiveSelect(objective.id)
                                                         }
                                                     />
                                                 ))}
@@ -1432,7 +1458,7 @@ export default function OKRsTree({ onNavigateToTab, view }: OKRsTreeProps) {
                                         key={node.id}
                                         isSelected={selectedDetails?.id === node.id}
                                         node={node}
-                                        onSelect={() => setSelectedHierarchyNodeId(node.id)}
+                                        onSelect={() => handleHierarchyNodeSelect(node.id)}
                                     />
                                 ))}
                             </div>
@@ -1441,7 +1467,10 @@ export default function OKRsTree({ onNavigateToTab, view }: OKRsTreeProps) {
                 </div>
             )}
 
-            <section className="rounded-[32px] border border-slate-200 bg-white px-6 py-6 shadow-sm sm:px-8">
+            <section
+                ref={detailPanelRef}
+                className="rounded-[32px] border border-slate-200 bg-white px-6 py-6 shadow-sm sm:px-8"
+            >
                 {selectedDetails ? (
                     <div className="grid gap-6 xl:grid-cols-[1.1fr_1fr_0.85fr]">
                         <div>
