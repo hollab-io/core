@@ -1,18 +1,35 @@
-# viem-extension
+# ts-turborepo-boilerplate: viem-extension package
 
-Integration-ready TypeScript layer for the `hola-modern` frontend.
+Description of your package goes here.
 
-This package is intentionally lightweight for now:
+## Setup
 
--   it defines shared organizational domain types;
--   it exposes a mock workspace snapshot used by the frontend;
--   it gives the app one import boundary that can later be replaced with real
-    viem-based contract reads and writes without redesigning the UI layer.
+1. Install dependencies running `pnpm install`
 
-Planned responsibilities:
+## Available Scripts
 
--   contract addresses and chain configuration;
--   ABI exports and typed read helpers;
--   normalization from contract structs into app-friendly records;
--   event decoding and query helpers;
--   write helpers for governance and organization actions.
+Available scripts that can be run using `pnpm`:
+
+| Script        | Description                                             |
+| ------------- | ------------------------------------------------------- |
+| `build`       | Build library using tsc                                 |
+| `check-types` | Check types issues using tsc                            |
+| `clean`       | Remove `dist` folder                                    |
+| `lint`        | Run ESLint to check for coding standards                |
+| `lint:fix`    | Run linter and automatically fix code formatting issues |
+| `format`      | Check code formatting and style using Prettier          |
+| `format:fix`  | Run formatter and automatically fix issues              |
+| `test`        | Run tests using vitest                                  |
+| `test:cov`    | Run tests with coverage report                          |
+
+## Usage
+
+Describe how to use your package here.
+
+## API
+
+Describe your package's API here.
+
+## References
+
+Add any relevant references here.

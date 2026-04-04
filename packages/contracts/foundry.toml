@@ -9,9 +9,11 @@ multiline_func_header = 'params_first'
 sort_imports = true
 
 [profile.default]
-solc_version = '0.8.23'
+solc_version = '0.8.28'
 libs = ['node_modules', 'lib']
-optimizer=false
+optimizer = true
+optimizer_runs = 200
+via_ir = true
 src = "src"
 out = "out"
 # This translates to `solc --allow-paths node_modules`

@@ -28,6 +28,7 @@ yarn-error.log*
 
 # Misc
 .DS_Store
+.env
 *.pem
 
 coverage
@@ -38,6 +39,7 @@ coverage
 # Foundry
 contracts/out
 contracts/cache
+broadcast/
 
 # Temporary files
 .tmp
