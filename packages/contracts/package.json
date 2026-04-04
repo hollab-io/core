@@ -16,7 +16,11 @@
     "scripts": {
         "build": "command -v forge >/dev/null 2>&1 && forge build || echo 'forge not found, skipping contracts build'",
         "clean": "rm -rf out && rm -rf cache",
-        "deploy:local": "forge script script/DeployLocal.s.sol --tc DeployLocal --rpc-url http://127.0.0.1:8545 --broadcast -vvv",
+        "deploy:infra:mainnet": "forge script script/DeployInfrastructure.s.sol --tc DeployInfrastructure --rpc-url mainnet --account deployer-ethglo --broadcast --verify --slow -vvvv",
+        "deploy:infra:sepolia": "forge script script/DeployInfrastructure.s.sol --tc DeployInfrastructure --rpc-url sepolia --account deployer-ethglo --broadcast --verify --slow -vvvv",
+        "deploy:local": "forge script script/DeployLocal.s.sol --tc DeployLocal --rpc-url localhost --broadcast -vvv",
+        "deploy:org:mainnet": "forge script script/CreateOrganization.s.sol --rpc-url mainnet --account deployer-ethglo --broadcast --verify --slow -vvvv",
+        "deploy:org:sepolia": "forge script script/CreateOrganization.s.sol --rpc-url sepolia --account deployer-ethglo --broadcast --verify --slow -vvvv",
         "generate": "wagmi generate",
         "lint": "forge fmt",
         "lint:fix": "forge fmt && pnpm lint:sol-tests --fix && pnpm lint:sol-logic --fix",

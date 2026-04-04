@@ -10,13 +10,31 @@ sort_imports = true
 
 [profile.default]
 solc_version = '0.8.28'
+auto_detect_solc = false
+evm_version = 'cancun'
 libs = ['node_modules', 'lib']
 optimizer = true
 optimizer_runs = 200
 via_ir = true
 src = "src"
 out = "out"
+# Strip metadata hash for deterministic bytecode across environments
+bytecode_hash = 'none'
+cbor_metadata = false
 # This translates to `solc --allow-paths node_modules`
 allow_paths = ["node_modules"]
+# Allow scripts to write deployment artifacts
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
+# ── RPC endpoints ────────────────────────────────────────────────────────────
+[rpc_endpoints]
+localhost = "http://127.0.0.1:8545"
+mainnet = "${ETH_MAINNET_RPC_URL}"
+sepolia = "${ETH_SEPOLIA_RPC_URL}"
+
+# ── Etherscan verification ───────────────────────────────────────────────────
+[etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}", chain = 1 }
+sepolia = { key = "${ETHERSCAN_API_KEY}", chain = 11155111 }

@@ -42,7 +42,7 @@
         "@typescript-eslint/parser": "7.18.0",
         "@vitest/coverage-v8": "2.1.9",
         "commitlint": "19.4.1",
-        "eslint": "8.56.0",
+        "eslint": "8.57.1",
         "eslint-config-prettier": "9.1.0",
         "eslint-plugin-prettier": "5.2.1",
         "husky": "9.1.5",
@@ -56,5 +56,17 @@
     "packageManager": "pnpm@9.7.1+sha256.46f1bbc8f8020aa9869568c387198f1a813f21fb44c82f400e7d1dbde6c70b40",
     "engines": {
         "node": "24"
+    },
+    "pnpm": {
+        "peerDependencyRules": {
+            "allowedVersions": {
+                "react": "19",
+                "utf-8-validate": "6",
+                "zod": "4"
+            }
+        },
+        "overrides": {
+            "use-sync-external-store": "1.4.0"
+        }
     }
 }
