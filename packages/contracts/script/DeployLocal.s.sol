@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {Script, console} from 'forge-std/Script.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {CircleTreasury} from 'contracts/CircleTreasury.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {CircleRegistry} from 'contracts/CircleRegistry.sol';
 import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
@@ -73,6 +74,10 @@ contract DeployLocal is Script {
     // 4. Create a sample organization
     uint256 orgId = factory.createOrganization('demo', 'A demo Holacracy organization');
 
+    // 5. Deploy a CircleTreasury for the anchor circle (1 day delay)
+    HolacracyTypes.Organization memory org = factory.getOrganization(orgId);
+    CircleTreasury treasury = new CircleTreasury(CircleRegistry(org.circleRegistry), org.anchorCircleId, 1 days);
+
     vm.stopBroadcast();
 
     // Log addresses
@@ -87,12 +92,17 @@ contract DeployLocal is Script {
     console.log('');
     console.log('--- Sample Organization (id:', orgId, ') ---');
 
-    HolacracyTypes.Organization memory org = factory.getOrganization(orgId);
+    org = factory.getOrganization(orgId);
     console.log('Subname:              ', org.subname);
     console.log('Creator:              ', org.creator);
     console.log('RoleRegistry:         ', org.roleRegistry);
     console.log('CircleRegistry:       ', org.circleRegistry);
     console.log('GovernanceProcess:    ', org.governanceProcess);
+    console.log('AccessManager:        ', org.accessManager);
     console.log('Anchor Circle ID:     ', org.anchorCircleId);
+    console.log('');
+    console.log('--- Anchor Circle Treasury ---');
+    console.log('CircleTreasury:       ', address(treasury));
+    console.log('TimelockController:   ', address(treasury.TIMELOCK()));
   }
 }

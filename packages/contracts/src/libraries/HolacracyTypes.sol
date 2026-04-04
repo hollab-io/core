@@ -116,6 +116,7 @@ library HolacracyTypes {
     address roleRegistry;
     address circleRegistry;
     address governanceProcess;
+    address accessManager;
     uint256 anchorCircleId;
     uint256 createdAt;
   }
