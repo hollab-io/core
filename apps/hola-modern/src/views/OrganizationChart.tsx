@@ -1,7 +1,18 @@
 import type { FormEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Info, Plus, Sparkles, Users, X } from "lucide-react";
-import { useState } from "react";
+import {
+    CalendarDays,
+    CheckSquare,
+    Info,
+    KanbanSquare,
+    Plus,
+    Sparkles,
+    Users,
+    X,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 type BubbleType = "primary" | "secondary";
 type ComposerMode = "circle" | "role" | null;
@@ -95,6 +106,106 @@ const inputClassName =
     "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-[#3B82F6] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
 
 const textareaClassName = `${inputClassName} min-h-[110px] resize-y`;
+const CUSTOM_GROUPS_STORAGE_KEY = "hola-modern:org-chart:custom-groups";
+const CUSTOM_NODES_STORAGE_KEY = "hola-modern:org-chart:custom-nodes";
+const GROUP_TO_WORKSPACE_CIRCLE_ID: Record<string, string> = {
+    growth: "growth",
+    leadership: "leadership",
+    people: "people",
+    product: "product",
+};
+const NODE_TO_WORKSPACE_ROLE_ID: Record<string, string> = {
+    ceo: "ceo",
+    cto: "cto",
+    cs: "customer-services",
+    ee: "employee-experience",
+    growth: "growth-role",
+    product: "product-circle",
+    vision: "vision",
+};
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null;
+}
+
+function isValidPoint(value: unknown): value is {
+    x: number;
+    y: number;
+    r: number;
+} {
+    return (
+        isObjectRecord(value) &&
+        typeof value.x === "number" &&
+        typeof value.y === "number" &&
+        typeof value.r === "number"
+    );
+}
+
+function isValidGroupMeta(value: unknown): value is GroupMeta {
+    return (
+        isObjectRecord(value) &&
+        typeof value.id === "string" &&
+        typeof value.title === "string" &&
+        typeof value.accent === "string" &&
+        typeof value.description === "string" &&
+        isValidPoint(value.background) &&
+        isValidPoint(value.parking)
+    );
+}
+
+function isValidCircleNode(value: unknown): value is CircleNode {
+    return (
+        isObjectRecord(value) &&
+        typeof value.id === "string" &&
+        typeof value.title === "string" &&
+        typeof value.label === "string" &&
+        typeof value.x === "number" &&
+        typeof value.y === "number" &&
+        typeof value.r === "number" &&
+        (value.type === "primary" || value.type === "secondary") &&
+        typeof value.groupId === "string" &&
+        typeof value.summary === "string" &&
+        typeof value.cadence === "string" &&
+        Array.isArray(value.scope) &&
+        value.scope.every((item) => typeof item === "string") &&
+        Array.isArray(value.members) &&
+        value.members.every((item) => typeof item === "string")
+    );
+}
+
+function isValidGroupMetaArray(value: unknown): value is GroupMeta[] {
+    return Array.isArray(value) && value.every(isValidGroupMeta);
+}
+
+function isValidCircleNodeArray(value: unknown): value is CircleNode[] {
+    return Array.isArray(value) && value.every(isValidCircleNode);
+}
+
+function readPersistedItems<T>(storageKey: string, validator: (value: unknown) => value is T[]) {
+    if (typeof window === "undefined") {
+        return [];
+    }
+
+    try {
+        const rawValue = window.localStorage.getItem(storageKey);
+
+        if (!rawValue) {
+            return [];
+        }
+
+        const parsedValue: unknown = JSON.parse(rawValue);
+
+        return validator(parsedValue) ? parsedValue : [];
+    } catch {
+        return [];
+    }
+}
+
+function mergeById<T extends { id: string }>(baseItems: T[], customItems: T[]) {
+    const existingIds = new Set(baseItems.map((item) => item.id));
+
+    return [...baseItems, ...customItems.filter((item) => !existingIds.has(item.id))];
+}
 
 const initialGroups: GroupMeta[] = [
     {
@@ -925,8 +1036,13 @@ function ComposerActions({
 }
 
 export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: string }) {
-    const [groups, setGroups] = useState<GroupMeta[]>(initialGroups);
-    const [nodes, setNodes] = useState<CircleNode[]>(initialNodes);
+    const { snapshot, openMeeting } = useWorkspaceSnapshot();
+    const [customGroups, setCustomGroups] = useState<GroupMeta[]>(() =>
+        readPersistedItems(CUSTOM_GROUPS_STORAGE_KEY, isValidGroupMetaArray),
+    );
+    const [customNodes, setCustomNodes] = useState<CircleNode[]>(() =>
+        readPersistedItems(CUSTOM_NODES_STORAGE_KEY, isValidCircleNodeArray),
+    );
     const [selectedCircleId, setSelectedCircleId] = useState<string | null>(null);
     const [composerMode, setComposerMode] = useState<ComposerMode>(null);
     const [roleDraft, setRoleDraft] = useState<RoleDraft>({
@@ -946,6 +1062,23 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
         accent: ACCENT_PALETTE[0],
     });
 
+    const groups = mergeById(initialGroups, customGroups);
+    const nodes = mergeById(initialNodes, customNodes);
+
+    useEffect(() => {
+        window.localStorage.setItem(CUSTOM_GROUPS_STORAGE_KEY, JSON.stringify(customGroups));
+    }, [customGroups]);
+
+    useEffect(() => {
+        window.localStorage.setItem(CUSTOM_NODES_STORAGE_KEY, JSON.stringify(customNodes));
+    }, [customNodes]);
+
+    useEffect(() => {
+        if (selectedCircleId && !nodes.some((node) => node.id === selectedCircleId)) {
+            setSelectedCircleId(null);
+        }
+    }, [nodes, selectedCircleId]);
+
     const normalizedSearch = searchQuery.toLowerCase().trim();
     const selectedNode = nodes.find((node) => node.id === selectedCircleId) ?? null;
     const selectedGroup = selectedNode
@@ -955,6 +1088,44 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
         ? nodes.filter(
               (node) => node.groupId === selectedNode.groupId && node.id !== selectedNode.id,
           )
+        : [];
+    const workspaceCircleId = selectedGroup
+        ? (GROUP_TO_WORKSPACE_CIRCLE_ID[selectedGroup.id] ?? selectedGroup.id)
+        : null;
+    const workspaceRoleId = selectedNode
+        ? (NODE_TO_WORKSPACE_ROLE_ID[selectedNode.id] ?? null)
+        : null;
+    const relatedMeetings = selectedGroup
+        ? snapshot.meetings.filter((meeting) => {
+              const matchesCircle = workspaceCircleId
+                  ? meeting.circleId === workspaceCircleId
+                  : false;
+              const matchesRole = workspaceRoleId
+                  ? meeting.invitedRoleIds.includes(workspaceRoleId)
+                  : false;
+
+              return matchesCircle || matchesRole;
+          })
+        : [];
+    const relatedActions = selectedGroup
+        ? snapshot.actions.filter((action) => {
+              const matchesCircle = workspaceCircleId
+                  ? action.circleId === workspaceCircleId
+                  : false;
+              const matchesRole = workspaceRoleId ? action.roleId === workspaceRoleId : false;
+
+              return matchesCircle || matchesRole;
+          })
+        : [];
+    const relatedProjects = selectedGroup
+        ? snapshot.projects.filter((project) => {
+              const matchesCircle = workspaceCircleId
+                  ? project.circleId === workspaceCircleId
+                  : false;
+              const matchesRole = workspaceRoleId ? project.roleId === workspaceRoleId : false;
+
+              return matchesCircle || matchesRole;
+          })
         : [];
 
     const groupTitles = Object.fromEntries(groups.map((group) => [group.id, group.title]));
@@ -1020,7 +1191,7 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
             members: splitCommaList(roleDraft.members),
         };
 
-        setNodes((currentNodes) => [...currentNodes, newRole]);
+        setCustomNodes((currentNodes) => [...currentNodes, newRole]);
         setSelectedCircleId(newRole.id);
         setComposerMode(null);
         setRoleDraft({
@@ -1070,8 +1241,8 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
             parking: layout.parking,
         };
 
-        setGroups((currentGroups) => [...currentGroups, newGroup]);
-        setNodes((currentNodes) => [...currentNodes, primaryCircle]);
+        setCustomGroups((currentGroups) => [...currentGroups, newGroup]);
+        setCustomNodes((currentNodes) => [...currentNodes, primaryCircle]);
         setSelectedCircleId(primaryCircle.id);
         setComposerMode(null);
         setCircleDraft({
@@ -1361,6 +1532,92 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
                                             </div>
                                         )}
                                     </div>
+                                </div>
+
+                                <div className="mt-6 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
+                                    <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
+                                        <CalendarDays size={16} aria-hidden="true" />
+                                        Tactical meetings
+                                    </div>
+                                    <div className="mt-4 space-y-3">
+                                        {relatedMeetings.length > 0 ? (
+                                            relatedMeetings.slice(0, 3).map((meeting) => (
+                                                <button
+                                                    key={meeting.id}
+                                                    type="button"
+                                                    onClick={() => openMeeting(meeting.id)}
+                                                    className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500/30 dark:hover:bg-blue-500/10"
+                                                >
+                                                    <div>
+                                                        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
+                                                            {meeting.title}
+                                                        </div>
+                                                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                                            {meeting.meetingType} ·{" "}
+                                                            {meeting.location}
+                                                        </div>
+                                                    </div>
+                                                    <span
+                                                        className="h-3 w-3 rounded-full"
+                                                        style={{ backgroundColor: meeting.accent }}
+                                                    />
+                                                </button>
+                                            ))
+                                        ) : (
+                                            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                                                No linked meetings in the shared workspace yet.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                                    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
+                                        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
+                                            <CheckSquare size={16} aria-hidden="true" />
+                                            Live actions
+                                        </div>
+                                        <div className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-900 dark:text-slate-50">
+                                            {relatedActions.length}
+                                        </div>
+                                        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                                            Operational follow-ups currently tied to this circle or
+                                            role.
+                                        </p>
+                                    </div>
+                                    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
+                                        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
+                                            <KanbanSquare size={16} aria-hidden="true" />
+                                            Live projects
+                                        </div>
+                                        <div className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-900 dark:text-slate-50">
+                                            {relatedProjects.length}
+                                        </div>
+                                        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                                            Projects already connected to this workspace area.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 rounded-[28px] border border-blue-100 bg-blue-50/80 p-5 shadow-[0_18px_40px_rgba(37,99,235,0.08)] dark:border-blue-500/20 dark:bg-blue-500/10">
+                                    <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB] dark:text-blue-200">
+                                        <Sparkles size={16} aria-hidden="true" />
+                                        AI copilot
+                                    </div>
+                                    <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                        The next useful AI actions here are to summarize tensions,
+                                        prep the tactical agenda, and publish outputs into actions
+                                        or projects.
+                                    </p>
+                                    {relatedMeetings[0] && (
+                                        <button
+                                            type="button"
+                                            onClick={() => openMeeting(relatedMeetings[0].id)}
+                                            className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8]"
+                                        >
+                                            Open tactical workspace
+                                        </button>
+                                    )}
                                 </div>
                             </motion.div>
                         ) : (

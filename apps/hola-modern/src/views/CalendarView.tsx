@@ -19,7 +19,9 @@ import {
     Search,
     Settings,
 } from "lucide-react";
-import { useDeferredValue, useRef, useState } from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
+
+import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 type MeetingRecord = {
     id: string;
@@ -57,164 +59,10 @@ type MiniMonthDay = {
     isSelected: boolean;
 };
 
-const CALENDAR_GROUPS = [
-    {
-        title: "My calendars",
-        categories: ["Leadership", "Product", "Operations", "Company"],
-    },
-    {
-        title: "Other calendars",
-        categories: ["Research", "Growth", "Hiring", "People", "Holidays"],
-    },
-] as const;
-
 const VIEW_OPTIONS: Array<{ id: CalendarViewType; label: string }> = [
     { id: "dayGridMonth", label: "Month" },
     { id: "timeGridWeek", label: "Week" },
     { id: "listWeek", label: "Schedule" },
-];
-
-function formatDateKey(date: Date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
-        date.getDate(),
-    ).padStart(2, "0")}`;
-}
-
-function buildMeetingDate(
-    dayOffset: number,
-    hour: number,
-    minute: number,
-    durationMinutes: number,
-) {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() + dayOffset);
-    start.setHours(hour, minute, 0, 0);
-
-    const end = new Date(start);
-    end.setMinutes(end.getMinutes() + durationMinutes);
-
-    return {
-        start: start.toISOString(),
-        end: end.toISOString(),
-    };
-}
-
-function buildAllDayDate(dayOffset: number, durationDays = 1) {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() + dayOffset);
-
-    const end = new Date(start);
-    end.setDate(end.getDate() + durationDays);
-
-    return {
-        start: formatDateKey(start),
-        end: formatDateKey(end),
-        allDay: true as const,
-    };
-}
-
-const MEETINGS: MeetingRecord[] = [
-    {
-        id: "weekly-leadership-sync",
-        title: "Leadership Weekly Sync",
-        ...buildMeetingDate(0, 9, 30, 60),
-        location: "Prague HQ",
-        room: "Blue Room",
-        host: "Elena",
-        attendees: ["Elena", "Marcus", "Nina", "Paul"],
-        category: "Leadership",
-        accent: "#8AB4F8",
-    },
-    {
-        id: "product-roadmap-review",
-        title: "Product Roadmap Review",
-        ...buildMeetingDate(0, 13, 0, 90),
-        location: "Google Meet",
-        room: "meet.google.com/roadmap",
-        host: "Ava",
-        attendees: ["Ava", "Felix", "Jon", "Marta", "Tom"],
-        category: "Product",
-        accent: "#7BAAF7",
-    },
-    {
-        id: "customer-research-debrief",
-        title: "Customer Research Debrief",
-        ...buildMeetingDate(1, 11, 0, 45),
-        location: "Google Meet",
-        room: "meet.google.com/customer-lab",
-        host: "Sarah",
-        attendees: ["Sarah", "Bob", "Mila"],
-        category: "Research",
-        accent: "#5E97F6",
-    },
-    {
-        id: "easter-monday",
-        title: "Easter Monday",
-        ...buildAllDayDate(2),
-        location: "Czech Republic",
-        room: "Public holiday",
-        host: "Workspace",
-        attendees: ["All employees"],
-        category: "Holidays",
-        accent: "#81C995",
-    },
-    {
-        id: "okr-check-in",
-        title: "OKR Check-in",
-        ...buildMeetingDate(2, 10, 0, 60),
-        location: "Prague HQ",
-        room: "Strategy Lab",
-        host: "John",
-        attendees: ["John", "Paul", "Maria", "Anna"],
-        category: "Operations",
-        accent: "#669DF6",
-    },
-    {
-        id: "hiring-panel",
-        title: "Design Hiring Panel",
-        ...buildMeetingDate(2, 15, 30, 75),
-        location: "Zoom",
-        room: "zoom.us/j/design-panel",
-        host: "Clara",
-        attendees: ["Clara", "Nina", "Felix"],
-        category: "Hiring",
-        accent: "#AECBFA",
-    },
-    {
-        id: "all-hands",
-        title: "Company All-hands",
-        ...buildMeetingDate(3, 16, 0, 60),
-        location: "Town Hall",
-        room: "Main Stage",
-        host: "CEO",
-        attendees: ["All employees"],
-        category: "Company",
-        accent: "#4285F4",
-    },
-    {
-        id: "growth-retro",
-        title: "Growth Retro",
-        ...buildMeetingDate(4, 14, 0, 45),
-        location: "Google Meet",
-        room: "meet.google.com/growth-retro",
-        host: "Paul",
-        attendees: ["Paul", "Sarah", "Alice"],
-        category: "Growth",
-        accent: "#669DF6",
-    },
-    {
-        id: "one-on-one",
-        title: "1:1 with Felix",
-        ...buildMeetingDate(5, 12, 30, 30),
-        location: "Prague HQ",
-        room: "Focus Room 2",
-        host: "Elena",
-        attendees: ["Elena", "Felix"],
-        category: "People",
-        accent: "#8AB4F8",
-    },
 ];
 
 const miniMonthWeekdayFormatter = new Intl.DateTimeFormat("en-US", {
@@ -244,6 +92,17 @@ const monthHeaderFormatter = new Intl.DateTimeFormat("en-US", {
 const weekHeaderFormatter = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
 });
+
+function buildCalendarGroups(categories: string[]) {
+    const primaryCategories = new Set(["Leadership", "Product", "Operations", "Company"]);
+    const primary = categories.filter((category) => primaryCategories.has(category));
+    const secondary = categories.filter((category) => !primaryCategories.has(category));
+
+    return [
+        { title: "My calendars", categories: primary },
+        { title: "Other calendars", categories: secondary },
+    ].filter((group) => group.categories.length > 0);
+}
 
 function isSameDay(leftDate: Date, rightDate: Date) {
     return (
@@ -381,25 +240,47 @@ function renderDayHeaderContent(dayHeaderInfo: DayHeaderContentArg) {
 }
 
 export default function CalendarView({ searchQuery, setSearchQuery }: CalendarViewProps) {
+    const { snapshot, partnerMap, activeMeetingId, openMeeting } = useWorkspaceSnapshot();
     const calendarReference = useRef<FullCalendar | null>(null);
     const deferredSearchQuery = useDeferredValue(searchQuery);
-    const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
+    const meetings = useMemo<MeetingRecord[]>(
+        () =>
+            snapshot.meetings.map((meeting) => ({
+                id: meeting.id,
+                title: meeting.title,
+                start: meeting.start,
+                end: meeting.end,
+                location: meeting.location,
+                room: meeting.room,
+                host: partnerMap[meeting.hostId]?.name ?? "Workspace",
+                attendees: meeting.participantIds.map(
+                    (participantId) => partnerMap[participantId]?.name ?? participantId,
+                ),
+                category: meeting.category,
+                accent: meeting.accent,
+                allDay: meeting.allDay,
+            })),
+        [partnerMap, snapshot.meetings],
+    );
     const [calendarMeta, setCalendarMeta] = useState<CalendarMeta>({
         focusedDate: new Date(),
         title: miniMonthTitleFormatter.format(new Date()),
         viewType: "timeGridWeek",
     });
+    const categories = useMemo(
+        () => Array.from(new Set(meetings.map((meeting) => meeting.category))),
+        [meetings],
+    );
     const [enabledCategories, setEnabledCategories] = useState<Record<string, boolean>>(() =>
         Object.fromEntries(
-            Array.from(new Set(MEETINGS.map((meeting) => meeting.category))).map((category) => [
-                category,
-                true,
-            ]),
+            Array.from(new Set(snapshot.meetings.map((meeting) => meeting.category))).map(
+                (category) => [category, true],
+            ),
         ),
     );
 
     const normalizedQuery = deferredSearchQuery.trim().toLowerCase();
-    const visibleMeetings = MEETINGS.filter(
+    const visibleMeetings = meetings.filter(
         (meeting) =>
             enabledCategories[meeting.category] !== false &&
             matchesSearch(meeting, normalizedQuery),
@@ -413,10 +294,7 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                 parseMeetingDate(rightMeeting.start, rightMeeting.allDay).getTime(),
         );
 
-    const activeMeetingId =
-        upcomingMeetings.find((meeting) => meeting.id === selectedMeetingId)?.id ??
-        upcomingMeetings[0]?.id ??
-        null;
+    const highlightedMeetingId = activeMeetingId ?? upcomingMeetings[0]?.id ?? null;
 
     const calendarEvents: EventInput[] = visibleMeetings.map((meeting) => ({
         id: meeting.id,
@@ -437,8 +315,9 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
     });
 
     const categoryAccents = Object.fromEntries(
-        MEETINGS.map((meeting) => [meeting.category, meeting.accent]),
+        meetings.map((meeting) => [meeting.category, meeting.accent]),
     );
+    const calendarGroups = useMemo(() => buildCalendarGroups(categories), [categories]);
 
     const handleDatesSet = (datesInfo: DatesSetArg) => {
         const calendarApi = calendarReference.current?.getApi();
@@ -485,7 +364,7 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
     };
 
     const handleMeetingFocus = (meeting: MeetingRecord) => {
-        setSelectedMeetingId(meeting.id);
+        openMeeting(meeting.id);
         calendarReference.current
             ?.getApi()
             .gotoDate(parseMeetingDate(meeting.start, meeting.allDay));
@@ -569,7 +448,7 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                     </div>
 
                     <div className="mt-7 space-y-6 px-2">
-                        {CALENDAR_GROUPS.map((group) => (
+                        {calendarGroups.map((group) => (
                             <section key={group.title}>
                                 <div className="mb-3 flex items-center justify-between">
                                     <h3 className="text-sm font-medium text-[#e8eaed]">
@@ -636,7 +515,7 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                             type="button"
                                             onClick={() => handleMeetingFocus(meeting)}
                                             className={`w-full rounded-2xl border px-3 py-3 text-left transition-colors ${
-                                                meeting.id === activeMeetingId
+                                                meeting.id === highlightedMeetingId
                                                     ? "border-[#8ab4f8] bg-[#2b3646]"
                                                     : "border-[#3c4043] bg-[#282a2d] hover:bg-[#2f3135]"
                                             }`}
@@ -668,6 +547,34 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                                         No meetings match the current filters.
                                     </div>
                                 )}
+                            </div>
+
+                            <div className="mt-4 rounded-[26px] border border-blue-400/20 bg-[linear-gradient(180deg,rgba(66,133,244,0.18),rgba(22,29,42,0.96))] p-4">
+                                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-100">
+                                    Tactical workflow
+                                </div>
+                                <h4 className="mt-2 text-lg font-semibold text-white">
+                                    Open the live meeting room
+                                </h4>
+                                <p className="mt-2 text-sm leading-6 text-blue-50/80">
+                                    Run the full facilitation flow, review agenda, and push outputs
+                                    straight into actions and projects.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const tacticalMeeting = upcomingMeetings.find(
+                                            (meeting) => meeting.category === "Operations",
+                                        );
+
+                                        if (tacticalMeeting) {
+                                            handleMeetingFocus(tacticalMeeting);
+                                        }
+                                    }}
+                                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#1f1f1f] transition-colors hover:bg-blue-50"
+                                >
+                                    Open tactical room
+                                </button>
                             </div>
                         </section>
                     </div>
@@ -779,7 +686,7 @@ export default function CalendarView({ searchQuery, setSearchQuery }: CalendarVi
                             dayCellContent={renderDayCellContent}
                             datesSet={handleDatesSet}
                             events={calendarEvents}
-                            eventClick={(clickInfo) => setSelectedMeetingId(clickInfo.event.id)}
+                            eventClick={(clickInfo) => openMeeting(clickInfo.event.id)}
                             eventContent={renderCalendarEventContent}
                             dayMaxEvents={3}
                             nowIndicator

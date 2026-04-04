@@ -11,6 +11,7 @@ import OKRsTree from "./views/OKRsTree";
 import OrganizationChart from "./views/OrganizationChart";
 import PlaceholderView from "./views/PlaceholderView";
 import ProjectsBoard from "./views/ProjectsBoard";
+import TacticalMeetingRoom from "./views/TacticalMeetingRoom";
 
 function App() {
     const [activeTab, setActiveTab] = useState<AppTabId>("chart");
@@ -92,6 +93,7 @@ function App() {
                 >
                     {renderContent()}
                 </main>
+                <TacticalMeetingRoom onNavigateToTab={setActiveTab} />
             </div>
         </div>
     );
