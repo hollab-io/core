@@ -73,7 +73,10 @@ type InviteMemberInput = {
 
 const CUSTOM_PROJECTS_STORAGE_KEY = "hola-modern:workspace:custom-projects";
 const CUSTOM_PARTNERS_STORAGE_KEY = "hola-modern:workspace:custom-partners";
+/** @deprecated migrated to ORGANIZATIONS_STORAGE_KEY */
 const ORGANIZATION_STORAGE_KEY = "hola-modern:workspace:organization";
+const ORGANIZATIONS_STORAGE_KEY = "hola-modern:workspace:organizations";
+const ACTIVE_ORG_ID_STORAGE_KEY = "hola-modern:workspace:active-org-id";
 const CURRENT_PARTNER_STORAGE_KEY = "hola-modern:workspace:current-partner-id";
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -166,24 +169,32 @@ function readPersistedPartners() {
     }
 }
 
-function readPersistedOrganization() {
-    if (typeof window === "undefined") {
-        return undefined;
-    }
-
+function readPersistedOrganizations(): OrganizationRecord[] {
+    if (typeof window === "undefined") return [];
     try {
-        const rawValue = window.localStorage.getItem(ORGANIZATION_STORAGE_KEY);
-
-        if (!rawValue) {
-            return undefined;
+        const raw = window.localStorage.getItem(ORGANIZATIONS_STORAGE_KEY);
+        if (raw) {
+            const parsed: unknown = JSON.parse(raw);
+            if (Array.isArray(parsed)) return parsed.filter(isValidOrganizationRecord);
         }
+        // Migrate from legacy single-org format
+        const rawLegacy = window.localStorage.getItem(ORGANIZATION_STORAGE_KEY);
+        if (rawLegacy) {
+            const parsed: unknown = JSON.parse(rawLegacy);
+            if (isValidOrganizationRecord(parsed)) {
+                const migrated = [parsed];
+                window.localStorage.setItem(ORGANIZATIONS_STORAGE_KEY, JSON.stringify(migrated));
+                window.localStorage.removeItem(ORGANIZATION_STORAGE_KEY);
+                return migrated;
+            }
+        }
+    } catch {}
+    return [];
+}
 
-        const parsedValue: unknown = JSON.parse(rawValue);
-
-        return isValidOrganizationRecord(parsedValue) ? parsedValue : undefined;
-    } catch {
-        return undefined;
-    }
+function readPersistedActiveOrgId(): string | null {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(ACTIVE_ORG_ID_STORAGE_KEY) ?? null;
 }
 
 function readPersistedCurrentPartnerId() {
@@ -235,17 +246,18 @@ function persistPartners(partners: PersistedPartnerRecord[]) {
     );
 }
 
-function persistOrganization(organization: OrganizationRecord | undefined) {
-    if (typeof window === "undefined") {
-        return;
-    }
+function persistOrganizations(organizations: OrganizationRecord[]) {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(ORGANIZATIONS_STORAGE_KEY, JSON.stringify(organizations));
+}
 
-    if (!organization) {
-        window.localStorage.removeItem(ORGANIZATION_STORAGE_KEY);
-        return;
+function persistActiveOrgId(orgId: string | null) {
+    if (typeof window === "undefined") return;
+    if (orgId) {
+        window.localStorage.setItem(ACTIVE_ORG_ID_STORAGE_KEY, orgId);
+    } else {
+        window.localStorage.removeItem(ACTIVE_ORG_ID_STORAGE_KEY);
     }
-
-    window.localStorage.setItem(ORGANIZATION_STORAGE_KEY, JSON.stringify(organization));
 }
 
 function persistCurrentPartnerId(partnerId: string) {
@@ -315,6 +327,7 @@ type WorkspaceContextValue = {
     activeGovernanceMeetingId: string | null;
     activeMeeting: TacticalMeetingRecord | null;
     activeMeetingId: string | null;
+    activeOrganizationId: string | null;
     authenticatedUserEmail: string | null;
     authenticatedWalletAddress: string | null;
     activateGovernanceProposal: (proposalId: string) => void;
@@ -334,6 +347,7 @@ type WorkspaceContextValue = {
     inviteMember: (input: InviteMemberInput) => PersistedPartnerRecord | null;
     meetingMap: Record<string, TacticalMeetingRecord>;
     organization: OrganizationRecord | undefined;
+    organizations: OrganizationRecord[];
     openGovernanceMeeting: (meetingId: string) => void;
     openMeeting: (meetingId: string) => void;
     partnerMap: ReturnType<typeof createPartnerMap>;
@@ -346,6 +360,8 @@ type WorkspaceContextValue = {
     restoreProcessBreakdown: (breakdownId: string) => void;
     roleMap: ReturnType<typeof createRoleMap>;
     setGovernanceMeetingPhase: (meetingId: string, phase: GovernanceMeetingPhase) => void;
+
+    setActiveOrganizationId: (id: string | null) => void;
     setProjectBoardCircleId: (circleId: string) => void;
     snapshot: WorkspaceSnapshot;
     syncAuthenticatedIdentity: (input: {
@@ -360,9 +376,28 @@ type WorkspaceContextValue = {
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
 export function WorkspaceProvider({ children }: PropsWithChildren) {
+    const [organizations, setOrganizations] = useState<OrganizationRecord[]>(() =>
+        readPersistedOrganizations(),
+    );
+    const [activeOrganizationId, setActiveOrganizationIdState] = useState<string | null>(() => {
+        const orgs = readPersistedOrganizations();
+        const savedId = readPersistedActiveOrgId();
+        if (savedId && orgs.some((o) => o.id === savedId)) return savedId;
+        if (orgs.length === 1) return orgs[0]!.id;
+        return null;
+    });
+
     const [snapshot, setSnapshot] = useState<WorkspaceSnapshot>(() => {
         const baseSnapshot = getMockWorkspaceSnapshot();
-        const persistedOrganization = readPersistedOrganization();
+        const orgs = readPersistedOrganizations();
+        const savedId = readPersistedActiveOrgId();
+        const resolvedId =
+            savedId && orgs.some((o) => o.id === savedId)
+                ? savedId
+                : orgs.length === 1
+                  ? orgs[0]!.id
+                  : null;
+        const activeOrg = resolvedId ? orgs.find((o) => o.id === resolvedId) : undefined;
         const persistedPartners = readPersistedPartners();
         const persistedCurrentPartnerId = readPersistedCurrentPartnerId();
 
@@ -370,9 +405,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             ...baseSnapshot,
             currentPartnerId:
                 persistedCurrentPartnerId ??
-                persistedOrganization?.ownerPartnerId ??
+                activeOrg?.ownerPartnerId ??
                 baseSnapshot.currentPartnerId,
-            organization: persistedOrganization,
+            organization: activeOrg,
             partners: mergePartners(baseSnapshot.partners, persistedPartners),
             projects: mergeProjects(baseSnapshot.projects, readPersistedProjects()),
         };
@@ -562,7 +597,6 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
                         : role,
                 );
 
-                persistOrganization(organization);
                 persistPartners(partners);
                 persistCurrentPartnerId(ownerPartnerId);
                 nextOrganization = organization;
@@ -577,9 +611,30 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
                 };
             });
 
+            if (nextOrganization) {
+                const newOrg = nextOrganization;
+                setOrganizations((prev) => {
+                    const next = [...prev, newOrg];
+                    persistOrganizations(next);
+                    return next;
+                });
+                setActiveOrganizationIdState(organizationId);
+                persistActiveOrgId(organizationId);
+            }
+
             return nextOrganization;
         },
         [authenticatedUserEmail],
+    );
+
+    const setActiveOrganizationId = useCallback(
+        (orgId: string | null) => {
+            setActiveOrganizationIdState(orgId);
+            persistActiveOrgId(orgId);
+            const org = orgId ? organizations.find((o) => o.id === orgId) : undefined;
+            setSnapshot((current) => ({ ...current, organization: org }));
+        },
+        [organizations],
     );
 
     const inviteMember = useCallback((input: InviteMemberInput) => {
@@ -1155,6 +1210,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             activeGovernanceMeetingId,
             activeMeeting,
             activeMeetingId,
+            activeOrganizationId,
             authenticatedUserEmail,
             authenticatedWalletAddress,
             activateGovernanceProposal,
@@ -1172,6 +1228,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             inviteMember,
             meetingMap,
             organization: snapshot.organization,
+            organizations,
             openGovernanceMeeting,
             openMeeting,
             partnerMap,
@@ -1181,6 +1238,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             resolveGovernanceIntegration,
             restoreProcessBreakdown,
             roleMap,
+            setActiveOrganizationId,
             setGovernanceMeetingPhase,
             setProjectBoardCircleId,
             snapshot,
@@ -1194,6 +1252,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             activeGovernanceMeetingId,
             activeMeeting,
             activeMeetingId,
+            activeOrganizationId,
             authenticatedUserEmail,
             authenticatedWalletAddress,
             activateGovernanceProposal,
@@ -1218,7 +1277,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             raiseGovernanceObjection,
             resolveGovernanceIntegration,
             restoreProcessBreakdown,
+            organizations,
             roleMap,
+            setActiveOrganizationId,
             setGovernanceMeetingPhase,
             setProjectBoardCircleId,
             snapshot,

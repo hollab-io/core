@@ -1,7 +1,9 @@
 import { motion } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
 
 import type { AppTabId } from "../config/navigation";
 import { NAV_ITEMS } from "../config/navigation";
+import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 type SidebarProps = {
     activeTab: AppTabId;
@@ -9,61 +11,122 @@ type SidebarProps = {
 };
 
 export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
+    const { organization, setActiveOrganizationId } = useWorkspaceSnapshot();
+
     return (
+        /* Outer shell — floating glass island */
         <aside
-            className="z-20 flex h-full w-16 flex-col items-center bg-white dark:bg-slate-900 py-6 border-r border-slate-200 dark:border-slate-800 text-slate-500 transition-colors duration-300 sm:w-[72px]"
+            className="z-20 my-3 ml-3 flex w-[62px] flex-shrink-0 flex-col items-center
+                rounded-[1.75rem]
+                border border-slate-200/70 dark:border-white/[0.07]
+                bg-white/90 dark:bg-[#0c0c0f]/90
+                shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_40px_rgba(0,0,0,0.5)]
+                backdrop-blur-xl
+                transition-[background-color,border-color] duration-500"
+            style={{ transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)" }}
             aria-label="Primary navigation"
         >
-            <button
-                type="button"
-                className="mb-10 flex h-10 w-10 items-center justify-center rounded-xl bg-[#3481FF] shadow-lg shadow-blue-500/20"
-                aria-label="Open workspace home"
-            >
-                <div className="text-white">
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79l4.79 4.79v1.1c0 .94.76 1.7 1.7 1.7v2.13zm6.44-3.52c-.3-.23-.69-.41-1.14-.54l-1.3-.39v-1.1c0-.94-.76-1.7-1.7-1.7h-2.13v-2.14l4.79-4.79c.13.58.21 1.17.21 1.79 0 4.08-3.05 7.44-7 7.93v2.13c4.94-.5 8.94-4.5 9.44-9.44h2.13a9.914 9.914 0 01-3.44 8.21z" />
-                    </svg>
-                </div>
-            </button>
-
-            <nav
-                className="relative flex w-full flex-1 flex-col items-center gap-4"
-                aria-label="Main sections"
-            >
-                {NAV_ITEMS.map((item) => {
-                    const isActive = activeTab === item.id;
-                    const Icon = item.icon;
-
-                    return (
+            {/* Inner core */}
+            <div className="flex h-full w-full flex-col items-center gap-1 px-[7px] py-4">
+                {/* Logo / back button */}
+                <div className="mb-2 flex flex-col items-center gap-1.5">
+                    <button
+                        type="button"
+                        className="group flex h-[44px] w-[44px] flex-shrink-0 items-center justify-center
+                            rounded-[0.875rem]
+                            bg-gradient-to-br from-[#3481FF] to-[#1a5fd4]
+                            shadow-[0_4px_16px_rgba(52,129,255,0.4)]
+                            transition-all duration-500
+                            hover:scale-[1.07] hover:shadow-[0_6px_22px_rgba(52,129,255,0.5)]
+                            active:scale-[0.96]"
+                        style={{ transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)" }}
+                        aria-label="Workspace home"
+                    >
+                        <span className="text-[17px] font-bold text-white">H</span>
+                    </button>
+                    {organization && (
                         <button
                             type="button"
-                            key={item.id}
-                            onClick={() => setActiveTab(item.id)}
-                            aria-label={item.label}
-                            aria-current={isActive ? "page" : undefined}
-                            className={`relative flex h-12 w-12 items-center justify-center rounded-xl transition-all duration-300 ${
-                                isActive
-                                    ? "text-[#3481FF] bg-[#F4F8FF] dark:bg-blue-500/10"
-                                    : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                            }`}
+                            onClick={() => setActiveOrganizationId(null)}
+                            className="group flex h-6 w-6 items-center justify-center rounded-full
+                                text-slate-400 dark:text-slate-600
+                                transition-all duration-300
+                                hover:text-slate-600 dark:hover:text-slate-400"
+                            style={{ transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)" }}
+                            aria-label="Back to organizations"
+                            title="All organizations"
                         >
-                            {isActive && (
-                                <motion.div
-                                    layoutId="activeTabIndicator"
-                                    className="absolute left-0 w-1 h-8 bg-[#3481FF] rounded-r-full"
-                                    transition={{ type: "spring", stiffness: 300, damping: 24 }}
-                                />
-                            )}
-                            <Icon
-                                size={24}
-                                strokeWidth={isActive ? 2.5 : 2}
-                                className="relative z-10"
-                                aria-hidden="true"
-                            />
+                            <ArrowLeft size={12} strokeWidth={2} />
                         </button>
-                    );
-                })}
-            </nav>
+                    )}
+                </div>
+
+                {/* Hairline divider */}
+                <div className="mb-3 h-px w-8 rounded-full bg-slate-200 dark:bg-white/[0.08]" />
+
+                {/* Nav items */}
+                <nav className="flex w-full flex-1 flex-col items-center gap-0.5" aria-label="Main sections">
+                    {NAV_ITEMS.map((item) => {
+                        const isActive = activeTab === item.id;
+                        const Icon = item.icon;
+
+                        return (
+                            <button
+                                type="button"
+                                key={item.id}
+                                onClick={() => setActiveTab(item.id)}
+                                aria-label={item.label}
+                                aria-current={isActive ? "page" : undefined}
+                                className={`group relative flex h-[42px] w-[44px] items-center justify-center
+                                    rounded-[0.875rem]
+                                    transition-all duration-500
+                                    ${isActive
+                                        ? "text-[#3481FF]"
+                                        : "text-slate-400 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-300"
+                                    }`}
+                                style={{ transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)" }}
+                            >
+                                {/* Active background */}
+                                {isActive && (
+                                    <motion.div
+                                        layoutId="activeTabBg"
+                                        className="absolute inset-0 rounded-[0.875rem]
+                                            bg-[#3481FF]/[0.1] dark:bg-[#3481FF]/[0.15]
+                                            ring-1 ring-[#3481FF]/[0.15] dark:ring-[#3481FF]/[0.2]"
+                                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                                    />
+                                )}
+
+                                {/* Hover background */}
+                                <span className={`absolute inset-0 rounded-[0.875rem] transition-opacity duration-300
+                                    bg-slate-100 dark:bg-white/[0.05] opacity-0 group-hover:opacity-100
+                                    ${isActive ? "opacity-0 group-hover:opacity-0" : ""}`}
+                                />
+
+                                <Icon
+                                    size={19}
+                                    strokeWidth={isActive ? 2.1 : 1.5}
+                                    className="relative z-10 transition-transform duration-500 group-hover:scale-[1.1]"
+                                    style={{ transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)" }}
+                                    aria-hidden="true"
+                                />
+
+                                {/* Active dot */}
+                                {isActive && (
+                                    <motion.span
+                                        initial={{ scale: 0, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        exit={{ scale: 0, opacity: 0 }}
+                                        transition={{ type: "spring", stiffness: 500, damping: 28 }}
+                                        className="absolute right-[7px] top-[7px] h-[5px] w-[5px] rounded-full bg-[#3481FF]
+                                            shadow-[0_0_6px_rgba(52,129,255,0.8)]"
+                                    />
+                                )}
+                            </button>
+                        );
+                    })}
+                </nav>
+            </div>
         </aside>
     );
 }

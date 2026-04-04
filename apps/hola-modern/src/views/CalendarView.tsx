@@ -41,8 +41,6 @@ type CalendarViewType = "dayGridMonth" | "timeGridWeek" | "listWeek";
 
 type CalendarViewProps = {
     isDarkMode: boolean;
-    searchQuery: string;
-    setSearchQuery: (query: string) => void;
 };
 
 type CalendarMeta = {
@@ -240,13 +238,10 @@ function renderDayHeaderContent(dayHeaderInfo: DayHeaderContentArg) {
     );
 }
 
-export default function CalendarView({
-    isDarkMode,
-    searchQuery,
-    setSearchQuery,
-}: CalendarViewProps) {
+export default function CalendarView({ isDarkMode }: CalendarViewProps) {
     const { snapshot, partnerMap, activeMeetingId, openMeeting } = useWorkspaceSnapshot();
     const calendarReference = useRef<FullCalendar | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
     const deferredSearchQuery = useDeferredValue(searchQuery);
     const meetings = useMemo<MeetingRecord[]>(
         () =>

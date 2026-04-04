@@ -4,28 +4,41 @@
 
 @layer base {
     body {
-        @apply bg-white dark:bg-[#0f172a] text-slate-900 dark:text-slate-100 antialiased transition-colors duration-300;
-        font-family: "Inter", sans-serif;
+        @apply bg-[#f6f6f8] dark:bg-[#050505] text-slate-900 dark:text-slate-100 antialiased;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        transition: background-color 0.5s cubic-bezier(0.32, 0.72, 0, 1),
+                    color 0.5s cubic-bezier(0.32, 0.72, 0, 1);
     }
 }
 
+/* Fixed noise grain overlay — attached to <body> via a pseudo-element-equivalent div */
+.grain-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+}
+
 .glass-panel {
-    @apply bg-white/70 backdrop-blur-md border border-white/40 shadow-sm rounded-xl;
+    @apply bg-white/80 dark:bg-white/[0.04] backdrop-blur-xl border border-white/60 dark:border-white/[0.07] shadow-sm rounded-2xl;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 4px;
+    height: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 99px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: rgba(148, 163, 184, 0.6);
 }
 
 .calendar-google-shell {

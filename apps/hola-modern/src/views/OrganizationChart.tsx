@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
     CalendarDays,
     CheckSquare,
-    Info,
     KanbanSquare,
     Plus,
     Sparkles,
@@ -108,34 +107,34 @@ const GROUP_LAYOUT_HINTS: Record<string, GroupLayoutHint> = {
     leadership: {
         nodesX: -0.18,
         nodesY: -0.16,
-        titleMaxWidth: 230,
-        titleSize: 34,
-        titleX: 0.28,
-        titleY: 0.02,
+        titleMaxWidth: 220,
+        titleSize: 16,
+        titleX: 0,
+        titleY: -0.78,
     },
     product: {
         nodesX: -0.02,
         nodesY: -0.18,
-        titleMaxWidth: 180,
-        titleSize: 26,
+        titleMaxWidth: 170,
+        titleSize: 14,
         titleX: 0,
-        titleY: 0.34,
+        titleY: -0.80,
     },
     people: {
         nodesX: -0.02,
         nodesY: -0.14,
-        titleMaxWidth: 190,
-        titleSize: 24,
+        titleMaxWidth: 160,
+        titleSize: 13,
         titleX: 0,
-        titleY: 0.34,
+        titleY: -0.80,
     },
     growth: {
         nodesX: -0.02,
         nodesY: -0.12,
-        titleMaxWidth: 190,
-        titleSize: 24,
+        titleMaxWidth: 155,
+        titleSize: 13,
         titleX: 0,
-        titleY: 0.34,
+        titleY: -0.80,
     },
 };
 
@@ -147,9 +146,12 @@ const BUBBLE_SPRING = {
 } as const;
 
 const inputClassName =
-    "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-[#3B82F6] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100";
+    "w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] px-4 py-3 text-[13px] font-medium text-slate-900 dark:text-white outline-none transition-all duration-300 focus:border-[#3481FF] dark:focus:border-[#3481FF]/60 focus:bg-white dark:focus:bg-white/[0.06] focus:ring-4 focus:ring-[#3481FF]/[0.1] dark:focus:ring-[#3481FF]/[0.08] placeholder:text-slate-400 dark:placeholder:text-slate-600";
 
-const textareaClassName = `${inputClassName} min-h-[110px] resize-y`;
+const selectClassName =
+    "w-full rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-[#0e0e12] px-4 py-3 text-[13px] font-medium text-slate-900 dark:text-white outline-none transition-all duration-300 focus:border-[#3481FF] dark:focus:border-[#3481FF]/60 focus:ring-4 focus:ring-[#3481FF]/[0.1] dark:focus:ring-[#3481FF]/[0.08]";
+
+const textareaClassName = `${inputClassName} min-h-[90px] resize-none`;
 const CUSTOM_GROUPS_STORAGE_KEY = "hola-modern:org-chart:custom-groups";
 const CUSTOM_NODES_STORAGE_KEY = "hola-modern:org-chart:custom-nodes";
 const GROUP_TO_WORKSPACE_CIRCLE_ID: Record<string, string> = {
@@ -811,22 +813,36 @@ function matchesSearch(node: CircleNode, query: string) {
     return haystack.includes(query);
 }
 
-function getBubblePalette(node: CircleNode, isSelected: boolean) {
+function getBubblePalette(node: CircleNode, isSelected: boolean, isDark: boolean) {
     if (node.type === "primary") {
-        return {
-            background: isSelected ? "#8FC6E6" : "#99CEE9",
-            border: "rgba(133, 188, 219, 0.65)",
-            shadow: "0 10px 24px rgba(133, 188, 219, 0.12)",
-            text: "#31444C",
-        };
+        return isDark
+            ? {
+                  background: isSelected ? "rgba(52,129,255,0.72)" : "rgba(52,129,255,0.52)",
+                  border: "rgba(52,129,255,0.35)",
+                  shadow: "0 8px 32px rgba(52,129,255,0.22)",
+                  text: "#d0e8ff",
+              }
+            : {
+                  background: isSelected ? "#6AAEE8" : "#7BBCF0",
+                  border: "rgba(100,160,220,0.55)",
+                  shadow: "0 8px 24px rgba(100,160,220,0.2)",
+                  text: "#1a3a52",
+              };
     }
 
-    return {
-        background: isSelected ? "#B7D38A" : "#BDD990",
-        border: "rgba(170, 193, 127, 0.58)",
-        shadow: "0 10px 24px rgba(168, 192, 124, 0.12)",
-        text: "#46533E",
-    };
+    return isDark
+        ? {
+              background: isSelected ? "rgba(99,102,241,0.65)" : "rgba(99,102,241,0.45)",
+              border: "rgba(99,102,241,0.28)",
+              shadow: "0 8px 32px rgba(99,102,241,0.18)",
+              text: "#d0d4ff",
+          }
+        : {
+              background: isSelected ? "#8DC6F5" : "#9DCFF8",
+              border: "rgba(120,180,235,0.48)",
+              shadow: "0 8px 24px rgba(120,180,235,0.18)",
+              text: "#1e3d5a",
+          };
 }
 
 function getDynamicBackgroundRadius(group: GroupMeta, nodes: CircleNode[]) {
@@ -910,10 +926,10 @@ function getGroupLayoutHint(groupId: string): GroupLayoutHint {
         GROUP_LAYOUT_HINTS[groupId] ?? {
             nodesX: 0,
             nodesY: -0.16,
-            titleMaxWidth: 180,
-            titleSize: 24,
+            titleMaxWidth: 160,
+            titleSize: 13,
             titleX: 0,
-            titleY: 0.34,
+            titleY: -0.80,
         }
     );
 }
@@ -1123,15 +1139,17 @@ function Bubble({
     metrics,
     isSelected,
     isMatch,
+    isDark,
     onSelect,
 }: {
     node: CircleNode;
     metrics: BubbleMetrics;
     isSelected: boolean;
     isMatch: boolean;
+    isDark: boolean;
     onSelect: (id: string) => void;
 }) {
-    const palette = getBubblePalette(node, isSelected);
+    const palette = getBubblePalette(node, isSelected, isDark);
 
     return (
         <motion.button
@@ -1157,9 +1175,7 @@ function Bubble({
             transition={BUBBLE_SPRING}
             whileHover={{ scale: isSelected ? 1.06 : 1.05 }}
             whileTap={{ scale: 0.98 }}
-            className={`absolute flex items-center justify-center rounded-full border text-center ${
-                isMatch ? "ring-4 ring-yellow-300/70" : ""
-            }`}
+            className={`absolute flex items-center justify-center rounded-full border text-center ${isMatch ? "ring-4 ring-yellow-300/60 dark:ring-yellow-400/40" : ""}`}
             aria-pressed={isSelected}
             aria-label={`Open details for ${node.title}`}
         >
@@ -1167,7 +1183,7 @@ function Bubble({
                 className="select-none whitespace-pre-line px-2 leading-tight"
                 style={{
                     fontSize: Math.max(10, metrics.r / (node.type === "primary" ? 3.9 : 4.4)),
-                    fontWeight: 500,
+                    fontWeight: 600,
                 }}
             >
                 {node.label}
@@ -1176,39 +1192,8 @@ function Bubble({
     );
 }
 
-function ComposerActions({
-    selectedGroupTitle,
-    onAddRole,
-    onAddCircle,
-}: {
-    selectedGroupTitle: string | null;
-    onAddRole: () => void;
-    onAddCircle: () => void;
-}) {
-    return (
-        <div className="flex flex-wrap gap-3">
-            <button
-                type="button"
-                onClick={onAddRole}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-blue-200 hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-blue-500/30 dark:hover:bg-blue-500/10"
-            >
-                <Plus size={16} aria-hidden="true" />
-                Add role
-                {selectedGroupTitle ? ` to ${selectedGroupTitle}` : ""}
-            </button>
-            <button
-                type="button"
-                onClick={onAddCircle}
-                className="inline-flex items-center gap-2 rounded-full bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8]"
-            >
-                <Plus size={16} aria-hidden="true" />
-                Add circle
-            </button>
-        </div>
-    );
-}
 
-export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: string }) {
+export default function OrganizationChart({ isDarkMode = false }: { isDarkMode?: boolean }) {
     const { snapshot, openMeeting } = useWorkspaceSnapshot();
     const [customGroups, setCustomGroups] = useState<GroupMeta[]>(() =>
         readPersistedItems(CUSTOM_GROUPS_STORAGE_KEY, isValidGroupMetaArray),
@@ -1218,6 +1203,7 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
     );
     const [selectedCircleId, setSelectedCircleId] = useState<string | null>(null);
     const [composerMode, setComposerMode] = useState<ComposerMode>(null);
+    const [fabOpen, setFabOpen] = useState(false);
     const [roleDraft, setRoleDraft] = useState<RoleDraft>({
         targetGroupId: initialGroups[0].id,
         title: "",
@@ -1252,7 +1238,7 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
         }
     }, [nodes, selectedCircleId]);
 
-    const normalizedSearch = searchQuery.toLowerCase().trim();
+    const normalizedSearch = "";
     const selectedNode = nodes.find((node) => node.id === selectedCircleId) ?? null;
     const selectedGroup = selectedNode
         ? (groups.find((group) => group.id === selectedNode.groupId) ?? null)
@@ -1429,44 +1415,13 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
     };
 
     return (
-        <section className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-[32px] bg-white transition-colors duration-300 dark:bg-slate-950">
-            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200/70 px-8 py-6 dark:border-slate-800">
-                <div>
-                    <p className="text-sm font-medium uppercase tracking-[0.22em] text-[#3B82F6]">
-                        Holaspiriters
-                    </p>
-                    <h2 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-slate-900 dark:text-slate-50">
-                        Organization map
-                    </h2>
-                    <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-                        Focus any circle, read its full details, and create new circles or roles
-                        directly from the chart.
-                    </p>
-                </div>
-
-                <div className="flex max-w-xl flex-col items-start gap-4">
-                    <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm text-slate-600 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-slate-300">
-                        <Info size={18} className="mt-0.5 text-[#3B82F6]" aria-hidden="true" />
-                        <div>
-                            Smooth transitions happen on focus, and the right-hand panel is now also
-                            your entry point for creating new roles and circles.
-                        </div>
-                    </div>
-
-                    <ComposerActions
-                        selectedGroupTitle={selectedGroup?.title ?? null}
-                        onAddRole={() => openRoleComposer()}
-                        onAddCircle={openCircleComposer}
-                    />
-                </div>
-            </div>
-
-            <div className="min-h-0 flex-1 xl:grid xl:grid-cols-[minmax(0,1fr)_420px]">
+        <section className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl bg-[#f6f6f8] dark:bg-[#050505]">
+            <div className="min-h-0 flex-1 xl:grid xl:grid-cols-[minmax(0,1fr)_380px]">
                 <div
-                    className="relative min-h-[760px] min-w-0 overflow-hidden bg-white dark:bg-slate-950"
+                    className="relative min-h-[760px] min-w-0 overflow-hidden bg-[#f6f6f8] dark:bg-[#050505]"
                     onClick={() => setSelectedCircleId(null)}
                 >
-                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[980px] w-[980px] rounded-full bg-[#F2F8FD] pointer-events-none dark:bg-slate-900" />
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[980px] w-[980px] rounded-full pointer-events-none bg-[#EAF2FB] dark:bg-[rgba(52,129,255,0.04)]" />
 
                     <motion.div
                         className="absolute left-1/2 top-1/2"
@@ -1532,20 +1487,22 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
                                             top: metrics.y + metrics.r * hint.titleY,
                                             opacity: metrics.opacity,
                                         }}
-                                        style={{
-                                            maxWidth: `${hint.titleMaxWidth}px`,
-                                            transform: "translate(-50%, -50%)",
-                                        }}
+                                        style={{ maxWidth: `${hint.titleMaxWidth}px` }}
                                         transition={BUBBLE_SPRING}
                                     >
                                         <div
-                                            className="whitespace-pre-line text-center font-normal leading-[1.04] text-slate-700"
-                                            style={{
-                                                fontSize: `${hint.titleSize}px`,
-                                                letterSpacing: "-0.04em",
-                                            }}
+                                            style={{ transform: "translate(-50%, -50%)" }}
                                         >
-                                            {group.title}
+                                            <div
+                                                className="whitespace-pre-line text-center leading-[1.2] text-slate-500 dark:text-slate-400"
+                                                style={{
+                                                    fontSize: `${hint.titleSize}px`,
+                                                    letterSpacing: "-0.02em",
+                                                    fontWeight: 500,
+                                                }}
+                                            >
+                                                {group.title}
+                                            </div>
                                         </div>
                                     </motion.div>
                                 );
@@ -1570,6 +1527,7 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
                                         Boolean(normalizedSearch) &&
                                         matchesSearch(node, normalizedSearch)
                                     }
+                                    isDark={isDarkMode}
                                     onSelect={setSelectedCircleId}
                                 />
                             );
@@ -1577,20 +1535,68 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
                     </motion.div>
 
                     {!selectedNode && (
-                        <div className="pointer-events-none absolute bottom-6 left-6 right-6 flex flex-wrap gap-3">
+                        <div className="pointer-events-none absolute bottom-5 left-5 right-5 flex flex-wrap gap-2">
                             {groups.map((group) => (
                                 <div
                                     key={group.id}
-                                    className="rounded-full border border-[#D7E7F0] bg-white/72 px-4 py-2 text-sm font-medium text-slate-500 shadow-[0_12px_24px_-22px_rgba(51,65,85,0.4)] backdrop-blur"
+                                    className="rounded-full border border-slate-200/70 dark:border-white/[0.08] bg-white/80 dark:bg-black/40 px-3 py-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-500 backdrop-blur-sm"
                                 >
-                                    {group.title}
+                                    {group.title.replace("\n", " ")}
                                 </div>
                             ))}
                         </div>
                     )}
+
+                    {/* FAB — add role / add circle */}
+                    <div className="absolute bottom-5 right-5 flex flex-col items-end gap-2 z-20">
+                        <AnimatePresence>
+                            {fabOpen && (
+                                <>
+                                    <motion.button
+                                        key="add-circle"
+                                        type="button"
+                                        initial={{ opacity: 0, y: 8, scale: 0.92 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                                        transition={{ duration: 0.2, delay: 0.05 }}
+                                        onClick={(e) => { e.stopPropagation(); setFabOpen(false); openCircleComposer(); }}
+                                        className="flex items-center gap-2 rounded-full border border-slate-200/70 dark:border-white/[0.1] bg-white dark:bg-[#0e0e12] px-4 py-2.5 text-[12px] font-bold text-slate-700 dark:text-slate-200 shadow-lg hover:border-[#3481FF]/40 hover:text-[#3481FF] transition-all duration-200"
+                                    >
+                                        <span className="h-2 w-2 rounded-full bg-[#3481FF]" />
+                                        New circle
+                                    </motion.button>
+                                    <motion.button
+                                        key="add-role"
+                                        type="button"
+                                        initial={{ opacity: 0, y: 8, scale: 0.92 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 4, scale: 0.96 }}
+                                        transition={{ duration: 0.2 }}
+                                        onClick={(e) => { e.stopPropagation(); setFabOpen(false); openRoleComposer(selectedGroup?.id); }}
+                                        className="flex items-center gap-2 rounded-full border border-slate-200/70 dark:border-white/[0.1] bg-white dark:bg-[#0e0e12] px-4 py-2.5 text-[12px] font-bold text-slate-700 dark:text-slate-200 shadow-lg hover:border-[#3481FF]/40 hover:text-[#3481FF] transition-all duration-200"
+                                    >
+                                        <span className="h-2 w-2 rounded-full bg-indigo-400" />
+                                        New role{selectedGroup ? ` in ${selectedGroup.title.replace("\n", " ")}` : ""}
+                                    </motion.button>
+                                </>
+                            )}
+                        </AnimatePresence>
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setFabOpen((v) => !v); }}
+                            className={`flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-all duration-300 active:scale-[0.95]
+                                ${fabOpen
+                                    ? "bg-slate-800 dark:bg-white text-white dark:text-slate-900 rotate-45"
+                                    : "bg-[#3481FF] text-white shadow-[0_4px_20px_rgba(52,129,255,0.4)]"
+                                }`}
+                            aria-label="Add role or circle"
+                        >
+                            <Plus size={20} strokeWidth={2.5} aria-hidden="true" />
+                        </button>
+                    </div>
                 </div>
 
-                <aside className="custom-scrollbar flex max-h-full min-h-0 flex-col overflow-auto border-l border-slate-200 bg-slate-50/70 px-6 py-6 dark:border-slate-800 dark:bg-slate-900/40">
+                <aside className="custom-scrollbar flex max-h-full min-h-0 flex-col overflow-auto border-l border-slate-200/60 dark:border-white/[0.06] bg-white/60 dark:bg-[#0a0a0d] px-5 py-5">
                     <AnimatePresence mode="wait">
                         {selectedNode ? (
                             <motion.div
@@ -1600,240 +1606,180 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
                                 exit={{ opacity: 0, x: 22 }}
                                 transition={{ duration: 0.28, ease: "easeOut" }}
                             >
-                                <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                        <div className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#2563EB] dark:bg-blue-500/10 dark:text-blue-200">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <div className="inline-flex items-center gap-2 rounded-full
+                                            bg-[#3481FF]/[0.08] dark:bg-[#3481FF]/[0.12]
+                                            px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#3481FF]">
                                             <span
-                                                className="h-2.5 w-2.5 rounded-full"
-                                                style={{
-                                                    backgroundColor:
-                                                        groupAccents[selectedNode.groupId] ??
-                                                        "#3B82F6",
-                                                }}
+                                                className="h-2 w-2 rounded-full"
+                                                style={{ backgroundColor: groupAccents[selectedNode.groupId] ?? "#3481FF" }}
                                             />
-                                            {selectedGroup?.title ?? "Circle"}
+                                            {(selectedGroup?.title ?? "Circle").replace("\n", " ")}
                                         </div>
-                                        <h3 className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-slate-900 dark:text-slate-50">
+                                        <h3 className="mt-3 text-[22px] font-bold tracking-[-0.03em] text-slate-900 dark:text-white leading-tight">
                                             {selectedNode.title}
                                         </h3>
-                                        <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                                        <p className="mt-2 text-[13px] leading-relaxed text-slate-500 dark:text-slate-500">
                                             {selectedNode.summary}
                                         </p>
                                     </div>
                                     <button
                                         type="button"
                                         onClick={() => setSelectedCircleId(null)}
-                                        className="rounded-full border border-slate-200 p-2 text-slate-500 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+                                        className="flex-shrink-0 flex h-8 w-8 items-center justify-center rounded-full
+                                            border border-slate-200 dark:border-white/[0.08]
+                                            text-slate-400 dark:text-slate-600
+                                            transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.07] hover:text-slate-600 dark:hover:text-slate-300"
                                         aria-label="Close circle details"
                                     >
-                                        <X size={18} aria-hidden="true" />
+                                        <X size={15} strokeWidth={2} aria-hidden="true" />
                                     </button>
                                 </div>
 
-                                <div className="mt-5">
-                                    <ComposerActions
-                                        selectedGroupTitle={selectedGroup?.title ?? null}
-                                        onAddRole={() => openRoleComposer(selectedNode.groupId)}
-                                        onAddCircle={openCircleComposer}
-                                    />
-                                </div>
-
-                                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-950">
-                                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                                    <div className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50/80 dark:bg-white/[0.03] px-4 py-3">
+                                        <div className="text-[9.5px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-600">
                                             Cadence
                                         </div>
-                                        <div className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                                        <div className="mt-1.5 text-[12px] font-semibold text-slate-700 dark:text-slate-300 leading-snug">
                                             {selectedNode.cadence}
                                         </div>
                                     </div>
-                                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-950">
-                                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-                                            Circle type
+                                    <div className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50/80 dark:bg-white/[0.03] px-4 py-3">
+                                        <div className="text-[9.5px] font-bold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-600">
+                                            Type
                                         </div>
-                                        <div className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                                            {selectedNode.type === "primary"
-                                                ? "Primary circle"
-                                                : "Supporting role"}
+                                        <div className="mt-1.5 text-[12px] font-semibold text-slate-700 dark:text-slate-300">
+                                            {selectedNode.type === "primary" ? "Primary circle" : "Supporting role"}
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="mt-6 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
-                                    <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
-                                        <Sparkles size={16} aria-hidden="true" />
+                                <div className="mt-4 rounded-2xl border border-slate-200/60 dark:border-white/[0.07] bg-white dark:bg-[#0e0e12] p-4">
+                                    <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#3481FF]">
+                                        <Sparkles size={13} strokeWidth={2} aria-hidden="true" />
                                         Scope
                                     </div>
-                                    <div className="mt-4 space-y-3">
+                                    <div className="space-y-2">
                                         {selectedNode.scope.length > 0 ? (
                                             selectedNode.scope.map((item) => (
-                                                <div
-                                                    key={item}
-                                                    className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-                                                >
+                                                <div key={item}
+                                                    className="rounded-lg border border-slate-100 dark:border-white/[0.06] bg-slate-50/80 dark:bg-white/[0.03] px-3 py-2.5 text-[12px] text-slate-700 dark:text-slate-300">
                                                     {item}
                                                 </div>
                                             ))
                                         ) : (
-                                            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                                            <div className="rounded-lg border border-dashed border-slate-200 dark:border-white/[0.07] px-3 py-2.5 text-[12px] text-slate-400 dark:text-slate-600">
                                                 No scope items defined yet.
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="mt-6 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
-                                    <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
-                                        <Users size={16} aria-hidden="true" />
+                                <div className="mt-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.07] bg-white dark:bg-[#0e0e12] p-4">
+                                    <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#3481FF]">
+                                        <Users size={13} strokeWidth={2} aria-hidden="true" />
                                         People
                                     </div>
-                                    <div className="mt-4 flex flex-wrap gap-2">
+                                    <div className="flex flex-wrap gap-1.5">
                                         {selectedNode.members.length > 0 ? (
                                             selectedNode.members.map((member) => (
-                                                <span
-                                                    key={member}
-                                                    className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200"
-                                                >
+                                                <span key={member}
+                                                    className="rounded-full border border-[#3481FF]/[0.15] dark:border-[#3481FF]/[0.2] bg-[#3481FF]/[0.07] dark:bg-[#3481FF]/[0.1] px-3 py-1 text-[11px] font-semibold text-[#3481FF]">
                                                     {member}
                                                 </span>
                                             ))
                                         ) : (
-                                            <span className="text-sm text-slate-500 dark:text-slate-400">
-                                                No members added yet.
-                                            </span>
+                                            <span className="text-[12px] text-slate-400 dark:text-slate-600">No members added yet.</span>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="mt-6 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
-                                    <div className="text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
+                                <div className="mt-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.07] bg-white dark:bg-[#0e0e12] p-4">
+                                    <div className="mb-3 text-[10px] font-bold uppercase tracking-[0.18em] text-[#3481FF]">
                                         Related roles & circles
                                     </div>
-                                    <div className="mt-4 grid gap-3">
+                                    <div className="flex flex-col gap-1.5">
                                         {relatedNodes.length > 0 ? (
-                                            relatedNodes.map((node) => (
-                                                <button
-                                                    key={node.id}
-                                                    type="button"
+                                            relatedNodes.slice(0, 6).map((node) => (
+                                                <button key={node.id} type="button"
                                                     onClick={() => setSelectedCircleId(node.id)}
-                                                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500/30 dark:hover:bg-blue-500/10"
-                                                >
+                                                    className="flex items-center justify-between rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50/80 dark:bg-white/[0.03] px-3 py-2.5 text-left transition-all duration-200 hover:border-[#3481FF]/30 hover:bg-[#3481FF]/[0.04]">
                                                     <div>
-                                                        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                                                            {node.title}
-                                                        </div>
-                                                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                            {node.type === "primary"
-                                                                ? "Primary"
-                                                                : "Role"}{" "}
-                                                            ·{" "}
-                                                            {groupTitles[node.groupId] ??
-                                                                selectedGroup?.title}
+                                                        <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-200">{node.title}</div>
+                                                        <div className="text-[10px] text-slate-400 dark:text-slate-600">
+                                                            {node.type === "primary" ? "Primary" : "Role"} · {(groupTitles[node.groupId] ?? selectedGroup?.title ?? "").replace("\n", " ")}
                                                         </div>
                                                     </div>
-                                                    <span
-                                                        className="h-3 w-3 rounded-full"
-                                                        style={{
-                                                            backgroundColor:
-                                                                groupAccents[node.groupId] ??
-                                                                "#3B82F6",
-                                                        }}
-                                                    />
+                                                    <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: groupAccents[node.groupId] ?? "#3481FF" }} />
                                                 </button>
                                             ))
                                         ) : (
-                                            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                                            <div className="rounded-xl border border-dashed border-slate-200 dark:border-white/[0.07] px-3 py-2.5 text-[12px] text-slate-400 dark:text-slate-600">
                                                 No related roles or circles yet.
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="mt-6 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
-                                    <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
-                                        <CalendarDays size={16} aria-hidden="true" />
+                                <div className="mt-3 rounded-2xl border border-slate-200/60 dark:border-white/[0.07] bg-white dark:bg-[#0e0e12] p-4">
+                                    <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[#3481FF]">
+                                        <CalendarDays size={13} strokeWidth={2} aria-hidden="true" />
                                         Tactical meetings
                                     </div>
-                                    <div className="mt-4 space-y-3">
+                                    <div className="flex flex-col gap-1.5">
                                         {relatedMeetings.length > 0 ? (
                                             relatedMeetings.slice(0, 3).map((meeting) => (
-                                                <button
-                                                    key={meeting.id}
-                                                    type="button"
+                                                <button key={meeting.id} type="button"
                                                     onClick={() => openMeeting(meeting.id)}
-                                                    className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition-colors hover:border-blue-200 hover:bg-blue-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-500/30 dark:hover:bg-blue-500/10"
-                                                >
+                                                    className="flex items-center justify-between rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50/80 dark:bg-white/[0.03] px-3 py-2.5 text-left transition-all duration-200 hover:border-[#3481FF]/30 hover:bg-[#3481FF]/[0.04]">
                                                     <div>
-                                                        <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                                                            {meeting.title}
-                                                        </div>
-                                                        <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                                            {meeting.meetingType} ·{" "}
-                                                            {meeting.location}
-                                                        </div>
+                                                        <div className="text-[12px] font-semibold text-slate-800 dark:text-slate-200">{meeting.title}</div>
+                                                        <div className="text-[10px] text-slate-400 dark:text-slate-600">{meeting.meetingType} · {meeting.location}</div>
                                                     </div>
-                                                    <span
-                                                        className="h-3 w-3 rounded-full"
-                                                        style={{ backgroundColor: meeting.accent }}
-                                                    />
+                                                    <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: meeting.accent }} />
                                                 </button>
                                             ))
                                         ) : (
-                                            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                                                No linked meetings in the shared workspace yet.
+                                            <div className="rounded-xl border border-dashed border-slate-200 dark:border-white/[0.07] px-3 py-2.5 text-[12px] text-slate-400 dark:text-slate-600">
+                                                No linked meetings yet.
                                             </div>
                                         )}
                                     </div>
                                 </div>
 
-                                <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                                    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
-                                        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
-                                            <CheckSquare size={16} aria-hidden="true" />
-                                            Live actions
+                                <div className="mt-3 grid grid-cols-2 gap-2">
+                                    <div className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50/80 dark:bg-white/[0.03] px-4 py-3">
+                                        <div className="flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.18em] text-[#3481FF] mb-1.5">
+                                            <CheckSquare size={12} strokeWidth={2} aria-hidden="true" />
+                                            Actions
                                         </div>
-                                        <div className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-900 dark:text-slate-50">
-                                            {relatedActions.length}
-                                        </div>
-                                        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                            Operational follow-ups currently tied to this circle or
-                                            role.
-                                        </p>
+                                        <div className="text-[24px] font-bold tabular-nums tracking-tight text-slate-900 dark:text-white">{relatedActions.length}</div>
+                                        <div className="text-[10px] text-slate-400 dark:text-slate-600 mt-0.5">live follow-ups</div>
                                     </div>
-                                    <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
-                                        <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
-                                            <KanbanSquare size={16} aria-hidden="true" />
-                                            Live projects
+                                    <div className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-slate-50/80 dark:bg-white/[0.03] px-4 py-3">
+                                        <div className="flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.18em] text-[#3481FF] mb-1.5">
+                                            <KanbanSquare size={12} strokeWidth={2} aria-hidden="true" />
+                                            Projects
                                         </div>
-                                        <div className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-slate-900 dark:text-slate-50">
-                                            {relatedProjects.length}
-                                        </div>
-                                        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                            Projects already connected to this workspace area.
-                                        </p>
+                                        <div className="text-[24px] font-bold tabular-nums tracking-tight text-slate-900 dark:text-white">{relatedProjects.length}</div>
+                                        <div className="text-[10px] text-slate-400 dark:text-slate-600 mt-0.5">connected</div>
                                     </div>
                                 </div>
 
-                                <div className="mt-6 rounded-[28px] border border-blue-100 bg-blue-50/80 p-5 shadow-[0_18px_40px_rgba(37,99,235,0.08)] dark:border-blue-500/20 dark:bg-blue-500/10">
-                                    <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB] dark:text-blue-200">
-                                        <Sparkles size={16} aria-hidden="true" />
-                                        AI copilot
-                                    </div>
-                                    <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                        The next useful AI actions here are to summarize tensions,
-                                        prep the tactical agenda, and publish outputs into actions
-                                        or projects.
-                                    </p>
-                                    {relatedMeetings[0] && (
-                                        <button
-                                            type="button"
-                                            onClick={() => openMeeting(relatedMeetings[0].id)}
-                                            className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8]"
-                                        >
+                                {relatedMeetings[0] && (
+                                    <button type="button" onClick={() => openMeeting(relatedMeetings[0].id)}
+                                        className="mt-3 flex w-full items-center justify-between rounded-xl bg-[#3481FF] px-4 py-3 text-[13px] font-bold text-white shadow-[0_6px_20px_rgba(52,129,255,0.3)] hover:bg-[#2570f0] transition-all duration-300 active:scale-[0.98]">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles size={14} strokeWidth={2} aria-hidden="true" />
                                             Open tactical workspace
-                                        </button>
-                                    )}
-                                </div>
+                                        </div>
+                                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20">
+                                            <KanbanSquare size={12} strokeWidth={2.5} aria-hidden="true" />
+                                        </span>
+                                    </button>
+                                )}
                             </motion.div>
                         ) : (
                             <motion.div
@@ -1841,324 +1787,207 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
+                                className="flex flex-1 flex-col gap-4"
                             >
-                                <div className="rounded-[28px] border border-dashed border-slate-300 bg-white/80 p-6 dark:border-slate-700 dark:bg-slate-950/70">
-                                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
-                                        Circle details
-                                    </div>
-                                    <h3 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-slate-900 dark:text-slate-50">
-                                        Open any circle
-                                    </h3>
-                                    <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                        Select a circle to inspect its role in the org, or start by
-                                        creating a new circle or role from the panel below.
+                                <div className="rounded-2xl border border-dashed border-slate-200 dark:border-white/[0.08] bg-white/60 dark:bg-white/[0.02] p-5">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#3481FF] mb-1.5">
+                                        Organization map
                                     </p>
+                                    <h3 className="text-[18px] font-bold tracking-[-0.03em] text-slate-900 dark:text-white">
+                                        Select any circle
+                                    </h3>
+                                    <p className="mt-2 text-[13px] leading-relaxed text-slate-500 dark:text-slate-500">
+                                        Click a bubble to inspect its scope, members, and connected meetings. Use the + button to add new roles or circles.
+                                    </p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[
+                                        { label: "Circles", value: groups.length, color: "text-[#3481FF]" },
+                                        { label: "Roles", value: nodes.filter(n => n.type === "secondary").length, color: "text-indigo-500 dark:text-indigo-400" },
+                                    ].map(s => (
+                                        <div key={s.label} className="rounded-xl border border-slate-100 dark:border-white/[0.06] bg-white dark:bg-[#0e0e12] px-4 py-3">
+                                            <p className={`text-[26px] font-bold tabular-nums tracking-tight ${s.color}`}>{s.value}</p>
+                                            <p className="text-[11px] font-medium text-slate-400 dark:text-slate-600">{s.label}</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </motion.div>
                         )}
                     </AnimatePresence>
 
-                    <div className="mt-6 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-950">
-                        <div className="flex items-center justify-between gap-4">
-                            <div>
-                                <div className="text-sm font-semibold uppercase tracking-[0.18em] text-[#2563EB]">
-                                    Chart editor
-                                </div>
-                                <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                                    Add supporting roles into an existing circle or create a brand
-                                    new circle with its own cluster.
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setComposerMode(null)}
-                                className={`rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors ${
-                                    composerMode
-                                        ? "border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
-                                        : "border-transparent text-slate-300 dark:text-slate-600"
-                                }`}
-                            >
-                                {composerMode ? "Close form" : "Ready"}
-                            </button>
-                        </div>
-
-                        <div className="mt-5">
-                            <ComposerActions
-                                selectedGroupTitle={selectedGroup?.title ?? null}
-                                onAddRole={() => openRoleComposer()}
-                                onAddCircle={openCircleComposer}
-                            />
-                        </div>
-
-                        {composerMode === "role" && (
-                            <form className="mt-6 space-y-4" onSubmit={handleCreateRole}>
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                        Target circle
-                                    </label>
-                                    <select
-                                        value={roleDraft.targetGroupId}
-                                        onChange={(event) =>
-                                            setRoleDraft((currentDraft) => ({
-                                                ...currentDraft,
-                                                targetGroupId: event.target.value,
-                                            }))
-                                        }
-                                        className={inputClassName}
-                                    >
-                                        {groups.map((group) => (
-                                            <option key={group.id} value={group.id}>
-                                                {group.title}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                        Role title
-                                    </label>
-                                    <input
-                                        value={roleDraft.title}
-                                        onChange={(event) =>
-                                            setRoleDraft((currentDraft) => ({
-                                                ...currentDraft,
-                                                title: event.target.value,
-                                            }))
-                                        }
-                                        placeholder="Example: Customer Insights Lead"
-                                        className={inputClassName}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                        Summary
-                                    </label>
-                                    <textarea
-                                        value={roleDraft.summary}
-                                        onChange={(event) =>
-                                            setRoleDraft((currentDraft) => ({
-                                                ...currentDraft,
-                                                summary: event.target.value,
-                                            }))
-                                        }
-                                        placeholder="What does this role actually own?"
-                                        className={textareaClassName}
-                                    />
-                                </div>
-
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <div>
-                                        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                            Cadence
-                                        </label>
-                                        <input
-                                            value={roleDraft.cadence}
-                                            onChange={(event) =>
-                                                setRoleDraft((currentDraft) => ({
-                                                    ...currentDraft,
-                                                    cadence: event.target.value,
-                                                }))
-                                            }
-                                            placeholder="Weekly planning sync"
-                                            className={inputClassName}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                            Members
-                                        </label>
-                                        <input
-                                            value={roleDraft.members}
-                                            onChange={(event) =>
-                                                setRoleDraft((currentDraft) => ({
-                                                    ...currentDraft,
-                                                    members: event.target.value,
-                                                }))
-                                            }
-                                            placeholder="Anna, Paul, Sarah"
-                                            className={inputClassName}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                        Scope items
-                                    </label>
-                                    <textarea
-                                        value={roleDraft.scope}
-                                        onChange={(event) =>
-                                            setRoleDraft((currentDraft) => ({
-                                                ...currentDraft,
-                                                scope: event.target.value,
-                                            }))
-                                        }
-                                        placeholder={
-                                            "One item per line\nOwn interview loop\nBring hiring insights into roadmap"
-                                        }
-                                        className={textareaClassName}
-                                    />
-                                </div>
-
-                                <div className="flex flex-wrap gap-3">
-                                    <button
-                                        type="submit"
-                                        className="rounded-full bg-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8]"
-                                    >
-                                        Create role
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setComposerMode(null)}
-                                        className="rounded-full border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        )}
-
-                        {composerMode === "circle" && (
-                            <form className="mt-6 space-y-4" onSubmit={handleCreateCircle}>
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                        Circle title
-                                    </label>
-                                    <input
-                                        value={circleDraft.title}
-                                        onChange={(event) =>
-                                            setCircleDraft((currentDraft) => ({
-                                                ...currentDraft,
-                                                title: event.target.value,
-                                            }))
-                                        }
-                                        placeholder="Example: Revenue Operations"
-                                        className={inputClassName}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                        Circle summary
-                                    </label>
-                                    <textarea
-                                        value={circleDraft.summary}
-                                        onChange={(event) =>
-                                            setCircleDraft((currentDraft) => ({
-                                                ...currentDraft,
-                                                summary: event.target.value,
-                                            }))
-                                        }
-                                        placeholder="What is this circle responsible for across the org?"
-                                        className={textareaClassName}
-                                    />
-                                </div>
-
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <div>
-                                        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                            Cadence
-                                        </label>
-                                        <input
-                                            value={circleDraft.cadence}
-                                            onChange={(event) =>
-                                                setCircleDraft((currentDraft) => ({
-                                                    ...currentDraft,
-                                                    cadence: event.target.value,
-                                                }))
-                                            }
-                                            placeholder="Monthly revenue review"
-                                            className={inputClassName}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                            Accent color
-                                        </label>
-                                        <div className="flex items-center gap-3">
-                                            <select
-                                                value={circleDraft.accent}
-                                                onChange={(event) =>
-                                                    setCircleDraft((currentDraft) => ({
-                                                        ...currentDraft,
-                                                        accent: event.target.value,
-                                                    }))
-                                                }
-                                                className={inputClassName}
-                                            >
-                                                {ACCENT_PALETTE.map((color) => (
-                                                    <option key={color} value={color}>
-                                                        {color}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <span
-                                                className="h-10 w-10 rounded-full border border-white/70 shadow-sm"
-                                                style={{ backgroundColor: circleDraft.accent }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="grid gap-4 sm:grid-cols-2">
-                                    <div>
-                                        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                            Members
-                                        </label>
-                                        <input
-                                            value={circleDraft.members}
-                                            onChange={(event) =>
-                                                setCircleDraft((currentDraft) => ({
-                                                    ...currentDraft,
-                                                    members: event.target.value,
-                                                }))
-                                            }
-                                            placeholder="Elena, Marcus, Sarah"
-                                            className={inputClassName}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
-                                            Scope items
-                                        </label>
-                                        <textarea
-                                            value={circleDraft.scope}
-                                            onChange={(event) =>
-                                                setCircleDraft((currentDraft) => ({
-                                                    ...currentDraft,
-                                                    scope: event.target.value,
-                                                }))
-                                            }
-                                            placeholder={
-                                                "One item per line\nOwn pipeline health\nAlign forecasting"
-                                            }
-                                            className={textareaClassName}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-wrap gap-3">
-                                    <button
-                                        type="submit"
-                                        className="rounded-full bg-[#2563EB] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8]"
-                                    >
-                                        Create circle
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setComposerMode(null)}
-                                        className="rounded-full border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        )}
-                    </div>
                 </aside>
             </div>
+
+            {/* Composer modal */}
+            <AnimatePresence>
+                {composerMode && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 dark:bg-black/75 backdrop-blur-sm px-4 pb-4 sm:pb-0"
+                        onClick={() => setComposerMode(null)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, y: 20, scale: 0.97 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                            className="w-full max-w-lg rounded-[1.75rem] border border-white/10 dark:border-white/[0.08] bg-white dark:bg-[#0e0e12] p-[5px] shadow-[0_24px_64px_rgba(0,0,0,0.3)]"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="rounded-[calc(1.75rem-5px)] px-6 py-6">
+                                {/* Modal header */}
+                                <div className="mb-5 flex items-center justify-between">
+                                    <div>
+                                        <div className="flex items-center gap-2 rounded-full bg-[#3481FF]/[0.08] dark:bg-[#3481FF]/[0.12] px-3 py-1 w-fit mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#3481FF]">
+                                            {composerMode === "role" ? "New role" : "New circle"}
+                                        </div>
+                                        <h3 className="text-[18px] font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
+                                            {composerMode === "role" ? "Add a role to a circle" : "Create a new circle"}
+                                        </h3>
+                                    </div>
+                                    <button type="button" onClick={() => setComposerMode(null)}
+                                        className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 dark:border-white/[0.08] text-slate-400 dark:text-slate-600 hover:bg-slate-100 dark:hover:bg-white/[0.07] hover:text-slate-600 dark:hover:text-slate-300">
+                                        <X size={15} strokeWidth={2} aria-hidden="true" />
+                                    </button>
+                                </div>
+
+                                {/* Mode toggle */}
+                                <div className="mb-5 flex items-center gap-px rounded-full bg-slate-100/80 dark:bg-white/[0.05] ring-1 ring-slate-200/80 dark:ring-white/[0.06] p-[3px] w-fit">
+                                    {(["role", "circle"] as const).map((mode) => (
+                                        <button key={mode} type="button"
+                                            onClick={() => { if (mode === "role") openRoleComposer(selectedGroup?.id); else openCircleComposer(); }}
+                                            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-300 ${composerMode === mode ? "bg-white dark:bg-white/[0.1] text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/60 dark:ring-white/[0.1]" : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"}`}>
+                                            {mode === "role" ? "Role" : "Circle"}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {composerMode === "role" && (
+                                    <form className="space-y-4" onSubmit={handleCreateRole}>
+                                        <div>
+                                            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Target circle</label>
+                                            <select value={roleDraft.targetGroupId}
+                                                onChange={(e) => setRoleDraft((d) => ({ ...d, targetGroupId: e.target.value }))}
+                                                className={selectClassName}>
+                                                {groups.map((g) => (
+                                                    <option key={g.id} value={g.id}>{g.title.replace("\n", " ")}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Role title</label>
+                                            <input value={roleDraft.title}
+                                                onChange={(e) => setRoleDraft((d) => ({ ...d, title: e.target.value }))}
+                                                placeholder="e.g. Customer Insights Lead" autoFocus className={inputClassName} />
+                                        </div>
+                                        <div>
+                                            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Summary</label>
+                                            <textarea value={roleDraft.summary}
+                                                onChange={(e) => setRoleDraft((d) => ({ ...d, summary: e.target.value }))}
+                                                placeholder="What does this role actually own?" className={textareaClassName} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Cadence</label>
+                                                <input value={roleDraft.cadence}
+                                                    onChange={(e) => setRoleDraft((d) => ({ ...d, cadence: e.target.value }))}
+                                                    placeholder="Weekly sync" className={inputClassName} />
+                                            </div>
+                                            <div>
+                                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Members</label>
+                                                <input value={roleDraft.members}
+                                                    onChange={(e) => setRoleDraft((d) => ({ ...d, members: e.target.value }))}
+                                                    placeholder="Anna, Paul" className={inputClassName} />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Scope (one per line)</label>
+                                            <textarea value={roleDraft.scope}
+                                                onChange={(e) => setRoleDraft((d) => ({ ...d, scope: e.target.value }))}
+                                                placeholder={"Own interview loop\nBring hiring insights into roadmap"} className={textareaClassName} />
+                                        </div>
+                                        <div className="flex gap-3 pt-1">
+                                            <button type="button" onClick={() => setComposerMode(null)}
+                                                className="flex-1 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] py-3 text-[13px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.07] transition-all duration-200">
+                                                Cancel
+                                            </button>
+                                            <button type="submit" disabled={!roleDraft.title.trim()}
+                                                className={`flex-1 rounded-xl py-3 text-[13px] font-bold transition-all duration-300 active:scale-[0.98] ${roleDraft.title.trim() ? "bg-[#3481FF] text-white shadow-[0_6px_20px_rgba(52,129,255,0.3)] hover:bg-[#2570f0]" : "cursor-not-allowed bg-slate-100 dark:bg-white/[0.05] text-slate-400 dark:text-slate-600"}`}>
+                                                Create role
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+
+                                {composerMode === "circle" && (
+                                    <form className="space-y-4" onSubmit={handleCreateCircle}>
+                                        <div>
+                                            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Circle title</label>
+                                            <input value={circleDraft.title}
+                                                onChange={(e) => setCircleDraft((d) => ({ ...d, title: e.target.value }))}
+                                                placeholder="e.g. Revenue Operations" autoFocus className={inputClassName} />
+                                        </div>
+                                        <div>
+                                            <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Summary</label>
+                                            <textarea value={circleDraft.summary}
+                                                onChange={(e) => setCircleDraft((d) => ({ ...d, summary: e.target.value }))}
+                                                placeholder="What is this circle responsible for?" className={textareaClassName} />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Cadence</label>
+                                                <input value={circleDraft.cadence}
+                                                    onChange={(e) => setCircleDraft((d) => ({ ...d, cadence: e.target.value }))}
+                                                    placeholder="Monthly review" className={inputClassName} />
+                                            </div>
+                                            <div>
+                                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Members</label>
+                                                <input value={circleDraft.members}
+                                                    onChange={(e) => setCircleDraft((d) => ({ ...d, members: e.target.value }))}
+                                                    placeholder="Elena, Marcus" className={inputClassName} />
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Scope (one per line)</label>
+                                                <textarea value={circleDraft.scope}
+                                                    onChange={(e) => setCircleDraft((d) => ({ ...d, scope: e.target.value }))}
+                                                    placeholder={"Own pipeline health\nAlign forecasting"} className={textareaClassName} />
+                                            </div>
+                                            <div>
+                                                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-500">Accent color</label>
+                                                <div className="flex items-center gap-2">
+                                                    <select value={circleDraft.accent}
+                                                        onChange={(e) => setCircleDraft((d) => ({ ...d, accent: e.target.value }))}
+                                                        className={selectClassName}>
+                                                        {ACCENT_PALETTE.map((c) => (
+                                                            <option key={c} value={c}>{c}</option>
+                                                        ))}
+                                                    </select>
+                                                    <span className="h-9 w-9 flex-shrink-0 rounded-full border border-white/30 shadow-sm" style={{ backgroundColor: circleDraft.accent }} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3 pt-1">
+                                            <button type="button" onClick={() => setComposerMode(null)}
+                                                className="flex-1 rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.04] py-3 text-[13px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.07] transition-all duration-200">
+                                                Cancel
+                                            </button>
+                                            <button type="submit" disabled={!circleDraft.title.trim()}
+                                                className={`flex-1 rounded-xl py-3 text-[13px] font-bold transition-all duration-300 active:scale-[0.98] ${circleDraft.title.trim() ? "bg-[#3481FF] text-white shadow-[0_6px_20px_rgba(52,129,255,0.3)] hover:bg-[#2570f0]" : "cursor-not-allowed bg-slate-100 dark:bg-white/[0.05] text-slate-400 dark:text-slate-600"}`}>
+                                                Create circle
+                                            </button>
+                                        </div>
+                                    </form>
+                                )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </section>
     );
 }
