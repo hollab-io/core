@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import type { AppTabId } from "../config/navigation";
 import { TAB_TITLES } from "../config/navigation";
+import DynamicAuthControl from "./DynamicAuthControl";
 
 type TopbarProps = {
     activeTab: AppTabId;
@@ -104,6 +105,8 @@ export default function Topbar({
                 </div>
 
                 <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-4">
+                    <DynamicAuthControl />
+
                     {(activeTab === "chart" ||
                         activeTab === "projects" ||
                         activeTab === "actions" ||

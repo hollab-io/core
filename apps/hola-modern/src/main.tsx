@@ -1,3 +1,5 @@
+import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
+import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -8,8 +10,21 @@ import "./index.css";
 
 createRoot(document.getElementById("root")!).render(
     <StrictMode>
-        <WorkspaceProvider>
-            <App />
-        </WorkspaceProvider>
+        {import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID ? (
+            <DynamicContextProvider
+                settings={{
+                    environmentId: import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID,
+                    walletConnectors: [EthereumWalletConnectors],
+                }}
+            >
+                <WorkspaceProvider>
+                    <App />
+                </WorkspaceProvider>
+            </DynamicContextProvider>
+        ) : (
+            <WorkspaceProvider>
+                <App />
+            </WorkspaceProvider>
+        )}
     </StrictMode>,
 );
