@@ -64,6 +64,15 @@ interface ICircleRegistry {
   /// @param _lead The assigned lead address
   event RoleLeadAssignedViaCircle(uint256 indexed _circleId, uint256 indexed _roleId, address indexed _lead);
 
+  /// @notice Emitted when a content ref is set for an entity field
+  event ContentRefSet(
+    bytes32 indexed _entityType,
+    uint256 indexed _entityId,
+    bytes32 indexed _fieldName,
+    bytes32 _contentHash,
+    HolacracyTypes.DataVisibility _visibility
+  );
+
   /// @notice Emitted when a circle's name or purpose is updated
   /// @param _circleId The circle ID
   /// @param _name The new name
@@ -112,6 +121,9 @@ interface ICircleRegistry {
 
   /// @notice Thrown when the contract has already been initialized
   error CircleRegistry_AlreadyInitialized();
+
+  /// @notice Thrown when fieldNames and refs arrays have different lengths
+  error CircleRegistry_ArrayLengthMismatch();
 
   /// @notice Thrown when address(0) is passed where a valid address is required
   error CircleRegistry_InvalidAddress();
@@ -282,6 +294,78 @@ interface ICircleRegistry {
   /// @param _circleId The circle ID
   /// @param _policyId The policy ID to remove
   function removePolicy(uint256 _circleId, uint256 _policyId) external;
+
+  /// @notice Creates a role within a circle with content refs
+  /// @param _circleId The circle to create the role in
+  /// @param _name The role name
+  /// @param _purpose The role purpose (may be sentinel)
+  /// @param _domains The role domains (may contain sentinels)
+  /// @param _accountabilities The role accountabilities (may contain sentinels)
+  /// @param _fieldNames The field name hashes for content refs
+  /// @param _refs The content refs
+  /// @return _roleId The created role ID
+  function createRoleInCircleWithRefs(
+    uint256 _circleId,
+    string calldata _name,
+    string calldata _purpose,
+    string[] calldata _domains,
+    string[] calldata _accountabilities,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external returns (uint256 _roleId);
+
+  /// @notice Updates a role within a circle with content refs
+  /// @param _circleId The circle containing the role
+  /// @param _roleId The role to update
+  /// @param _name The new name
+  /// @param _purpose The new purpose (may be sentinel)
+  /// @param _domains The new domains (may contain sentinels)
+  /// @param _accountabilities The new accountabilities (may contain sentinels)
+  /// @param _fieldNames The field name hashes for content refs
+  /// @param _refs The content refs
+  function updateRoleInCircleWithRefs(
+    uint256 _circleId,
+    uint256 _roleId,
+    string calldata _name,
+    string calldata _purpose,
+    string[] calldata _domains,
+    string[] calldata _accountabilities,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external;
+
+  /// @notice Adds a policy with content refs
+  /// @param _circleId The circle ID
+  /// @param _name The policy name
+  /// @param _body The policy body (may be sentinel)
+  /// @param _fieldNames The field name hashes for content refs
+  /// @param _refs The content refs
+  /// @return _policyId The created policy ID
+  function addPolicyWithRefs(
+    uint256 _circleId,
+    string calldata _name,
+    string calldata _body,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external returns (uint256 _policyId);
+
+  /// @notice Returns the content ref for a circle field
+  /// @param _circleId The circle ID
+  /// @param _fieldName The field name hash
+  /// @return _ref The content ref
+  function getCircleContentRef(
+    uint256 _circleId,
+    bytes32 _fieldName
+  ) external view returns (HolacracyTypes.ContentRef memory _ref);
+
+  /// @notice Returns the content ref for a policy field
+  /// @param _policyId The policy ID
+  /// @param _fieldName The field name hash
+  /// @return _ref The content ref
+  function getPolicyContentRef(
+    uint256 _policyId,
+    bytes32 _fieldName
+  ) external view returns (HolacracyTypes.ContentRef memory _ref);
 
   /// @notice Updates the name and purpose of an existing circle
   /// @dev Only callable by a circle lead of that circle or the governance process

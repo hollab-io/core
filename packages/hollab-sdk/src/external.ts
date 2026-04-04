@@ -29,7 +29,7 @@ export type { ZeroGKvClient, ZeroGLogClient } from "./internal.js";
 export { HollabSdkError, EncryptionError, StorageError, KeyDerivationError } from "./internal.js";
 
 // Implementations
-export { KeyManager, StorageClient } from "./internal.js";
+export { KeyManager, StorageClient, OrgClient, EventIndexer } from "./internal.js";
 
 // Schema helpers
 export {

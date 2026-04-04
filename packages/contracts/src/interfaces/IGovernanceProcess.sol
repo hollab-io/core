@@ -53,6 +53,15 @@ interface IGovernanceProcess {
   /// @param _proposalId The proposal ID
   event ProposalDiscarded(uint256 indexed _proposalId);
 
+  /// @notice Emitted when a content ref is set for an entity field
+  event ContentRefSet(
+    bytes32 indexed _entityType,
+    uint256 indexed _entityId,
+    bytes32 indexed _fieldName,
+    bytes32 _contentHash,
+    HolacracyTypes.DataVisibility _visibility
+  );
+
   /// @notice Emitted when a proposal is escalated to the DAO governor
   /// @param _proposalId The holacracy proposal ID
   /// @param _daoProposalId The resulting governor proposal ID
@@ -96,6 +105,9 @@ interface IGovernanceProcess {
 
   /// @notice Thrown when the contract has already been initialized
   error GovernanceProcess_AlreadyInitialized();
+
+  /// @notice Thrown when fieldNames and refs arrays have different lengths
+  error GovernanceProcess_ArrayLengthMismatch();
 
   /// @notice Thrown when escalating but no DAO governor has been linked
   error GovernanceProcess_DAONotSet();
@@ -204,6 +216,74 @@ interface IGovernanceProcess {
   /// @dev Only callable by the facilitator
   /// @param _proposalId The proposal to discard
   function discardProposal(uint256 _proposalId) external;
+
+  /// @notice Submits a proposal with content refs for off-chain encrypted fields
+  /// @param _circleId The target circle
+  /// @param _proposerRoleId The role the proposer is acting from
+  /// @param _tension Description of the tension (may be sentinel)
+  /// @param _example An example (may be sentinel)
+  /// @param _explanation How the proposal reduces tension (may be sentinel)
+  /// @param _change The governance change
+  /// @param _fieldNames The field name hashes for content refs
+  /// @param _refs The content refs
+  /// @return _proposalId The created proposal ID
+  function submitProposalWithRefs(
+    uint256 _circleId,
+    uint256 _proposerRoleId,
+    string calldata _tension,
+    string calldata _example,
+    string calldata _explanation,
+    HolacracyTypes.GovernanceChange calldata _change,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external returns (uint256 _proposalId);
+
+  /// @notice Raises an objection with content refs
+  /// @param _proposalId The proposal being objected to
+  /// @param _objectorRoleId The role the objector is acting from
+  /// @param _concern Description of the concern (may be sentinel)
+  /// @param _isConstitutionalViolation Whether this is a constitutional violation
+  /// @param _fieldNames The field name hashes for content refs
+  /// @param _refs The content refs
+  /// @return _objectionId The created objection ID
+  function raiseObjectionWithRefs(
+    uint256 _proposalId,
+    uint256 _objectorRoleId,
+    string calldata _concern,
+    bool _isConstitutionalViolation,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external returns (uint256 _objectionId);
+
+  /// @notice Resolves an objection with content refs
+  /// @param _objectionId The objection to resolve
+  /// @param _resolution Description of how resolved (may be sentinel)
+  /// @param _fieldNames The field name hashes for content refs
+  /// @param _refs The content refs
+  function resolveObjectionWithRefs(
+    uint256 _objectionId,
+    string calldata _resolution,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external;
+
+  /// @notice Returns the content ref for a proposal field
+  /// @param _proposalId The proposal ID
+  /// @param _fieldName The field name hash
+  /// @return _ref The content ref
+  function getProposalContentRef(
+    uint256 _proposalId,
+    bytes32 _fieldName
+  ) external view returns (HolacracyTypes.ContentRef memory _ref);
+
+  /// @notice Returns the content ref for an objection field
+  /// @param _objectionId The objection ID
+  /// @param _fieldName The field name hash
+  /// @return _ref The content ref
+  function getObjectionContentRef(
+    uint256 _objectionId,
+    bytes32 _fieldName
+  ) external view returns (HolacracyTypes.ContentRef memory _ref);
 
   /// @notice Links a DAO governor and its timelock to this governance process
   /// @dev One-time setter — can only be called once. Called by OrganizationFactory after deploying the governance suite.

@@ -60,6 +60,12 @@ contract GovernanceProcess is IGovernanceProcess {
   /// @notice Whether the contract has been initialized
   bool internal _initialized;
 
+  /// @notice Proposal ID => field name hash => ContentRef
+  mapping(uint256 => mapping(bytes32 => HolacracyTypes.ContentRef)) internal _proposalContentRefs;
+
+  /// @notice Objection ID => field name hash => ContentRef
+  mapping(uint256 => mapping(bytes32 => HolacracyTypes.ContentRef)) internal _objectionContentRefs;
+
   /*///////////////////////////////////////////////////////////////
                             MODIFIERS
   //////////////////////////////////////////////////////////////*/
@@ -372,9 +378,184 @@ contract GovernanceProcess is IGovernanceProcess {
     emit ProposalDiscarded(_proposalId);
   }
 
+  /// @inheritdoc IGovernanceProcess
+  function submitProposalWithRefs(
+    uint256 _circleId,
+    uint256 _proposerRoleId,
+    string calldata _tension,
+    string calldata _example,
+    string calldata _explanation,
+    HolacracyTypes.GovernanceChange calldata _change,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external returns (uint256 _proposalId) {
+    if (_fieldNames.length != _refs.length) revert GovernanceProcess_ArrayLengthMismatch();
+    if (!circleRegistry.isCircleMember(_circleId, msg.sender)) {
+      revert GovernanceProcess_NotCircleMember(_circleId, msg.sender);
+    }
+    if (bytes(_tension).length == 0) revert GovernanceProcess_EmptyTension();
+
+    _proposalId = ++_proposalCounter;
+
+    HolacracyTypes.Proposal storage _proposal = _proposals[_proposalId];
+    _proposal.id = _proposalId;
+    _proposal.circleId = _circleId;
+    _proposal.proposer = msg.sender;
+    _proposal.proposerRoleId = _proposerRoleId;
+    _proposal.tension = _tension;
+    _proposal.example = _example;
+    _proposal.explanation = _explanation;
+    _proposal.change = _change;
+    _proposal.status = HolacracyTypes.ProposalStatus.Draft;
+    _proposal.createdAt = block.timestamp;
+
+    _circleProposals[_circleId].push(_proposalId);
+
+    _setContentRefs(keccak256('proposal'), _proposalId, _fieldNames, _refs, _proposalContentRefs);
+
+    emit ProposalSubmitted(_proposalId, _circleId, msg.sender);
+  }
+
+  /// @inheritdoc IGovernanceProcess
+  function raiseObjectionWithRefs(
+    uint256 _proposalId,
+    uint256 _objectorRoleId,
+    string calldata _concern,
+    bool _isConstitutionalViolation,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external returns (uint256 _objectionId) {
+    if (_fieldNames.length != _refs.length) revert GovernanceProcess_ArrayLengthMismatch();
+
+    HolacracyTypes.Proposal storage _proposal = _proposals[_proposalId];
+    if (_proposal.id == 0) revert GovernanceProcess_ProposalNotFound(_proposalId);
+    if (_proposal.status != HolacracyTypes.ProposalStatus.Active) {
+      revert GovernanceProcess_InvalidProposalStatus(_proposalId, HolacracyTypes.ProposalStatus.Active);
+    }
+    if (!circleRegistry.isCircleMember(_proposal.circleId, msg.sender)) {
+      revert GovernanceProcess_NotCircleMember(_proposal.circleId, msg.sender);
+    }
+
+    _objectionId = ++_objectionCounter;
+
+    HolacracyTypes.Objection storage _objection = _objections[_objectionId];
+    _objection.id = _objectionId;
+    _objection.proposalId = _proposalId;
+    _objection.objector = msg.sender;
+    _objection.objectorRoleId = _objectorRoleId;
+    _objection.concern = _concern;
+    _objection.isConstitutionalViolation = _isConstitutionalViolation;
+    _objection.status = HolacracyTypes.ObjectionStatus.Raised;
+    _objection.createdAt = block.timestamp;
+
+    _proposalObjections[_proposalId].push(_objectionId);
+    _proposal.status = HolacracyTypes.ProposalStatus.Integrating;
+
+    _setContentRefs(keccak256('objection'), _objectionId, _fieldNames, _refs, _objectionContentRefs);
+
+    emit ObjectionRaised(_objectionId, _proposalId, msg.sender);
+  }
+
+  /// @inheritdoc IGovernanceProcess
+  function resolveObjectionWithRefs(
+    uint256 _objectionId,
+    string calldata _resolution,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external {
+    if (_fieldNames.length != _refs.length) revert GovernanceProcess_ArrayLengthMismatch();
+
+    HolacracyTypes.Objection storage _objection = _objections[_objectionId];
+    if (_objection.id == 0) revert GovernanceProcess_ObjectionNotFound(_objectionId);
+
+    HolacracyTypes.Proposal storage _proposal = _proposals[_objection.proposalId];
+    _assertFacilitator(_proposal.circleId);
+
+    if (
+      _objection.status != HolacracyTypes.ObjectionStatus.Raised
+        && _objection.status != HolacracyTypes.ObjectionStatus.Testing
+    ) {
+      revert GovernanceProcess_InvalidObjectionStatus(_objectionId, HolacracyTypes.ObjectionStatus.Raised);
+    }
+
+    _objection.status = HolacracyTypes.ObjectionStatus.Resolved;
+    _objection.resolution = _resolution;
+
+    _setContentRefs(keccak256('objection'), _objectionId, _fieldNames, _refs, _objectionContentRefs);
+
+    if (_allObjectionsResolved(_objection.proposalId)) {
+      _proposal.status = HolacracyTypes.ProposalStatus.Active;
+    }
+
+    emit ObjectionResolved(_objectionId, _objection.proposalId);
+  }
+
+  /// @inheritdoc IGovernanceProcess
+  function getProposalContentRef(
+    uint256 _proposalId,
+    bytes32 _fieldName
+  ) external view returns (HolacracyTypes.ContentRef memory _ref) {
+    _ref = _proposalContentRefs[_proposalId][_fieldName];
+  }
+
+  /// @inheritdoc IGovernanceProcess
+  function getObjectionContentRef(
+    uint256 _objectionId,
+    bytes32 _fieldName
+  ) external view returns (HolacracyTypes.ContentRef memory _ref) {
+    _ref = _objectionContentRefs[_objectionId][_fieldName];
+  }
+
   /*///////////////////////////////////////////////////////////////
                             INTERNAL
   //////////////////////////////////////////////////////////////*/
+
+  /// @notice Executes a CreateRoleWithRefs change
+  function _executeCreateRoleWithRefs(uint256 _circleId, bytes memory _data) internal {
+    (
+      string memory _name,
+      string memory _purpose,
+      string[] memory _domains,
+      string[] memory _accountabilities,
+      bytes32[] memory _fieldNames,
+      HolacracyTypes.ContentRef[] memory _refs
+    ) = abi.decode(_data, (string, string, string[], string[], bytes32[], HolacracyTypes.ContentRef[]));
+    circleRegistry.createRoleInCircleWithRefs(_circleId, _name, _purpose, _domains, _accountabilities, _fieldNames, _refs);
+  }
+
+  /// @notice Executes an AmendRoleWithRefs change
+  function _executeAmendRoleWithRefs(uint256 _circleId, uint256 _targetId, bytes memory _data) internal {
+    (
+      string memory _name,
+      string memory _purpose,
+      string[] memory _domains,
+      string[] memory _accountabilities,
+      bytes32[] memory _fieldNames,
+      HolacracyTypes.ContentRef[] memory _refs
+    ) = abi.decode(_data, (string, string, string[], string[], bytes32[], HolacracyTypes.ContentRef[]));
+    circleRegistry.updateRoleInCircleWithRefs(_circleId, _targetId, _name, _purpose, _domains, _accountabilities, _fieldNames, _refs);
+  }
+
+  /// @notice Executes a CreatePolicyWithRefs change
+  function _executeCreatePolicyWithRefs(uint256 _circleId, bytes memory _data) internal {
+    (string memory _name, string memory _body, bytes32[] memory _fieldNames, HolacracyTypes.ContentRef[] memory _refs) =
+      abi.decode(_data, (string, string, bytes32[], HolacracyTypes.ContentRef[]));
+    circleRegistry.addPolicyWithRefs(_circleId, _name, _body, _fieldNames, _refs);
+  }
+
+  /// @notice Stores content refs and emits events
+  function _setContentRefs(
+    bytes32 _entityType,
+    uint256 _entityId,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs,
+    mapping(uint256 => mapping(bytes32 => HolacracyTypes.ContentRef)) storage _refMapping
+  ) internal {
+    for (uint256 _i; _i < _fieldNames.length; ++_i) {
+      _refMapping[_entityId][_fieldNames[_i]] = _refs[_i];
+      emit ContentRefSet(_entityType, _entityId, _fieldNames[_i], _refs[_i].contentHash, _refs[_i].visibility);
+    }
+  }
 
   /// @notice Asserts the caller is the facilitator of the circle
   function _assertFacilitator(uint256 _circleId) internal view {
@@ -432,6 +613,15 @@ contract GovernanceProcess is IGovernanceProcess {
       circleRegistry.addPolicy(_circleId, _name, _body);
     } else if (_change.changeType == HolacracyTypes.ChangeType.RemovePolicy) {
       circleRegistry.removePolicy(_circleId, _change.targetId);
+    } else if (_change.changeType == HolacracyTypes.ChangeType.CreateRoleWithRefs) {
+      _executeCreateRoleWithRefs(_circleId, _change.encodedData);
+    } else if (_change.changeType == HolacracyTypes.ChangeType.AmendRoleWithRefs) {
+      _executeAmendRoleWithRefs(_circleId, _change.targetId, _change.encodedData);
+    } else if (_change.changeType == HolacracyTypes.ChangeType.CreatePolicyWithRefs) {
+      _executeCreatePolicyWithRefs(_circleId, _change.encodedData);
+    } else if (_change.changeType == HolacracyTypes.ChangeType.AmendPolicyWithRefs) {
+      circleRegistry.removePolicy(_circleId, _change.targetId);
+      _executeCreatePolicyWithRefs(_circleId, _change.encodedData);
     }
     // MoveRole and Election are handled separately (not auto-executed)
   }

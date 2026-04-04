@@ -36,6 +36,9 @@ contract RoleRegistry is IRoleRegistry {
   /// @notice Whether the contract has been initialized
   bool internal _initialized;
 
+  /// @notice Role ID => field name hash => ContentRef
+  mapping(uint256 => mapping(bytes32 => HolacracyTypes.ContentRef)) internal _roleContentRefs;
+
   /*///////////////////////////////////////////////////////////////
                             MODIFIERS
   //////////////////////////////////////////////////////////////*/
@@ -135,27 +138,7 @@ contract RoleRegistry is IRoleRegistry {
     string[] calldata _domains,
     string[] calldata _accountabilities
   ) external onlyCircleRegistry returns (uint256 _roleId) {
-    _validateRole(_name, _purpose, _domains, _accountabilities);
-
-    _roleId = ++_roleCounter;
-
-    HolacracyTypes.Role storage _role = _roles[_roleId];
-    _role.id = _roleId;
-    _role.circleId = _circleId;
-    _role.name = _name;
-    _role.purpose = _purpose;
-    _role.exists = true;
-
-    for (uint256 _i; _i < _domains.length; ++_i) {
-      _role.domains.push(_domains[_i]);
-    }
-    for (uint256 _i; _i < _accountabilities.length; ++_i) {
-      _role.accountabilities.push(_accountabilities[_i]);
-    }
-
-    _circleRoles[_circleId].push(_roleId);
-
-    emit RoleCreated(_roleId, _circleId, _name);
+    _roleId = _createRole(_circleId, _name, _purpose, _domains, _accountabilities);
   }
 
   /// @inheritdoc IRoleRegistry
@@ -166,26 +149,7 @@ contract RoleRegistry is IRoleRegistry {
     string[] calldata _domains,
     string[] calldata _accountabilities
   ) external onlyCircleRegistry {
-    if (!_roles[_roleId].exists) revert RoleRegistry_RoleNotFound(_roleId);
-    _validateRole(_name, _purpose, _domains, _accountabilities);
-
-    HolacracyTypes.Role storage _role = _roles[_roleId];
-    _role.name = _name;
-    _role.purpose = _purpose;
-
-    // Replace domains
-    delete _role.domains;
-    for (uint256 _i; _i < _domains.length; ++_i) {
-      _role.domains.push(_domains[_i]);
-    }
-
-    // Replace accountabilities
-    delete _role.accountabilities;
-    for (uint256 _i; _i < _accountabilities.length; ++_i) {
-      _role.accountabilities.push(_accountabilities[_i]);
-    }
-
-    emit RoleUpdated(_roleId);
+    _updateRole(_roleId, _name, _purpose, _domains, _accountabilities);
   }
 
   /// @inheritdoc IRoleRegistry
@@ -248,9 +212,121 @@ contract RoleRegistry is IRoleRegistry {
     emit RoleLeadUnassigned(_roleId, _lead);
   }
 
+  /// @inheritdoc IRoleRegistry
+  function createRoleWithRefs(
+    uint256 _circleId,
+    string calldata _name,
+    string calldata _purpose,
+    string[] calldata _domains,
+    string[] calldata _accountabilities,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external onlyCircleRegistry returns (uint256 _roleId) {
+    if (_fieldNames.length != _refs.length) revert RoleRegistry_ArrayLengthMismatch();
+
+    _roleId = _createRole(_circleId, _name, _purpose, _domains, _accountabilities);
+    _setContentRefs(keccak256('role'), _roleId, _fieldNames, _refs);
+  }
+
+  /// @inheritdoc IRoleRegistry
+  function updateRoleWithRefs(
+    uint256 _roleId,
+    string calldata _name,
+    string calldata _purpose,
+    string[] calldata _domains,
+    string[] calldata _accountabilities,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external onlyCircleRegistry {
+    if (_fieldNames.length != _refs.length) revert RoleRegistry_ArrayLengthMismatch();
+
+    _updateRole(_roleId, _name, _purpose, _domains, _accountabilities);
+    _setContentRefs(keccak256('role'), _roleId, _fieldNames, _refs);
+  }
+
+  /// @inheritdoc IRoleRegistry
+  function getRoleContentRef(
+    uint256 _roleId,
+    bytes32 _fieldName
+  ) external view returns (HolacracyTypes.ContentRef memory _ref) {
+    _ref = _roleContentRefs[_roleId][_fieldName];
+  }
+
   /*///////////////////////////////////////////////////////////////
                             INTERNAL
   //////////////////////////////////////////////////////////////*/
+
+  /// @notice Stores content refs and emits events
+  function _setContentRefs(
+    bytes32 _entityType,
+    uint256 _entityId,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) internal {
+    for (uint256 _i; _i < _fieldNames.length; ++_i) {
+      _roleContentRefs[_entityId][_fieldNames[_i]] = _refs[_i];
+      emit ContentRefSet(_entityType, _entityId, _fieldNames[_i], _refs[_i].contentHash, _refs[_i].visibility);
+    }
+  }
+
+  /// @notice Internal implementation for creating a role
+  function _createRole(
+    uint256 _circleId,
+    string calldata _name,
+    string calldata _purpose,
+    string[] calldata _domains,
+    string[] calldata _accountabilities
+  ) internal returns (uint256 _roleId) {
+    _validateRole(_name, _purpose, _domains, _accountabilities);
+
+    _roleId = ++_roleCounter;
+
+    HolacracyTypes.Role storage _role = _roles[_roleId];
+    _role.id = _roleId;
+    _role.circleId = _circleId;
+    _role.name = _name;
+    _role.purpose = _purpose;
+    _role.exists = true;
+
+    for (uint256 _i; _i < _domains.length; ++_i) {
+      _role.domains.push(_domains[_i]);
+    }
+    for (uint256 _i; _i < _accountabilities.length; ++_i) {
+      _role.accountabilities.push(_accountabilities[_i]);
+    }
+
+    _circleRoles[_circleId].push(_roleId);
+
+    emit RoleCreated(_roleId, _circleId, _name);
+  }
+
+  /// @notice Internal implementation for updating a role
+  function _updateRole(
+    uint256 _roleId,
+    string calldata _name,
+    string calldata _purpose,
+    string[] calldata _domains,
+    string[] calldata _accountabilities
+  ) internal {
+    if (!_roles[_roleId].exists) revert RoleRegistry_RoleNotFound(_roleId);
+    _validateRole(_name, _purpose, _domains, _accountabilities);
+
+    HolacracyTypes.Role storage _role = _roles[_roleId];
+    _role.name = _name;
+    _role.purpose = _purpose;
+
+    delete _role.domains;
+    for (uint256 _i; _i < _domains.length; ++_i) {
+      _role.domains.push(_domains[_i]);
+    }
+
+    delete _role.accountabilities;
+    for (uint256 _i; _i < _accountabilities.length; ++_i) {
+      _role.accountabilities.push(_accountabilities[_i]);
+    }
+
+    emit RoleUpdated(_roleId);
+  }
 
   /// @notice Validates that a role has a name and at least one of purpose, domain, or accountability
   function _validateRole(
