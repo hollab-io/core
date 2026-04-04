@@ -24,6 +24,9 @@ COPY apps/hollab-indexing/ponder.config.ts  ./apps/hollab-indexing/
 COPY apps/hollab-indexing/ponder.schema.ts  ./apps/hollab-indexing/
 COPY apps/hollab-indexing/package.json      ./apps/hollab-indexing/
 COPY apps/hollab-indexing/tsconfig.json     ./apps/hollab-indexing/
+# @hollab-io/contracts exports ./generated/index.ts — must be present at runtime
+COPY packages/contracts/package.json    ./packages/contracts/
+COPY packages/contracts/generated/      ./packages/contracts/generated/
 
 WORKDIR /app/apps/hollab-indexing
 EXPOSE 42069
