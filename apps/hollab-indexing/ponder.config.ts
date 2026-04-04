@@ -1,12 +1,13 @@
+import {
+    circleRegistryAbi,
+    circleTreasuryAbi,
+    governanceProcessAbi,
+    holGovernorAbi,
+    holGovernorFactoryAbi,
+    organizationFactoryAbi,
+    roleRegistryAbi,
+} from "@hollab-io/contracts/actions";
 import { createConfig } from "ponder";
-
-import { CircleRegistryAbi } from "./abis/CircleRegistryAbi";
-import { CircleTreasuryAbi } from "./abis/CircleTreasuryAbi";
-import { GovernanceProcessAbi } from "./abis/GovernanceProcessAbi";
-import { HolGovernorAbi } from "./abis/HolGovernorAbi";
-import { HolGovernorFactoryAbi } from "./abis/HolGovernorFactoryAbi";
-import { OrganizationFactoryAbi } from "./abis/OrganizationFactoryAbi";
-import { RoleRegistryAbi } from "./abis/RoleRegistryAbi";
 
 const addr = (key: string) =>
     (process.env[key] ?? "0x0000000000000000000000000000000000000001") as `0x${string}`;
@@ -15,14 +16,13 @@ const orgFactoryAddr = addr("ORGANIZATION_FACTORY_ADDRESS");
 const govFactoryAddr = addr("HOL_GOVERNOR_FACTORY_ADDRESS");
 const startBlock = Number(process.env.START_BLOCK ?? 0);
 
-// Resolve the OrgComponentsDeployed event object once for reuse across factory configs
-const orgComponentsDeployedEvent = OrganizationFactoryAbi.find(
-    (e): e is (typeof OrganizationFactoryAbi)[number] & { type: "event" } =>
+const orgComponentsDeployedEvent = organizationFactoryAbi.find(
+    (e): e is (typeof organizationFactoryAbi)[number] & { type: "event" } =>
         e.type === "event" && (e as { name?: string }).name === "OrgComponentsDeployed",
 )!;
 
-const governorDeployedEvent = HolGovernorFactoryAbi.find(
-    (e): e is (typeof HolGovernorFactoryAbi)[number] & { type: "event" } =>
+const governorDeployedEvent = holGovernorFactoryAbi.find(
+    (e): e is (typeof holGovernorFactoryAbi)[number] & { type: "event" } =>
         e.type === "event" && (e as { name?: string }).name === "GovernorDeployed",
 )!;
 
@@ -37,7 +37,7 @@ export default createConfig({
         // ── Fixed factory contracts ───────────────────────────────────────────────
         OrganizationFactory: {
             chain: "sepolia",
-            abi: OrganizationFactoryAbi,
+            abi: organizationFactoryAbi,
             address: orgFactoryAddr,
             startBlock,
         },
@@ -45,7 +45,7 @@ export default createConfig({
         // ── Per-org clones: auto-discovered from OrgComponentsDeployed ────────────
         CircleRegistry: {
             chain: "sepolia",
-            abi: CircleRegistryAbi,
+            abi: circleRegistryAbi,
             address: {
                 address: orgFactoryAddr,
                 event: orgComponentsDeployedEvent,
@@ -55,7 +55,7 @@ export default createConfig({
         },
         RoleRegistry: {
             chain: "sepolia",
-            abi: RoleRegistryAbi,
+            abi: roleRegistryAbi,
             address: {
                 address: orgFactoryAddr,
                 event: orgComponentsDeployedEvent,
@@ -65,7 +65,7 @@ export default createConfig({
         },
         GovernanceProcess: {
             chain: "sepolia",
-            abi: GovernanceProcessAbi,
+            abi: governanceProcessAbi,
             address: {
                 address: orgFactoryAddr,
                 event: orgComponentsDeployedEvent,
@@ -77,7 +77,7 @@ export default createConfig({
         // ── Per-org governor: auto-discovered from GovernorDeployed ──────────────
         HolGovernor: {
             chain: "sepolia",
-            abi: HolGovernorAbi,
+            abi: holGovernorAbi,
             address: {
                 address: govFactoryAddr,
                 event: governorDeployedEvent,
@@ -89,7 +89,7 @@ export default createConfig({
         // ── Per-org treasury: auto-discovered from OrgComponentsDeployed ─────────
         CircleTreasury: {
             chain: "sepolia",
-            abi: CircleTreasuryAbi,
+            abi: circleTreasuryAbi,
             address: {
                 address: orgFactoryAddr,
                 event: orgComponentsDeployedEvent,
