@@ -30,6 +30,31 @@
 
 .calendar-google-shell {
     font-family: "Google Sans", "Inter", system-ui, sans-serif;
+    --calendar-border: #3c4043;
+    --calendar-text: #e8eaed;
+    --calendar-muted: #9aa0a6;
+    --calendar-hover-bg: #2b2c2f;
+    --calendar-today-bg: rgba(138, 180, 248, 0.08);
+    --calendar-other-day-bg: rgba(255, 255, 255, 0.02);
+    --calendar-today-pill: #8ab4f8;
+    --calendar-today-pill-text: #202124;
+    --calendar-other-date: #5f6368;
+    --calendar-list-hover: #2b2c2f;
+    --calendar-now-indicator: #f28b82;
+}
+
+.calendar-theme--light {
+    --calendar-border: #dbe4ef;
+    --calendar-text: #0f172a;
+    --calendar-muted: #64748b;
+    --calendar-hover-bg: #edf4ff;
+    --calendar-today-bg: rgba(52, 129, 255, 0.08);
+    --calendar-other-day-bg: rgba(148, 163, 184, 0.08);
+    --calendar-today-pill: #3481ff;
+    --calendar-today-pill-text: #ffffff;
+    --calendar-other-date: #94a3b8;
+    --calendar-list-hover: #edf4ff;
+    --calendar-now-indicator: #ef4444;
 }
 
 .calendar-google-icon-button,
@@ -37,7 +62,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #e8eaed;
+    color: var(--calendar-text);
     transition:
         background-color 150ms ease,
         color 150ms ease;
@@ -51,7 +76,7 @@
 
 .calendar-google-icon-button:hover,
 .calendar-google-nav-button:hover {
-    background: #2b2c2f;
+    background: var(--calendar-hover-bg);
 }
 
 .calendar-google-nav-button {
@@ -60,12 +85,12 @@
 }
 
 .calendar-shell--google {
-    --fc-border-color: #3c4043;
+    --fc-border-color: var(--calendar-border);
     --fc-page-bg-color: transparent;
     --fc-neutral-bg-color: transparent;
-    --fc-list-event-hover-bg-color: #2b2c2f;
-    --fc-today-bg-color: rgba(138, 180, 248, 0.08);
-    color: #e8eaed;
+    --fc-list-event-hover-bg-color: var(--calendar-list-hover);
+    --fc-today-bg-color: var(--calendar-today-bg);
+    color: var(--calendar-text);
 }
 
 .calendar-shell--google .fc,
@@ -106,7 +131,7 @@
 }
 
 .calendar-shell--google .fc-day-other {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--calendar-other-day-bg);
 }
 
 .calendar-shell--google .fc-daygrid-day.fc-day-today,
@@ -118,7 +143,7 @@
 .calendar-shell--google .fc-timegrid-axis-cushion,
 .calendar-shell--google .fc-timegrid-slot-label-cushion,
 .calendar-shell--google .fc-list-day-cushion {
-    color: #9aa0a6;
+    color: var(--calendar-muted);
 }
 
 .calendar-shell--google .fc-col-header-cell-cushion {
@@ -210,22 +235,22 @@
     width: 2rem;
     height: 2rem;
     border-radius: 999px;
-    color: #e8eaed;
+    color: var(--calendar-text);
     font-size: 0.9rem;
     font-weight: 500;
 }
 
 .calendar-month-cell__number--today {
-    background: #8ab4f8;
-    color: #202124;
+    background: var(--calendar-today-pill);
+    color: var(--calendar-today-pill-text);
 }
 
 .calendar-month-cell__number--other {
-    color: #5f6368;
+    color: var(--calendar-other-date);
 }
 
 .calendar-month-header {
-    color: #9aa0a6;
+    color: var(--calendar-muted);
     font-size: 0.72rem;
     font-weight: 600;
     letter-spacing: 0.08em;
@@ -239,7 +264,7 @@
 }
 
 .calendar-week-header__label {
-    color: #9aa0a6;
+    color: var(--calendar-muted);
     font-size: 0.72rem;
     font-weight: 600;
     letter-spacing: 0.08em;
@@ -252,19 +277,19 @@
     width: 2.55rem;
     height: 2.55rem;
     border-radius: 999px;
-    color: #e8eaed;
+    color: var(--calendar-text);
     font-size: 1.15rem;
     font-weight: 500;
 }
 
 .calendar-week-header__number--today {
-    background: #8ab4f8;
-    color: #202124;
+    background: var(--calendar-today-pill);
+    color: var(--calendar-today-pill-text);
 }
 
 .calendar-shell--google .fc-timegrid-now-indicator-line,
 .calendar-shell--google .fc-timegrid-now-indicator-arrow {
-    border-color: #f28b82;
+    border-color: var(--calendar-now-indicator);
 }
 
 .calendar-shell--google .fc-list {
@@ -278,21 +303,21 @@
 
 .calendar-shell--google .fc-list-day-cushion {
     padding: 1rem 0.75rem 0.5rem;
-    color: #e8eaed;
+    color: var(--calendar-text);
     font-size: 0.95rem;
     font-weight: 600;
 }
 
 .calendar-shell--google .fc-list-event-time {
-    color: #9aa0a6;
+    color: var(--calendar-muted);
     font-size: 0.8rem;
 }
 
 .calendar-shell--google .fc-list-event-title a {
-    color: #e8eaed;
+    color: var(--calendar-text);
 }
 
 .calendar-shell--google .fc-list-empty {
     background: transparent;
-    color: #9aa0a6;
+    color: var(--calendar-muted);
 }
