@@ -1,6 +1,6 @@
-import { createIndexingClient } from "@hollab-io/indexing-client";
 import type { Organization } from "@hollab-io/indexing-client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createIndexingClient } from "@hollab-io/indexing-client";
+import { useCallback, useEffect, useState } from "react";
 
 const indexerUrl = import.meta.env.VITE_INDEXER_URL as string;
 const client = indexerUrl ? createIndexingClient(indexerUrl) : null;

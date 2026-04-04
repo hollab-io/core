@@ -22,7 +22,6 @@ export default function ActionItemsView() {
     return (
         <div className="min-h-[calc(100dvh-60px)] pb-32 pt-8">
             <div className="mx-auto max-w-[900px] px-5 sm:px-8">
-
                 {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: 18 }}
@@ -44,7 +43,6 @@ export default function ActionItemsView() {
 
                 {/* 2 × 2 grid */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-
                     {/* Next actions */}
                     <motion.div
                         initial={{ opacity: 0, y: 16 }}
@@ -71,10 +69,12 @@ export default function ActionItemsView() {
                                         className="flex items-start gap-2.5 rounded-xl
                                             border border-white/[0.04] bg-white/[0.02] px-3.5 py-2.5"
                                     >
-                                        <div className="mt-[3px] h-3 w-3 shrink-0 rounded-full
-                                            border border-slate-600 bg-transparent" />
+                                        <div
+                                            className="mt-[3px] h-3 w-3 shrink-0 rounded-full
+                                            border border-slate-600 bg-transparent"
+                                        />
                                         <p className="text-[13px] leading-snug text-slate-300">
-                                            {action.description}
+                                            {action.title}
                                         </p>
                                     </li>
                                 ))}
@@ -120,8 +120,10 @@ export default function ActionItemsView() {
                                         <p className="text-[13px] leading-snug text-slate-300 truncate">
                                             {project.title}
                                         </p>
-                                        <span className={`ml-auto shrink-0 text-[10px] font-semibold uppercase
-                                            ${STATUS_COLORS[project.stage] ?? "text-slate-500"}`}>
+                                        <span
+                                            className={`ml-auto shrink-0 text-[10px] font-semibold uppercase
+                                            ${STATUS_COLORS[project.stage] ?? "text-slate-500"}`}
+                                        >
                                             {project.stage}
                                         </span>
                                     </li>
@@ -178,11 +180,19 @@ export default function ActionItemsView() {
     );
 }
 
-function EmptyState({ icon: Icon, text }: { icon: React.FC<{ size?: number; className?: string; strokeWidth?: number }>; text: string }) {
+function EmptyState({
+    icon: Icon,
+    text,
+}: {
+    icon: React.FC<{ size?: number; className?: string; strokeWidth?: number }>;
+    text: string;
+}) {
     return (
-        <div className="flex flex-col items-center gap-3 rounded-2xl
+        <div
+            className="flex flex-col items-center gap-3 rounded-2xl
             border border-dashed border-white/[0.06] bg-white/[0.015]
-            px-4 py-8 text-center">
+            px-4 py-8 text-center"
+        >
             <Icon size={20} className="text-slate-700" strokeWidth={1.5} />
             <p className="max-w-[24ch] text-xs leading-relaxed text-slate-600">{text}</p>
         </div>

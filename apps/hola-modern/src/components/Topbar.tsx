@@ -46,9 +46,10 @@ export default function Topbar({
                         aria-selected={isActive}
                         className={`relative rounded-full px-4 py-1.5 text-xs font-semibold tracking-wide
                             transition-all duration-500
-                            ${isActive
-                                ? "bg-white dark:bg-white/[0.1] text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/60 dark:ring-white/[0.1]"
-                                : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                            ${
+                                isActive
+                                    ? "bg-white dark:bg-white/[0.1] text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/60 dark:ring-white/[0.1]"
+                                    : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                             }`}
                         style={{ transitionTimingFunction: SPRING }}
                         onClick={() => onChange(option.id)}
@@ -77,7 +78,7 @@ export default function Topbar({
                     <h1 className="truncate text-[17px] font-bold tracking-[-0.02em] text-slate-900 dark:text-white leading-none">
                         {pageTitle}
                     </h1>
-                    {activeTab === "chart" && organizationEns && (
+                    {activeTab === "structure" && organizationEns && (
                         <p className="mt-0.5 truncate text-[11px] font-medium text-slate-400 dark:text-slate-600 leading-none">
                             {organizationEns}
                         </p>
@@ -85,7 +86,7 @@ export default function Topbar({
                 </div>
 
                 {/* Segmented controls */}
-                {activeTab === "okrs" &&
+                {(activeTab as string) === "okrs" &&
                     renderSegmentedControl(
                         [
                             { id: "timeframe", label: "Timeframe" },
@@ -115,10 +116,19 @@ export default function Topbar({
                         style={{ transitionTimingFunction: SPRING }}
                         aria-label="Toggle dark mode"
                     >
-                        {isDarkMode
-                            ? <Sun size={14} strokeWidth={1.75} className="transition-transform duration-300 group-hover:rotate-[20deg]" />
-                            : <Moon size={14} strokeWidth={1.75} className="transition-transform duration-300 group-hover:-rotate-[12deg]" />
-                        }
+                        {isDarkMode ? (
+                            <Sun
+                                size={14}
+                                strokeWidth={1.75}
+                                className="transition-transform duration-300 group-hover:rotate-[20deg]"
+                            />
+                        ) : (
+                            <Moon
+                                size={14}
+                                strokeWidth={1.75}
+                                className="transition-transform duration-300 group-hover:-rotate-[12deg]"
+                            />
+                        )}
                     </button>
 
                     {/* Wallet auth */}
