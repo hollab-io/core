@@ -3,14 +3,17 @@ import { motion } from "framer-motion";
 import DynamicAuthControl from "../components/DynamicAuthControl";
 
 const EXPO = [0.16, 1, 0.3, 1] as const;
-const SPRING = "cubic-bezier(0.32,0.72,0,1)";
 
-const FEATURES = ["Org chart & circles", "Governance & proposals", "Actions & OKRs", "Wallet-native auth"] as const;
+const FEATURES = [
+    "Org chart & circles",
+    "Governance & proposals",
+    "Actions & OKRs",
+    "Wallet-native auth",
+] as const;
 
 export default function WelcomeScreen() {
     return (
         <section className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#050505]">
-
             {/* ── Background mesh gradients ── */}
             {/* Bottom-right blue orb */}
             <div
@@ -65,7 +68,6 @@ export default function WelcomeScreen() {
 
             {/* ── Content ── */}
             <div className="relative z-10 flex w-full max-w-[420px] flex-col items-center px-6 text-center">
-
                 {/* Brand mark */}
                 <motion.div
                     initial={{ opacity: 0, scale: 0.8, filter: "blur(8px)" }}
@@ -88,9 +90,11 @@ export default function WelcomeScreen() {
                     animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                     transition={{ duration: 0.8, delay: 0.08, ease: EXPO }}
                 >
-                    <span className="inline-flex items-center gap-2 rounded-full
+                    <span
+                        className="inline-flex items-center gap-2 rounded-full
                         border border-white/[0.1] bg-white/[0.05]
-                        px-3.5 py-1.5 backdrop-blur-sm">
+                        px-3.5 py-1.5 backdrop-blur-sm"
+                    >
                         <span
                             className="h-1.5 w-1.5 rounded-full bg-[#3481FF]"
                             style={{ boxShadow: "0 0 8px rgba(52,129,255,0.9)" }}
@@ -118,7 +122,8 @@ export default function WelcomeScreen() {
                     transition={{ duration: 0.9, delay: 0.22, ease: EXPO }}
                     className="mt-4 max-w-[300px] text-balance text-[14px] font-medium leading-relaxed text-white/35"
                 >
-                    The decentralized operating system for organizations — governance, execution, and strategy in one workspace.
+                    The decentralized operating system for organizations — governance, execution,
+                    and strategy in one workspace.
                 </motion.p>
 
                 {/* Feature pills */}
@@ -182,7 +187,6 @@ export default function WelcomeScreen() {
                 >
                     Non-custodial · ERC-4337 · Gas sponsored
                 </motion.p>
-
             </div>
         </section>
     );

@@ -1,4 +1,3 @@
-import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
@@ -8,17 +7,5 @@ export default defineConfig({
     define: {
         "process.env": {},
         global: "globalThis",
-    },
-    resolve: {
-        alias: {
-            "@hollab-io/viem-extension": path.resolve(
-                __dirname,
-                "../../packages/viem-extension/src/index.ts",
-            ),
-            "@hollab-io/indexing-client": path.resolve(
-                __dirname,
-                "../../packages/indexing-client/src/index.ts",
-            ),
-        },
     },
 });

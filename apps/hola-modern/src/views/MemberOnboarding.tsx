@@ -1,6 +1,5 @@
 import type { Organization } from "@hollab-io/indexing-client";
 import { AnimatePresence, motion } from "framer-motion";
-import { isAddress } from "viem";
 import {
     ArrowRight,
     Check,
@@ -13,7 +12,7 @@ import {
     X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, isAddress } from "viem";
 import { sepolia } from "viem/chains";
 import { normalize } from "viem/ens";
 
@@ -57,16 +56,6 @@ function looksLikeEns(v: string) {
     return v.includes(".") && !v.startsWith("0x");
 }
 
-/** Deterministic pastel from first 3 bytes of an address. */
-function addrColor(addr: string): string {
-    const h = parseInt(addr.slice(2, 4), 16) * (360 / 255);
-    return `hsl(${h.toFixed(0)}, 55%, 58%)`;
-}
-
-function addrInitials(addr: string) {
-    return addr.slice(2, 4).toUpperCase();
-}
-
 async function resolveEns(raw: string): Promise<{ address: string; avatar: string | null }> {
     const name = normalize(raw);
     const address = await ensClient.getEnsAddress({ name });
@@ -102,29 +91,6 @@ function StatusDot({ status }: { status: Status }) {
     return (
         <div className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500/15">
             <TriangleAlert size={9} className="text-red-400" strokeWidth={2.5} />
-        </div>
-    );
-}
-
-function Avatar({ entry }: { entry: MemberEntry }) {
-    if (entry.avatar) {
-        return (
-            <img
-                src={entry.avatar}
-                alt=""
-                className="h-8 w-8 flex-shrink-0 rounded-full object-cover"
-            />
-        );
-    }
-    const addr = entry.address ?? entry.raw;
-    const color = isAddress(addr) ? addrColor(addr) : "#3481FF";
-    const initials = isAddress(addr) ? addrInitials(addr) : entry.raw.slice(0, 2).toUpperCase();
-    return (
-        <div
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
-            style={{ background: `linear-gradient(135deg, ${color}, ${color}88)` }}
-        >
-            {initials}
         </div>
     );
 }
@@ -209,9 +175,7 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
 
         if (isAddress(trimmed)) {
             setEntries((prev) =>
-                prev.map((e) =>
-                    e.id === id ? { ...e, address: trimmed, status: "resolved" } : e,
-                ),
+                prev.map((e) => (e.id === id ? { ...e, address: trimmed, status: "resolved" } : e)),
             );
             return;
         }
@@ -323,7 +287,10 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
     // ── Paste handler — split on newline / comma / semicolon ─────────────────
     const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
         const text = e.clipboardData.getData("text");
-        const parts = text.split(/[\n,;]+/).map((p) => p.trim()).filter(Boolean);
+        const parts = text
+            .split(/[\n,;]+/)
+            .map((p) => p.trim())
+            .filter(Boolean);
         if (parts.length > 1) {
             e.preventDefault();
             addRaws(parts);
@@ -393,13 +360,12 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
     const addButtonReady =
         inputState.kind === "address" ||
         inputState.kind === "ens-ok" ||
-        (input.trim().length > 0 &&
-            inputState.kind !== "resolving" &&
-            inputState.kind !== "error");
+        (input.trim().length > 0 && inputState.kind !== "resolving" && inputState.kind !== "error");
 
-    const ctaLabel = resolvedCount > 0
-        ? `Launch with ${resolvedCount} member${resolvedCount === 1 ? "" : "s"}`
-        : "Launch workspace";
+    const ctaLabel =
+        resolvedCount > 0
+            ? `Launch with ${resolvedCount} member${resolvedCount === 1 ? "" : "s"}`
+            : "Launch workspace";
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
@@ -416,7 +382,6 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
             />
 
             <div className="relative mx-auto grid min-h-[100dvh] max-w-[860px] grid-cols-1 gap-0 px-5 lg:grid-cols-[1fr_1.15fr] lg:gap-16 lg:px-8">
-
                 {/* ── Left column ─────────────────────────────────────────── */}
                 <div className="flex flex-col justify-center py-16 lg:sticky lg:top-0 lg:h-[100dvh]">
                     <motion.div
@@ -436,15 +401,20 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                             </div>
                             <div>
                                 <p className="text-[13px] font-semibold text-white">{org.name}</p>
-                                <p className="text-[11px] text-slate-600">{org.subname}.hollab.eth</p>
+                                <p className="text-[11px] text-slate-600">
+                                    {org.subname}.hollab.eth
+                                </p>
                             </div>
                         </div>
 
                         <h1 className="text-[34px] font-bold leading-[1.05] tracking-[-0.04em] text-white sm:text-[40px]">
-                            Invite your<br />team
+                            Invite your
+                            <br />
+                            team
                         </h1>
                         <p className="mt-3 max-w-[280px] text-[14px] leading-relaxed text-slate-500">
-                            Add members by wallet address or ENS name. Paste a list to add several at once.
+                            Add members by wallet address or ENS name. Paste a list to add several
+                            at once.
                         </p>
 
                         {/* Live member count */}
@@ -458,10 +428,16 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                                     className="mt-7 flex items-center gap-2"
                                 >
                                     <div className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3.5 py-1.5">
-                                        <Users size={12} className="text-slate-500" strokeWidth={2} />
+                                        <Users
+                                            size={12}
+                                            className="text-slate-500"
+                                            strokeWidth={2}
+                                        />
                                         <span className="text-[12px] font-semibold tabular-nums text-slate-300">
                                             {resolvedCount}
-                                            <span className="text-slate-600">/{entries.length}</span>
+                                            <span className="text-slate-600">
+                                                /{entries.length}
+                                            </span>
                                         </span>
                                         <span className="text-[12px] text-slate-600">resolved</span>
                                     </div>
@@ -528,7 +504,11 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                                 <div className="flex flex-shrink-0 items-center pr-2">
                                     {inputState.kind === "resolving" && (
                                         <div className="px-2">
-                                            <Loader2 size={14} className="animate-spin text-slate-500" strokeWidth={2} />
+                                            <Loader2
+                                                size={14}
+                                                className="animate-spin text-slate-500"
+                                                strokeWidth={2}
+                                            />
                                         </div>
                                     )}
                                     {inputState.kind === "ens-ok" && (
@@ -538,7 +518,11 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                                             transition={spring}
                                             className="mr-1 flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1"
                                         >
-                                            <Check size={10} className="text-emerald-400" strokeWidth={2.5} />
+                                            <Check
+                                                size={10}
+                                                className="text-emerald-400"
+                                                strokeWidth={2.5}
+                                            />
                                             <span className="font-mono text-[11px] text-emerald-400">
                                                 {inputState.address.slice(0, 8)}…
                                             </span>
@@ -551,7 +535,11 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                                             transition={spring}
                                             className="mr-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15"
                                         >
-                                            <Check size={10} className="text-emerald-400" strokeWidth={2.5} />
+                                            <Check
+                                                size={10}
+                                                className="text-emerald-400"
+                                                strokeWidth={2.5}
+                                            />
                                         </motion.div>
                                     )}
                                     {inputState.kind === "error" && (
@@ -561,7 +549,11 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                                             transition={spring}
                                             className="mr-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-500/15"
                                         >
-                                            <X size={10} className="text-red-400" strokeWidth={2.5} />
+                                            <X
+                                                size={10}
+                                                className="text-red-400"
+                                                strokeWidth={2.5}
+                                            />
                                         </motion.div>
                                     )}
                                     <button
@@ -602,7 +594,11 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                                 transition={{ delay: 0.4 }}
                                 className="flex items-center gap-2 px-1"
                             >
-                                <ClipboardList size={11} className="flex-shrink-0 text-slate-700" strokeWidth={2} />
+                                <ClipboardList
+                                    size={11}
+                                    className="flex-shrink-0 text-slate-700"
+                                    strokeWidth={2}
+                                />
                                 <p className="text-[11px] text-slate-700">
                                     Paste a comma- or newline-separated list to add several at once
                                 </p>

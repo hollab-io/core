@@ -31,41 +31,39 @@ HEALTHCHECK --interval=20s --timeout=5s --retries=5 \
     CMD wget -qO- http://localhost:42069/health || exit 1
 CMD ["pnpm", "run", "start"]
 
-# ── hola-modern deps ─────────────────────────────────────────────────────────
-# Use base (has corepack/pnpm) so workspace: protocol in package.json resolves
+# ── hola-modern prune ─────────────────────────────────────────────────────────
+# turbo prune produces a minimal monorepo subtree with a pruned lockfile.
+FROM base AS hola-modern-pruner
+RUN npm install -g turbo@2
+COPY . .
+RUN turbo prune hola-modern --docker
+
+# ── hola-modern deps ──────────────────────────────────────────────────────────
+# Install only what hola-modern and its workspace deps need.
 FROM base AS hola-modern-deps
-# Workspace root manifests first — these rarely change, good for layer caching
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-# package.json for every workspace package hola-modern depends on
-COPY apps/hola-modern/package.json          ./apps/hola-modern/
-COPY packages/viem-extension/package.json   ./packages/viem-extension/
-COPY packages/indexing-client/package.json  ./packages/indexing-client/
-RUN pnpm install --frozen-lockfile --filter hola-modern --ignore-scripts
+COPY --from=hola-modern-pruner /app/out/json/ .
+COPY --from=hola-modern-pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # ── hola-modern builder ───────────────────────────────────────────────────────
 FROM base AS hola-modern-builder
 WORKDIR /app
-COPY --from=hola-modern-deps /app/node_modules                    ./node_modules
-COPY --from=hola-modern-deps /app/apps/hola-modern/node_modules   ./apps/hola-modern/node_modules
-# Workspace package sources (vite alias + pnpm symlinks both resolve from here)
-COPY packages/viem-extension   ./packages/viem-extension
-COPY packages/indexing-client  ./packages/indexing-client
-# App source
+# Root virtual store + per-package node_modules (pnpm isolated mode)
+COPY --from=hola-modern-deps /app/node_modules                              ./node_modules
+COPY --from=hola-modern-deps /app/packages/viem-extension/node_modules      ./packages/viem-extension/node_modules
+COPY --from=hola-modern-deps /app/packages/indexing-client/node_modules     ./packages/indexing-client/node_modules
+COPY --from=hola-modern-deps /app/packages/contracts/node_modules           ./packages/contracts/node_modules
+COPY --from=hola-modern-deps /app/apps/hola-modern/node_modules             ./apps/hola-modern/node_modules
+COPY --from=hola-modern-pruner /app/out/full/ .
+# Root tsconfig not included in turbo prune output; packages extend it
 COPY tsconfig*.json ./
-COPY apps/hola-modern/src                ./apps/hola-modern/src
-COPY apps/hola-modern/public             ./apps/hola-modern/public
-COPY apps/hola-modern/index.html         ./apps/hola-modern/
-COPY apps/hola-modern/vite.config.ts     ./apps/hola-modern/
-COPY apps/hola-modern/tsconfig*.json     ./apps/hola-modern/
-COPY apps/hola-modern/tailwind.config.js ./apps/hola-modern/
-COPY apps/hola-modern/postcss.config.js  ./apps/hola-modern/
 # VITE_ vars are inlined at build time — declare as ARG then promote to ENV
 ARG VITE_DYNAMIC_ENVIRONMENT_ID
 ARG VITE_INDEXER_URL
 ENV VITE_DYNAMIC_ENVIRONMENT_ID=$VITE_DYNAMIC_ENVIRONMENT_ID
 ENV VITE_INDEXER_URL=$VITE_INDEXER_URL
-WORKDIR /app/apps/hola-modern
-RUN pnpm exec vite build
+# Build workspace deps first (viem-extension, indexing-client), then hola-modern
+RUN node_modules/.bin/turbo run build --filter=hola-modern
 
 # ── hola-modern ───────────────────────────────────────────────────────────────
 FROM nginx:1.27-alpine AS hola-modern

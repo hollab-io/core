@@ -1,6 +1,5 @@
 import type { Organization } from "@hollab-io/indexing-client";
 import { AnimatePresence, motion } from "framer-motion";
-import { isAddress } from "viem";
 import {
     ArrowRight,
     Check,
@@ -14,7 +13,7 @@ import {
     X,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { createPublicClient, http } from "viem";
+import { createPublicClient, http, isAddress } from "viem";
 import { sepolia } from "viem/chains";
 import { normalize } from "viem/ens";
 
@@ -75,11 +74,12 @@ function EntryRow({
             transition={SPRING}
             className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5
                 border transition-colors
-                ${isFailed
-                    ? "border-red-400/20 bg-red-500/[0.06]"
-                    : entry.status === "resolving"
-                        ? "border-white/[0.05] bg-white/[0.02]"
-                        : "border-emerald-400/15 bg-emerald-500/[0.06]"
+                ${
+                    isFailed
+                        ? "border-red-400/20 bg-red-500/[0.06]"
+                        : entry.status === "resolving"
+                          ? "border-white/[0.05] bg-white/[0.02]"
+                          : "border-emerald-400/15 bg-emerald-500/[0.06]"
                 }`}
         >
             {/* Status icon */}
@@ -112,9 +112,7 @@ function EntryRow({
                 ) : (
                     <p className="truncate text-[12px] text-slate-400">{entry.raw}</p>
                 )}
-                {entry.error && (
-                    <p className="text-[11px] text-red-400">{entry.error}</p>
-                )}
+                {entry.error && <p className="text-[11px] text-red-400">{entry.error}</p>}
             </div>
 
             {/* Actions */}
@@ -142,7 +140,7 @@ function EntryRow({
 
 // ─── Add-members panel ────────────────────────────────────────────────────────
 function AddMembersPanel({ onClose }: { onClose: () => void }) {
-    const { snapshot, inviteMember } = useWorkspaceSnapshot();
+    const { inviteMember } = useWorkspaceSnapshot();
     const [inputValue, setInputValue] = useState("");
     const [entries, setEntries] = useState<MemberEntry[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -154,9 +152,7 @@ function AddMembersPanel({ onClose }: { onClose: () => void }) {
 
         if (isAddress(trimmed)) {
             setEntries((prev) =>
-                prev.map((e) =>
-                    e.id === id ? { ...e, address: trimmed, status: "resolved" } : e,
-                ),
+                prev.map((e) => (e.id === id ? { ...e, address: trimmed, status: "resolved" } : e)),
             );
             return;
         }
@@ -166,17 +162,13 @@ function AddMembersPanel({ onClose }: { onClose: () => void }) {
                 const { address } = await resolveEns(trimmed);
                 setEntries((prev) =>
                     prev.map((e) =>
-                        e.id === id
-                            ? { ...e, address, ens: trimmed, status: "resolved" }
-                            : e,
+                        e.id === id ? { ...e, address, ens: trimmed, status: "resolved" } : e,
                     ),
                 );
             } catch {
                 setEntries((prev) =>
                     prev.map((e) =>
-                        e.id === id
-                            ? { ...e, status: "failed", error: "ENS name not found" }
-                            : e,
+                        e.id === id ? { ...e, status: "failed", error: "ENS name not found" } : e,
                     ),
                 );
             }
@@ -244,15 +236,16 @@ function AddMembersPanel({ onClose }: { onClose: () => void }) {
             const entry = entries.find((e) => e.id === id);
             if (!entry) return;
             setEntries((prev) =>
-                prev.map((e) => (e.id === id ? { ...e, status: "resolving", error: undefined } : e)),
+                prev.map((e) =>
+                    e.id === id ? { ...e, status: "resolving", error: undefined } : e,
+                ),
             );
             resolveEntry(id, entry.raw);
         },
         [entries, resolveEntry],
     );
 
-    const canSubmit =
-        entries.length > 0 && entries.every((e) => e.status === "resolved");
+    const canSubmit = entries.length > 0 && entries.every((e) => e.status === "resolved");
 
     const handleSubmit = useCallback(async () => {
         if (!canSubmit) return;
@@ -376,7 +369,7 @@ function AddMembersPanel({ onClose }: { onClose: () => void }) {
 }
 
 // ─── Main view ───────────────────────────────────────────────────────────────
-export default function StructureView({ org, isDarkMode }: Props) {
+export default function StructureView({ org: _org, isDarkMode }: Props) {
     const { snapshot } = useWorkspaceSnapshot();
     const [tab, setTab] = useState<"members" | "chart">("members");
     const [showAddMembers, setShowAddMembers] = useState(false);
@@ -386,10 +379,7 @@ export default function StructureView({ org, isDarkMode }: Props) {
     // 56px = app top header. This container fills the rest of the viewport exactly —
     // no min-h, no flex growth — so clicking a bubble can never resize it.
     return (
-        <div
-            className="flex flex-col overflow-hidden"
-            style={{ height: "calc(100dvh - 56px)" }}
-        >
+        <div className="flex flex-col overflow-hidden" style={{ height: "calc(100dvh - 56px)" }}>
             {/* ── Header — constrained, shrinks to its natural size ── */}
             <div className="shrink-0 mx-auto w-full max-w-[900px] px-5 pb-5 pt-8 sm:px-8">
                 <motion.div
@@ -408,8 +398,10 @@ export default function StructureView({ org, isDarkMode }: Props) {
                     </div>
 
                     {/* Tab switcher */}
-                    <div className="flex items-center gap-px rounded-full
-                        border border-white/[0.08] bg-white/[0.04] p-[3px]">
+                    <div
+                        className="flex items-center gap-px rounded-full
+                        border border-white/[0.08] bg-white/[0.04] p-[3px]"
+                    >
                         {(["members", "chart"] as const).map((t) => (
                             <button
                                 key={t}
@@ -418,9 +410,10 @@ export default function StructureView({ org, isDarkMode }: Props) {
                                 className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5
                                     text-[11px] font-semibold capitalize tracking-wide
                                     transition-all duration-300
-                                    ${tab === t
-                                        ? "bg-white/[0.08] text-white shadow-sm"
-                                        : "text-slate-500 hover:text-slate-300"
+                                    ${
+                                        tab === t
+                                            ? "bg-white/[0.08] text-white shadow-sm"
+                                            : "text-slate-500 hover:text-slate-300"
                                     }`}
                             >
                                 {t === "members" ? (
@@ -471,7 +464,11 @@ export default function StructureView({ org, isDarkMode }: Props) {
                                                 key={partner.id}
                                                 initial={{ opacity: 0, y: 8 }}
                                                 animate={{ opacity: 1, y: 0 }}
-                                                transition={{ duration: 0.4, delay: i * 0.04, ease: EXPO }}
+                                                transition={{
+                                                    duration: 0.4,
+                                                    delay: i * 0.04,
+                                                    ease: EXPO,
+                                                }}
                                                 className="flex items-center gap-3.5 rounded-xl
                                                     border border-white/[0.05] bg-white/[0.02]
                                                     px-4 py-3"
@@ -480,10 +477,16 @@ export default function StructureView({ org, isDarkMode }: Props) {
                                                     className="flex h-8 w-8 shrink-0 items-center justify-center
                                                         rounded-full text-[11px] font-bold text-white"
                                                     style={{
-                                                        background: `hsl(${parseInt(
-                                                            (partner.walletAddress ?? partner.id).slice(2, 4),
-                                                            16,
-                                                        ) * (360 / 255)}, 45%, 35%)`,
+                                                        background: `hsl(${
+                                                            parseInt(
+                                                                (
+                                                                    partner.walletAddress ??
+                                                                    partner.id
+                                                                ).slice(2, 4),
+                                                                16,
+                                                            ) *
+                                                            (360 / 255)
+                                                        }, 45%, 35%)`,
                                                     }}
                                                 >
                                                     {partner.name.slice(0, 2).toUpperCase()}
@@ -499,23 +502,33 @@ export default function StructureView({ org, isDarkMode }: Props) {
                                                         </p>
                                                     )}
                                                 </div>
-                                                <span className={`shrink-0 rounded-full border px-2 py-0.5
+                                                <span
+                                                    className={`shrink-0 rounded-full border px-2 py-0.5
                                                     text-[10px] font-semibold
-                                                    ${partner.status === "active"
-                                                        ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-400"
-                                                        : "border-amber-400/20 bg-amber-500/10 text-amber-400"
-                                                    }`}>
+                                                    ${
+                                                        partner.status === "active"
+                                                            ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-400"
+                                                            : "border-amber-400/20 bg-amber-500/10 text-amber-400"
+                                                    }`}
+                                                >
                                                     {partner.status ?? "active"}
                                                 </span>
                                             </motion.div>
                                         ))
                                     ) : (
-                                        <div className="flex flex-col items-center gap-3 rounded-2xl
+                                        <div
+                                            className="flex flex-col items-center gap-3 rounded-2xl
                                             border border-dashed border-white/[0.06] bg-white/[0.015]
-                                            px-4 py-12 text-center">
-                                            <Users size={20} className="text-slate-700" strokeWidth={1.5} />
+                                            px-4 py-12 text-center"
+                                        >
+                                            <Users
+                                                size={20}
+                                                className="text-slate-700"
+                                                strokeWidth={1.5}
+                                            />
                                             <p className="text-xs leading-relaxed text-slate-600">
-                                                No members yet. Add partners by wallet address or ENS name.
+                                                No members yet. Add partners by wallet address or
+                                                ENS name.
                                             </p>
                                         </div>
                                     )}
@@ -532,9 +545,11 @@ export default function StructureView({ org, isDarkMode }: Props) {
                             transition={{ duration: 0.3, ease: EXPO }}
                             className="absolute inset-0 overflow-hidden px-3 pb-[88px] pt-0 sm:px-4"
                         >
-                            <div className="h-full overflow-hidden rounded-[1.5rem]
+                            <div
+                                className="h-full overflow-hidden rounded-[1.5rem]
                                 border border-white/[0.06]
-                                shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                                shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                            >
                                 <OrganizationChart isDarkMode={isDarkMode} />
                             </div>
                         </motion.div>
@@ -543,9 +558,7 @@ export default function StructureView({ org, isDarkMode }: Props) {
             </div>
 
             <AnimatePresence>
-                {showAddMembers && (
-                    <AddMembersPanel onClose={() => setShowAddMembers(false)} />
-                )}
+                {showAddMembers && <AddMembersPanel onClose={() => setShowAddMembers(false)} />}
             </AnimatePresence>
         </div>
     );

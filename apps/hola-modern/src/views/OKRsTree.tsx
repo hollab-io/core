@@ -2,7 +2,7 @@ import type {
     GovernanceProposalRecord,
     ProjectRecord,
     WorkspaceSnapshot,
-} from "@hollab/viem-extension";
+} from "@hollab-io/viem-extension";
 import {
     ArrowRight,
     CalendarRange,
@@ -1569,7 +1569,7 @@ export default function OKRsTree({ onNavigateToTab, view }: OKRsTreeProps) {
                                                         selectedDetails.circleId,
                                                     );
                                                 }
-                                                onNavigateToTab("projects");
+                                                onNavigateToTab("actions");
                                             }}
                                             className="inline-flex items-center gap-2 text-sm font-medium text-[#3481FF] transition-colors hover:text-blue-700"
                                         >

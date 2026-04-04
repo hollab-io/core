@@ -10,7 +10,6 @@
         "preview": "vite preview"
     },
     "dependencies": {
-        "@hollab-io/indexing-client": "workspace:*",
         "@dynamic-labs/ethereum": "4.75.0",
         "@dynamic-labs/ethereum-aa": "4.75.0",
         "@dynamic-labs/sdk-react-core": "4.75.0",
@@ -19,6 +18,8 @@
         "@fullcalendar/list": "^6.1.20",
         "@fullcalendar/react": "^6.1.20",
         "@fullcalendar/timegrid": "^6.1.20",
+        "@hollab-io/indexing-client": "workspace:*",
+        "@hollab-io/viem-extension": "workspace:*",
         "autoprefixer": "^10.4.27",
         "d3-force": "^3.0.0",
         "d3-hierarchy": "^3.1.2",
