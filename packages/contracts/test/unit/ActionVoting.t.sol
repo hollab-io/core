@@ -74,7 +74,7 @@ contract UnitActionVoting is Test {
 
     // Create anchor circle and roles
     vm.startPrank(_deployer);
-    _anchorCircleId = _circleRegistry.createAnchorCircle('HolLab', 'Build holacracy tools');
+    _anchorCircleId = _circleRegistry.createAnchorCircle('Build holacracy tools');
     _role1Id = _circleRegistry.createRoleInCircle(_anchorCircleId, 'Dev', 'Develop', _domains, _accountabilities);
     _role2Id = _circleRegistry.createRoleInCircle(_anchorCircleId, 'Design', 'Design', _domains, _accountabilities);
     _circleRegistry.assignRoleLeadInCircle(_anchorCircleId, _role1Id, _member1);
