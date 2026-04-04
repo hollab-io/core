@@ -1,8 +1,15 @@
 import { GraphQLClient } from "graphql-request";
 
 import type {
+    ActionVote,
+    ActionVoteCast,
+    ChecklistItem,
     Circle,
     DaoProposal,
+    GovernanceMeeting,
+    GovernanceMeetingLink,
+    MeetingOutput,
+    Metric,
     Objection,
     Organization,
     PaginatedResult,
@@ -10,6 +17,7 @@ import type {
     Policy,
     Proposal,
     Role,
+    TacticalMeeting,
     TreasuryDeposit,
     Vote,
 } from "./types.js";
@@ -20,15 +28,23 @@ import {
     GET_POLICY,
     GET_PROPOSAL,
     GET_ROLE,
+    LIST_ACTION_VOTE_CASTS,
+    LIST_ACTION_VOTES_BY_CIRCLE,
+    LIST_CHECKLIST_ITEMS_BY_ROLE,
     LIST_CIRCLES_BY_ORG,
     LIST_DAO_PROPOSALS_BY_GOVERNOR,
     LIST_DEPOSITS_BY_TREASURY,
+    LIST_GOVERNANCE_MEETING_LINKS,
+    LIST_GOVERNANCE_MEETINGS_BY_CIRCLE,
+    LIST_MEETING_OUTPUTS,
+    LIST_METRICS_BY_ROLE,
     LIST_OBJECTIONS_BY_PROPOSAL,
     LIST_ORGANIZATIONS,
     LIST_ORGANIZATIONS_BY_CREATOR,
     LIST_POLICIES_BY_CIRCLE,
     LIST_PROPOSALS_BY_CIRCLE,
     LIST_ROLES_BY_CIRCLE,
+    LIST_TACTICAL_MEETINGS_BY_CIRCLE,
     LIST_VOTES_BY_PROPOSAL,
 } from "./queries.js";
 
@@ -191,6 +207,102 @@ export function createIndexingClient(url: string) {
                 { treasuryAddress, ...opts },
             );
             return data.treasuryDeposits;
+        },
+
+        // ── Tactical meetings ───────────────────────────────────────────────────
+        async listTacticalMeetingsByCircle(
+            contractAddress: string,
+            circleId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<TacticalMeeting>> {
+            const data = await gql.request<{
+                tacticalMeetings: PaginatedResult<TacticalMeeting>;
+            }>(LIST_TACTICAL_MEETINGS_BY_CIRCLE, { contractAddress, circleId, ...opts });
+            return data.tacticalMeetings;
+        },
+
+        async listMeetingOutputs(
+            contractAddress: string,
+            meetingId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<MeetingOutput>> {
+            const data = await gql.request<{ meetingOutputs: PaginatedResult<MeetingOutput> }>(
+                LIST_MEETING_OUTPUTS,
+                { contractAddress, meetingId, ...opts },
+            );
+            return data.meetingOutputs;
+        },
+
+        async listChecklistItemsByRole(
+            contractAddress: string,
+            roleId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<ChecklistItem>> {
+            const data = await gql.request<{ checklistItems: PaginatedResult<ChecklistItem> }>(
+                LIST_CHECKLIST_ITEMS_BY_ROLE,
+                { contractAddress, roleId, ...opts },
+            );
+            return data.checklistItems;
+        },
+
+        async listMetricsByRole(
+            contractAddress: string,
+            roleId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<Metric>> {
+            const data = await gql.request<{ metrics: PaginatedResult<Metric> }>(
+                LIST_METRICS_BY_ROLE,
+                { contractAddress, roleId, ...opts },
+            );
+            return data.metrics;
+        },
+
+        // ── Governance meetings ─────────────────────────────────────────────────
+        async listGovernanceMeetingsByCircle(
+            contractAddress: string,
+            circleId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<GovernanceMeeting>> {
+            const data = await gql.request<{
+                governanceMeetings: PaginatedResult<GovernanceMeeting>;
+            }>(LIST_GOVERNANCE_MEETINGS_BY_CIRCLE, { contractAddress, circleId, ...opts });
+            return data.governanceMeetings;
+        },
+
+        async listGovernanceMeetingLinks(
+            contractAddress: string,
+            meetingId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<GovernanceMeetingLink>> {
+            const data = await gql.request<{
+                governanceMeetingLinks: PaginatedResult<GovernanceMeetingLink>;
+            }>(LIST_GOVERNANCE_MEETING_LINKS, { contractAddress, meetingId, ...opts });
+            return data.governanceMeetingLinks;
+        },
+
+        // ── Action voting ───────────────────────────────────────────────────────
+        async listActionVotesByCircle(
+            contractAddress: string,
+            circleId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<ActionVote>> {
+            const data = await gql.request<{ actionVotes: PaginatedResult<ActionVote> }>(
+                LIST_ACTION_VOTES_BY_CIRCLE,
+                { contractAddress, circleId, ...opts },
+            );
+            return data.actionVotes;
+        },
+
+        async listActionVoteCasts(
+            contractAddress: string,
+            voteId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<ActionVoteCast>> {
+            const data = await gql.request<{ actionVoteCasts: PaginatedResult<ActionVoteCast> }>(
+                LIST_ACTION_VOTE_CASTS,
+                { contractAddress, voteId, ...opts },
+            );
+            return data.actionVoteCasts;
         },
     };
 }

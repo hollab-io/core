@@ -172,3 +172,138 @@ export const treasuryDeposit = onchainTable("treasury_deposit", (t) => ({
     depositedAt: t.bigint().notNull(),
     txHash: t.hex().notNull(),
 }));
+
+// ─── Meeting component sets ───────────────────────────────────────────────────
+// One row per MeetingComponentsFactory.deploy() call — tracks which set of
+// {TacticalMeeting, GovernanceMeeting, ActionVoting} clones belongs to which org.
+// An org can have multiple sets (e.g. one per circle).
+
+export const meetingComponentSet = onchainTable("meeting_component_set", (t) => ({
+    id: t.text().primaryKey(), // "<orgId>-<txHash>"
+    orgId: t.bigint().notNull(),
+    tacticalMeeting: t.hex().notNull(),
+    governanceMeeting: t.hex().notNull(),
+    actionVoting: t.hex().notNull(),
+    deployedAt: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+}));
+
+// Flat reverse-index: any meeting contract address → orgId + setId.
+// Lets handlers resolve orgId with a single DB lookup instead of an on-chain call.
+export const meetingContractIndex = onchainTable("meeting_contract_index", (t) => ({
+    contractAddress: t.hex().primaryKey(),
+    orgId: t.bigint().notNull(),
+    setId: t.text().notNull(),
+}));
+
+// ─── Tactical meetings ────────────────────────────────────────────────────────
+// Event-sourced lifecycle: convened → completed.
+
+export const tacticalMeeting = onchainTable("tactical_meeting", (t) => ({
+    id: t.text().primaryKey(), // "<contractAddress>-<meetingId>"
+    meetingId: t.bigint().notNull(),
+    contractAddress: t.hex().notNull(),
+    circleId: t.bigint().notNull(),
+    orgId: t.bigint().notNull(),
+    convenedBy: t.hex().notNull(),
+    createdAt: t.bigint().notNull(),
+    completedAt: t.bigint(),
+    txHash: t.hex().notNull(),
+}));
+
+// Outputs recorded during a tactical meeting (next actions, projects, etc.)
+// 0=NextAction 1=Project 2=Request 3=Information
+export const meetingOutput = onchainTable("meeting_output", (t) => ({
+    id: t.text().primaryKey(), // "<contractAddress>-<outputId>"
+    outputId: t.bigint().notNull(),
+    contractAddress: t.hex().notNull(),
+    meetingId: t.bigint().notNull(),
+    outputType: t.integer().notNull(),
+    description: t.text().notNull(),
+    assignedTo: t.hex().notNull(),
+    roleId: t.bigint().notNull(),
+    createdAt: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+}));
+
+// Role-level recurring checklist items (soft-deleted on remove).
+export const checklistItem = onchainTable("checklist_item", (t) => ({
+    id: t.text().primaryKey(), // "<contractAddress>-<itemId>"
+    itemId: t.bigint().notNull(),
+    contractAddress: t.hex().notNull(),
+    roleId: t.bigint().notNull(),
+    label: t.text().notNull(),
+    isActive: t.boolean().notNull(),
+    createdAt: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+}));
+
+// Role-level metrics (soft-deleted on remove).
+export const metric = onchainTable("metric", (t) => ({
+    id: t.text().primaryKey(), // "<contractAddress>-<metricId>"
+    metricId: t.bigint().notNull(),
+    contractAddress: t.hex().notNull(),
+    roleId: t.bigint().notNull(),
+    label: t.text().notNull(),
+    isActive: t.boolean().notNull(),
+    createdAt: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+}));
+
+// ─── Governance meetings ──────────────────────────────────────────────────────
+
+export const governanceMeeting = onchainTable("governance_meeting", (t) => ({
+    id: t.text().primaryKey(), // "<contractAddress>-<meetingId>"
+    meetingId: t.bigint().notNull(),
+    contractAddress: t.hex().notNull(),
+    circleId: t.bigint().notNull(),
+    orgId: t.bigint().notNull(),
+    convenedBy: t.hex().notNull(),
+    createdAt: t.bigint().notNull(),
+    completedAt: t.bigint(),
+    txHash: t.hex().notNull(),
+}));
+
+// Proposals processed within a governance meeting.
+export const governanceMeetingLink = onchainTable("governance_meeting_link", (t) => ({
+    id: t.text().primaryKey(), // "<contractAddress>-<meetingId>-<proposalId>"
+    contractAddress: t.hex().notNull(),
+    meetingId: t.bigint().notNull(),
+    proposalId: t.bigint().notNull(),
+    linkedAt: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+}));
+
+// ─── Action voting ────────────────────────────────────────────────────────────
+// Lightweight votes on tactical meeting outputs. Vote tallies are updated live.
+
+export const actionVote = onchainTable("action_vote", (t) => ({
+    id: t.text().primaryKey(), // "<contractAddress>-<voteId>"
+    voteId: t.bigint().notNull(),
+    contractAddress: t.hex().notNull(),
+    orgId: t.bigint().notNull(),
+    circleId: t.bigint().notNull(),
+    outputId: t.bigint().notNull(),
+    proposer: t.hex().notNull(),
+    reason: t.text().notNull(),
+    snapshotBlock: t.bigint().notNull(),
+    deadline: t.bigint().notNull(),
+    forVotes: t.bigint().notNull(),
+    againstVotes: t.bigint().notNull(),
+    abstainVotes: t.bigint().notNull(),
+    createdAt: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+}));
+
+// Individual ballots — one row per voter per vote.
+// 0=Against 1=For 2=Abstain
+export const actionVoteCast = onchainTable("action_vote_cast", (t) => ({
+    id: t.text().primaryKey(), // "<contractAddress>-<voteId>-<voter>"
+    contractAddress: t.hex().notNull(),
+    voteId: t.bigint().notNull(),
+    voter: t.hex().notNull(),
+    support: t.integer().notNull(),
+    weight: t.bigint().notNull(),
+    castAt: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+}));

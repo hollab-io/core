@@ -15,10 +15,14 @@ import {TreasuryDeployer} from 'contracts/TreasuryDeployer.sol';
 
 /**
  * @title OrganizationFactory
- * @notice Deploys Holacracy organizations as ERC-1167 minimal proxy clones,
- *         deploys an on-chain governance suite (GovToken + Timelock + HolGovernor)
- *         via HolGovernorFactory, and registers an ENS subname pointing to the
- *         governor under hollab.eth via ENSSubdomainRegistrar.
+ * @notice Deploys core Holacracy organization infrastructure in a single transaction:
+ *         ERC-1167 clones for holacracy contracts, on-chain governance suite
+ *         (GovToken + Timelock + HolGovernor) via HolGovernorFactory, and an ENS
+ *         subname pointing to the governor.
+ *
+ *         Meeting components (TacticalMeeting, GovernanceMeeting, ActionVoting) are
+ *         deployed separately via MeetingComponentsFactory — an org can have multiple
+ *         sets of meeting components (e.g. one per circle).
  *
  *         The ENSSubdomainRegistrar must authorize this contract before any
  *         organization can be created (call registrar.authorize(address(this))).

@@ -9,6 +9,7 @@ import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
 import {TacticalMeeting} from 'contracts/TacticalMeeting.sol';
 import {GovernanceMeeting} from 'contracts/GovernanceMeeting.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
+import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
 import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
 import {HolacracyDataProvider} from 'helpers/HolacracyDataProvider.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
@@ -65,6 +66,7 @@ contract DeployInfrastructure is Script {
     address tacticalMeetingImpl;
     address governanceMeetingImpl;
     address actionVotingImpl;
+    address meetingFactory;
     address govFactory;
     address orgFactory;
     address dataProvider;
@@ -105,7 +107,12 @@ contract DeployInfrastructure is Script {
     infra.governanceMeetingImpl = address(new GovernanceMeeting());
     infra.actionVotingImpl = address(new ActionVoting());
 
-    // ── 3. HolGovernorFactory ───────────────────────────────────────────────
+    // ── 3. MeetingComponentsFactory ─────────────────────────────────────────
+    infra.meetingFactory = address(
+      new MeetingComponentsFactory(infra.tacticalMeetingImpl, infra.governanceMeetingImpl, infra.actionVotingImpl)
+    );
+
+    // ── 4. HolGovernorFactory ───────────────────────────────────────────────
     infra.govFactory = address(new HolGovernorFactory());
 
     // ── 4. OrganizationFactory ──────────────────────────────────────────────
@@ -144,6 +151,7 @@ contract DeployInfrastructure is Script {
     vm.serializeAddress(obj, 'tacticalMeetingImpl', _infra.tacticalMeetingImpl);
     vm.serializeAddress(obj, 'governanceMeetingImpl', _infra.governanceMeetingImpl);
     vm.serializeAddress(obj, 'actionVotingImpl', _infra.actionVotingImpl);
+    vm.serializeAddress(obj, 'meetingFactory', _infra.meetingFactory);
     vm.serializeAddress(obj, 'govFactory', _infra.govFactory);
     vm.serializeAddress(obj, 'orgFactory', _infra.orgFactory);
     vm.serializeUint(obj, 'chainId', _chainId);
@@ -166,6 +174,9 @@ contract DeployInfrastructure is Script {
     console.log('TacticalMeeting:        ', _infra.tacticalMeetingImpl);
     console.log('GovernanceMeeting:      ', _infra.governanceMeetingImpl);
     console.log('ActionVoting:           ', _infra.actionVotingImpl);
+    console.log('');
+    console.log('--- Meeting factory ---');
+    console.log('MeetingComponentsFactory:', _infra.meetingFactory);
     console.log('');
     console.log('--- Helpers ---');
     console.log('HolacracyDataProvider:  ', _infra.dataProvider);
