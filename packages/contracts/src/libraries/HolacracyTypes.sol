@@ -191,6 +191,16 @@ library HolacracyTypes {
     bool exists;
   }
 
+  /// @notice A governance meeting convened within a circle
+  struct GovernanceMeeting {
+    uint256 id;
+    uint256 circleId;
+    address convenedBy;
+    uint256 createdAt;
+    uint256 completedAt;
+    bool exists;
+  }
+
   /// @notice An objection raised against a proposal
   struct Objection {
     uint256 id;
