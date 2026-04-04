@@ -49,10 +49,7 @@ export const CircleRegistryAbi = [
     {
         type: "function",
         name: "createAnchorCircle",
-        inputs: [
-            { name: "_name", type: "string", internalType: "string" },
-            { name: "_purpose", type: "string", internalType: "string" },
-        ],
+        inputs: [{ name: "_purpose", type: "string", internalType: "string" }],
         outputs: [{ name: "_circleId", type: "uint256", internalType: "uint256" }],
         stateMutability: "nonpayable",
     },
@@ -317,10 +314,7 @@ export const CircleRegistryAbi = [
     {
         type: "event",
         name: "AnchorCircleCreated",
-        inputs: [
-            { name: "_circleId", type: "uint256", indexed: true, internalType: "uint256" },
-            { name: "_name", type: "string", indexed: false, internalType: "string" },
-        ],
+        inputs: [{ name: "_circleId", type: "uint256", indexed: true, internalType: "uint256" }],
         anonymous: false,
     },
     {

@@ -209,7 +209,6 @@ contract CircleRegistry is ICircleRegistry {
 
   /// @inheritdoc ICircleRegistry
   function createAnchorCircle(
-    string calldata _name,
     string calldata _purpose
   ) external returns (uint256 _circleId) {
     if (_anchorCircleId != 0) revert CircleRegistry_AnchorAlreadyExists();
@@ -219,7 +218,6 @@ contract CircleRegistry is ICircleRegistry {
 
     HolacracyTypes.Circle storage _circle = _circles[_circleId];
     _circle.id = _circleId;
-    _circle.name = _name;
     _circle.purpose = _purpose;
     _circle.isAnchor = true;
     _circle.exists = true;
@@ -228,7 +226,7 @@ contract CircleRegistry is ICircleRegistry {
     _isCircleLead[_circleId][deployer] = true;
     _circleLeads[_circleId].push(deployer);
 
-    emit AnchorCircleCreated(_circleId, _name);
+    emit AnchorCircleCreated(_circleId);
     emit CircleLeadAdded(_circleId, deployer);
   }
 

@@ -206,7 +206,7 @@ contract UnitHolacracyDataProvider is Test {
     // it returns the anchor circle
     assertEq(_circles.length, 1);
     assertEq(_circles[0].id, _anchorId);
-    assertEq(_circles[0].name, 'myorg');
+    assertEq(_circles[0].name, '');
     assertEq(_circles[0].purpose, 'Build great things');
     assertTrue(_circles[0].isAnchor);
 

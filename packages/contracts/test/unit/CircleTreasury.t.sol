@@ -79,7 +79,7 @@ contract UnitCircleTreasury is Test {
 
     // Create anchor circle — deployer becomes circle lead
     vm.prank(_deployer);
-    _anchorCircleId = _circleRegistry.createAnchorCircle('TestOrg', 'Test purpose');
+    _anchorCircleId = _circleRegistry.createAnchorCircle('Test purpose');
 
     // Set facilitator
     vm.prank(_deployer);

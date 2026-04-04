@@ -16,13 +16,12 @@ contract UnitCircleRegistry is Test {
   address internal _lead1 = makeAddr('lead1');
   address internal _lead2 = makeAddr('lead2');
 
-  string internal _orgName = 'HolLab';
   string internal _orgPurpose = 'Build holacracy tools';
 
   string[] internal _domains;
   string[] internal _accountabilities;
 
-  event AnchorCircleCreated(uint256 indexed _circleId, string _name);
+  event AnchorCircleCreated(uint256 indexed _circleId);
   event SubCircleCreated(uint256 indexed _circleId, uint256 indexed _parentCircleId, uint256 indexed _roleId);
   event CircleRoleCreated(uint256 indexed _circleId, uint256 indexed _roleId);
   event CircleLeadAdded(uint256 indexed _circleId, address indexed _lead);
@@ -56,7 +55,7 @@ contract UnitCircleRegistry is Test {
 
   function _createAnchorCircle() internal returns (uint256 _circleId) {
     vm.prank(_deployer);
-    _circleId = _circleRegistry.createAnchorCircle(_orgName, _orgPurpose);
+    _circleId = _circleRegistry.createAnchorCircle(_orgPurpose);
   }
 
   function _createRoleInAnchorCircle(
@@ -77,13 +76,13 @@ contract UnitCircleRegistry is Test {
 
     // it emits AnchorCircleCreated
     vm.expectEmit(true, true, true, true, address(_circleRegistry));
-    emit AnchorCircleCreated(1, _orgName);
+    emit AnchorCircleCreated(1);
 
     // it emits CircleLeadAdded for deployer
     vm.expectEmit(true, true, true, true, address(_circleRegistry));
     emit CircleLeadAdded(1, _deployer);
 
-    uint256 _circleId = _circleRegistry.createAnchorCircle(_orgName, _orgPurpose);
+    uint256 _circleId = _circleRegistry.createAnchorCircle(_orgPurpose);
 
     // it sets anchor circle ID
     assertEq(_circleRegistry.anchorCircleId(), _circleId);
@@ -91,7 +90,7 @@ contract UnitCircleRegistry is Test {
     // it stores circle data
     HolacracyTypes.Circle memory _circle = _circleRegistry.getCircle(_circleId);
     assertEq(_circle.id, _circleId);
-    assertEq(_circle.name, _orgName);
+    assertEq(_circle.name, '');
     assertEq(_circle.purpose, _orgPurpose);
     assertTrue(_circle.isAnchor);
     assertTrue(_circle.exists);
@@ -110,7 +109,7 @@ contract UnitCircleRegistry is Test {
     vm.prank(_deployer);
     // it reverts
     vm.expectRevert(ICircleRegistry.CircleRegistry_AnchorAlreadyExists.selector);
-    _circleRegistry.createAnchorCircle(_orgName, _orgPurpose);
+    _circleRegistry.createAnchorCircle(_orgPurpose);
   }
 
   /*///////////////////////////////////////////////////////////////

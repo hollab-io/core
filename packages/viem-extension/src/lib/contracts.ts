@@ -59,7 +59,7 @@ function makeContractActions<const TAbi extends Abi>(abi: TAbi) {
  * const { result } = await client.circleRegistry.simulate({
  *   address: '0x...',
  *   functionName: 'createAnchorCircle',
- *   args: ['name', 'purpose'],
+ *   args: ['purpose'],
  * })
  */
 export function holLabContractActions() {

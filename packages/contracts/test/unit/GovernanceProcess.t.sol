@@ -79,7 +79,7 @@ contract UnitGovernanceProcess is Test {
     _circleRegistry.initialize(_roleRegistry, _deployer, address(_governance));
 
     // Create anchor circle
-    _anchorCircleId = _circleRegistry.createAnchorCircle('HolLab', 'Build tools');
+    _anchorCircleId = _circleRegistry.createAnchorCircle('Build tools');
 
     // Create roles and assign members
     _role1Id = _circleRegistry.createRoleInCircle(_anchorCircleId, 'Dev', 'Develop', _domains, _accountabilities);
@@ -517,7 +517,7 @@ contract UnitGovernanceProcess is Test {
     vm.startPrank(_deployer);
     _cr2.initialize(_rr2, _deployer, address(_gov2));
 
-    uint256 _circleId = _cr2.createAnchorCircle('Org', 'Purpose');
+    uint256 _circleId = _cr2.createAnchorCircle('Purpose');
     uint256 _rId = _cr2.createRoleInCircle(_circleId, 'Role', 'Purpose', _domains, _accountabilities);
     _cr2.assignRoleLeadInCircle(_circleId, _rId, _member1);
     vm.stopPrank();
