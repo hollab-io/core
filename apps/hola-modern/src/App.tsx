@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { BookOpen, CheckSquare, Network, Scale, Users } from "lucide-react";
+import { BookOpen, CheckSquare, Network, Scale, UserPlus, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { AppTabId } from "./config/navigation";
@@ -11,6 +11,7 @@ import ConstitutionView from "./views/ConstitutionView";
 import GovernanceMeetingRoom from "./views/GovernanceMeetingRoom";
 import GovernanceView from "./views/GovernanceView";
 import MemberOnboarding from "./views/MemberOnboarding";
+import MembersView from "./views/MembersView";
 import OrganizationsHome from "./views/OrganizationsHome";
 import StructureView from "./views/StructureView";
 import TacticalMeetingRoom from "./views/TacticalMeetingRoom";
@@ -25,6 +26,7 @@ const NAV = [
     { id: "governance" as AppTabId, icon: Scale, label: "Governance" },
     { id: "actions" as AppTabId, icon: CheckSquare, label: "Actions" },
     { id: "structure" as AppTabId, icon: Network, label: "Structure" },
+    { id: "members" as AppTabId, icon: UserPlus, label: "Members" },
     { id: "constitution" as AppTabId, icon: BookOpen, label: "Constitution" },
 ] as const;
 
@@ -36,7 +38,9 @@ function App() {
     const [activeTab, setActiveTab] = useState<AppTabId>("tactical");
     // Org IDs that have completed (or skipped) member onboarding this session
     const [onboardedOrgIds, setOnboardedOrgIds] = useState<Set<string>>(() => new Set());
-    const isOnboarding = Boolean(activeOrganizationId && !onboardedOrgIds.has(activeOrganizationId));
+    const isOnboarding = Boolean(
+        activeOrganizationId && !onboardedOrgIds.has(activeOrganizationId),
+    );
     const completeOnboarding = () => {
         if (activeOrganizationId) {
             setOnboardedOrgIds((prev) => new Set([...prev, activeOrganizationId]));
@@ -88,12 +92,9 @@ function App() {
             case "actions":
                 return <ActionItemsView />;
             case "structure":
-                return (
-                    <StructureView
-                        org={activeOrg!}
-                        isDarkMode={isDarkMode}
-                    />
-                );
+                return <StructureView org={activeOrg!} isDarkMode={isDarkMode} />;
+            case "members":
+                return <MembersView org={activeOrg!} />;
             case "constitution":
                 return <ConstitutionView />;
         }
@@ -133,7 +134,13 @@ function App() {
                     aria-label="Back to organizations"
                 >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                        <path d="M7.5 2L3.5 6L7.5 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        <path
+                            d="M7.5 2L3.5 6L7.5 10"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        />
                     </svg>
                 </button>
 
@@ -169,10 +176,7 @@ function App() {
             </main>
 
             {/* ── Floating pill nav ── */}
-            <div
-                className="fixed bottom-6 left-1/2 z-20 -translate-x-1/2"
-                aria-label="Navigation"
-            >
+            <div className="fixed bottom-6 left-1/2 z-20 -translate-x-1/2" aria-label="Navigation">
                 <nav
                     className="flex items-center gap-px rounded-full
                         border border-white/[0.1]
@@ -191,9 +195,10 @@ function App() {
                                     px-4 py-2.5
                                     text-[12px] font-semibold tracking-wide
                                     transition-all duration-500
-                                    ${isActive
-                                        ? "bg-white/[0.1] text-white shadow-sm ring-1 ring-white/[0.1]"
-                                        : "text-slate-500 hover:text-slate-300"
+                                    ${
+                                        isActive
+                                            ? "bg-white/[0.1] text-white shadow-sm ring-1 ring-white/[0.1]"
+                                            : "text-slate-500 hover:text-slate-300"
                                     }`}
                                 style={{ transitionTimingFunction: SPRING }}
                                 aria-current={isActive ? "page" : undefined}
@@ -203,7 +208,9 @@ function App() {
                                     strokeWidth={isActive ? 2 : 1.75}
                                     className={isActive ? "text-white" : "text-slate-500"}
                                 />
-                                <span className={`transition-all duration-300 ${isActive ? "max-w-[80px] opacity-100" : "max-w-0 overflow-hidden opacity-0 sm:max-w-[80px] sm:opacity-100"}`}>
+                                <span
+                                    className={`transition-all duration-300 ${isActive ? "max-w-[80px] opacity-100" : "max-w-0 overflow-hidden opacity-0 sm:max-w-[80px] sm:opacity-100"}`}
+                                >
                                     {label}
                                 </span>
                             </button>
