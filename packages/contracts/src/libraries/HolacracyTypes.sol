@@ -141,6 +141,8 @@ library HolacracyTypes {
     address governor;
     address token;
     address timelock;
+    // Anchor circle treasury
+    address treasury;
   }
 
   /// @notice An objection raised against a proposal

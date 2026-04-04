@@ -10,6 +10,8 @@ import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {CircleRegistry} from 'contracts/CircleRegistry.sol';
 import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
+import {CircleTreasury} from 'contracts/CircleTreasury.sol';
+import {TreasuryDeployer} from 'contracts/TreasuryDeployer.sol';
 
 /**
  * @title OrganizationFactory
@@ -41,6 +43,9 @@ contract OrganizationFactory is IOrganizationFactory {
   /// @notice ENS subdomain registrar — registers subnames under the parent node
   IENSSubdomainRegistrar public immutable ENS_REGISTRAR;
 
+  /// @notice Deploys CircleTreasury instances (keeps OrganizationFactory under EIP-170 size limit)
+  TreasuryDeployer public immutable TREASURY_DEPLOYER;
+
   /// @notice Auto-incrementing organization ID counter
   uint256 internal _orgCounter;
 
@@ -71,6 +76,7 @@ contract OrganizationFactory is IOrganizationFactory {
     governanceProcessImplementation = _governanceProcessImpl;
     GOV_FACTORY = HolGovernorFactory(_govFactory);
     ENS_REGISTRAR = IENSSubdomainRegistrar(_ensRegistrar);
+    TREASURY_DEPLOYER = new TreasuryDeployer();
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -118,6 +124,14 @@ contract OrganizationFactory is IOrganizationFactory {
     // Register ENS subname — the subdomain resolves to the governor address.
     ENS_REGISTRAR.registerSubnode(keccak256(bytes(_subname)), _gov.governor);
 
+    // Deploy anchor circle treasury only when a non-zero delay is requested.
+    CircleTreasury _treasury;
+    if (_govConfig.treasuryTimelockDelay != 0) {
+      _treasury = CircleTreasury(
+        payable(TREASURY_DEPLOYER.deployTreasury(_circleRegistry, _anchorCircleId, _govConfig.treasuryTimelockDelay))
+      );
+    }
+
     // Store organization record
     _orgId = ++_orgCounter;
     {
@@ -135,11 +149,15 @@ contract OrganizationFactory is IOrganizationFactory {
       _org.governor = _gov.governor;
       _org.token = _gov.token;
       _org.timelock = _gov.timelock;
+      _org.treasury = address(_treasury);
     }
 
     _subnameToOrgId[_subnameHash] = _orgId;
 
     emit OrganizationCreated(_orgId, _subname, msg.sender);
+    emit OrgComponentsDeployed(
+      _orgId, address(_circleRegistry), address(_roleRegistry), address(_governanceProcess), address(_treasury)
+    );
   }
 
   /*///////////////////////////////////////////////////////////////

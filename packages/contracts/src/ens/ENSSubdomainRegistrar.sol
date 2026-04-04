@@ -60,7 +60,10 @@ contract ENSSubdomainRegistrar is IENSSubdomainRegistrar {
 
     bytes32 subnode = keccak256(abi.encodePacked(NODE, _label));
     address currentOwner = ENS.owner(subnode);
-    if (currentOwner != address(0)) revert AlreadyRegistered(subnode, currentOwner);
+    // Allow re-registration only if this contract already owns the subnode (e.g. redeployment).
+    if (currentOwner != address(0) && currentOwner != address(this)) {
+      revert AlreadyRegistered(subnode, currentOwner);
+    }
 
     // Take ownership of the subnode, set resolver, then point it at the target.
     ENS.setSubnodeOwner(NODE, _label, address(this));

@@ -25,6 +25,7 @@ interface IOrganizationFactory {
     uint32 votingPeriod;
     uint256 proposalThreshold;
     uint256 quorumNumerator;
+    uint256 treasuryTimelockDelay;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -36,6 +37,21 @@ interface IOrganizationFactory {
   /// @param _subname The ENS subname registered
   /// @param _creator The address that created the organization
   event OrganizationCreated(uint256 indexed _orgId, string _subname, address indexed _creator);
+
+  /// @notice Emitted alongside OrganizationCreated with the addresses of the three
+  ///         per-org clone contracts so off-chain indexers can discover them via
+  ///         factory pattern without needing hardcoded addresses.
+  /// @param _orgId The organization ID
+  /// @param _circleRegistry The deployed CircleRegistry clone
+  /// @param _roleRegistry The deployed RoleRegistry clone
+  /// @param _governanceProcess The deployed GovernanceProcess clone
+  event OrgComponentsDeployed(
+    uint256 indexed _orgId,
+    address indexed _circleRegistry,
+    address indexed _roleRegistry,
+    address _governanceProcess,
+    address _treasury
+  );
 
   /*///////////////////////////////////////////////////////////////
                             ERRORS

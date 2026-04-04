@@ -5,7 +5,6 @@ import {Script, console} from "forge-std/Script.sol";
 import {HolacracyTypes} from "libraries/HolacracyTypes.sol";
 import {IOrganizationFactory} from "interfaces/IOrganizationFactory.sol";
 import {OrganizationFactory} from "contracts/OrganizationFactory.sol";
-import {CircleTreasury} from "contracts/CircleTreasury.sol";
 import {RoleRegistry} from "contracts/RoleRegistry.sol";
 import {CircleRegistry} from "contracts/CircleRegistry.sol";
 import {GovernanceProcess} from "contracts/GovernanceProcess.sol";
@@ -118,19 +117,13 @@ contract DeploySepolia is Script {
                 votingDelay: uint48(vm.envOr("VOTING_DELAY", uint256(1 days))),
                 votingPeriod: uint32(vm.envOr("VOTING_PERIOD", uint256(1 weeks))),
                 proposalThreshold: 0,
-                quorumNumerator: vm.envOr("QUORUM_NUMERATOR", uint256(4))
+                quorumNumerator: vm.envOr("QUORUM_NUMERATOR", uint256(4)),
+                treasuryTimelockDelay: vm.envOr("TREASURY_DELAY", uint256(1 days))
             })
         );
 
         // ── 7. Fetch org addresses ─────────────────────────────────────────────────
         HolacracyTypes.Organization memory org = orgFactory.getOrganization(orgId);
-
-        // ── 8. Circle treasury for the anchor circle ──────────────────────────────
-        CircleTreasury treasury = new CircleTreasury(
-            CircleRegistry(org.circleRegistry),
-            org.anchorCircleId,
-            vm.envOr("TREASURY_DELAY", uint256(1 days))
-        );
 
         vm.stopBroadcast();
 
@@ -145,10 +138,8 @@ contract DeploySepolia is Script {
         console.log("ORGANIZATION_FACTORY_ADDRESS=   ", address(orgFactory));
         console.log("HOL_GOVERNOR_FACTORY_ADDRESS=   ", address(govFactory));
         console.log("");
-        console.log("CIRCLE_REGISTRY_ADDRESS=        ", org.circleRegistry);
-        console.log("ROLE_REGISTRY_ADDRESS=          ", org.roleRegistry);
-        console.log("GOVERNANCE_PROCESS_ADDRESS=     ", org.governanceProcess);
-        console.log("CIRCLE_TREASURY_ADDRESS=        ", address(treasury));
+        console.log("# CircleRegistry / RoleRegistry / GovernanceProcess / CircleTreasury are");
+        console.log("# auto-discovered via OrgComponentsDeployed -- no addresses needed.");
         console.log("");
         console.log("=== All deployed addresses ===");
         console.log("");
@@ -173,7 +164,6 @@ contract DeploySepolia is Script {
         console.log("RoleRegistry:           ", org.roleRegistry);
         console.log("GovernanceProcess:      ", org.governanceProcess);
         console.log("Anchor circle ID:       ", org.anchorCircleId);
-        console.log("CircleTreasury:         ", address(treasury));
-        console.log("Treasury timelock:      ", address(treasury.TIMELOCK()));
+        console.log("CircleTreasury:         ", org.treasury);
     }
 }

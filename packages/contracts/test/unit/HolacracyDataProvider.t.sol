@@ -62,7 +62,8 @@ contract UnitHolacracyDataProvider is Test {
       votingDelay: 1,
       votingPeriod: 50,
       proposalThreshold: 0,
-      quorumNumerator: 4
+      quorumNumerator: 4,
+      treasuryTimelockDelay: 0
     });
   }
 
