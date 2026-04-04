@@ -62,6 +62,14 @@ library HolacracyTypes {
     RoleEncrypted
   }
 
+  /// @notice Type of output produced during a tactical meeting
+  enum OutputType {
+    NextAction,
+    Project,
+    Request,
+    Information
+  }
+
   /*///////////////////////////////////////////////////////////////
                             STRUCTS
   //////////////////////////////////////////////////////////////*/
@@ -134,6 +142,7 @@ library HolacracyTypes {
     address roleRegistry;
     address circleRegistry;
     address governanceProcess;
+    address tacticalMeeting;
     address accessManager;
     uint256 anchorCircleId;
     uint256 createdAt;
@@ -143,6 +152,43 @@ library HolacracyTypes {
     address timelock;
     // Anchor circle treasury
     address treasury;
+  }
+
+  /// @notice A tactical meeting convened within a circle
+  struct TacticalMeeting {
+    uint256 id;
+    uint256 circleId;
+    address convenedBy;
+    uint256 createdAt;
+    uint256 completedAt;
+    bool exists;
+  }
+
+  /// @notice An output recorded during a tactical meeting
+  struct MeetingOutput {
+    uint256 id;
+    uint256 meetingId;
+    OutputType outputType;
+    string description;
+    address assignedTo;
+    uint256 roleId;
+    uint256 createdAt;
+  }
+
+  /// @notice A recurring checklist item attached to a role
+  struct ChecklistItem {
+    uint256 id;
+    uint256 roleId;
+    string label;
+    bool exists;
+  }
+
+  /// @notice A recurring metric attached to a role
+  struct Metric {
+    uint256 id;
+    uint256 roleId;
+    string label;
+    bool exists;
   }
 
   /// @notice An objection raised against a proposal
