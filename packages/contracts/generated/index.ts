@@ -1,4 +1,319 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ActionVoting
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const actionVotingAbi = [
+    { type: "constructor", inputs: [], stateMutability: "nonpayable" },
+    {
+        type: "function",
+        inputs: [
+            { name: "_voteId", internalType: "uint256", type: "uint256" },
+            { name: "_support", internalType: "enum HolacracyTypes.VoteSupport", type: "uint8" },
+        ],
+        name: "castVote",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "circleRegistry",
+        outputs: [{ name: "", internalType: "contract CircleRegistry", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_outputId", internalType: "uint256", type: "uint256" },
+            { name: "_reason", internalType: "string", type: "string" },
+            { name: "_duration", internalType: "uint256", type: "uint256" },
+        ],
+        name: "createVote",
+        outputs: [{ name: "_voteId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "getCircleMintCap",
+        outputs: [{ name: "_cap", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "getCircleMintedTotal",
+        outputs: [{ name: "_total", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "getCircleQuorum",
+        outputs: [{ name: "_quorum", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "getCircleVotes",
+        outputs: [{ name: "_voteIds", internalType: "uint256[]", type: "uint256[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_collaborator", internalType: "address", type: "address" },
+        ],
+        name: "getCollaboratorWeight",
+        outputs: [{ name: "_weight", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_voteId", internalType: "uint256", type: "uint256" }],
+        name: "getVote",
+        outputs: [
+            {
+                name: "_vote",
+                internalType: "struct HolacracyTypes.ActionVote",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "circleId", internalType: "uint256", type: "uint256" },
+                    { name: "outputId", internalType: "uint256", type: "uint256" },
+                    { name: "proposer", internalType: "address", type: "address" },
+                    { name: "reason", internalType: "string", type: "string" },
+                    { name: "snapshotBlock", internalType: "uint256", type: "uint256" },
+                    { name: "deadline", internalType: "uint256", type: "uint256" },
+                    { name: "forVotes", internalType: "uint256", type: "uint256" },
+                    { name: "againstVotes", internalType: "uint256", type: "uint256" },
+                    { name: "abstainVotes", internalType: "uint256", type: "uint256" },
+                    { name: "exists", internalType: "bool", type: "bool" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_voteId", internalType: "uint256", type: "uint256" }],
+        name: "getVoteStatus",
+        outputs: [
+            { name: "_status", internalType: "enum HolacracyTypes.VoteStatus", type: "uint8" },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_voteId", internalType: "uint256", type: "uint256" },
+            { name: "_voter", internalType: "address", type: "address" },
+        ],
+        name: "getVoteWeight",
+        outputs: [{ name: "_weight", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "govToken",
+        outputs: [{ name: "", internalType: "contract IVotes", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_collaborator", internalType: "address", type: "address" },
+            { name: "_weight", internalType: "uint256", type: "uint256" },
+        ],
+        name: "grantCollaboratorWeight",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_voteId", internalType: "uint256", type: "uint256" },
+            { name: "_voter", internalType: "address", type: "address" },
+        ],
+        name: "hasVoted",
+        outputs: [{ name: "_voted", internalType: "bool", type: "bool" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_circleRegistry", internalType: "address", type: "address" },
+            { name: "_tacticalMeeting", internalType: "address", type: "address" },
+            { name: "_govToken", internalType: "address", type: "address" },
+        ],
+        name: "initialize",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_collaborator", internalType: "address", type: "address" },
+        ],
+        name: "revokeCollaboratorWeight",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_cap", internalType: "uint256", type: "uint256" },
+        ],
+        name: "setCircleMintCap",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_quorum", internalType: "uint256", type: "uint256" },
+        ],
+        name: "setCircleQuorum",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "tacticalMeeting",
+        outputs: [{ name: "", internalType: "contract TacticalMeeting", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_cap", internalType: "uint256", type: "uint256", indexed: false },
+        ],
+        name: "CircleMintCapSet",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_quorum", internalType: "uint256", type: "uint256", indexed: false },
+        ],
+        name: "CircleQuorumSet",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_collaborator", internalType: "address", type: "address", indexed: true },
+            { name: "_weight", internalType: "uint256", type: "uint256", indexed: false },
+        ],
+        name: "CollaboratorWeightGranted",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_collaborator", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "CollaboratorWeightRevoked",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_voteId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_voter", internalType: "address", type: "address", indexed: true },
+            {
+                name: "_support",
+                internalType: "enum HolacracyTypes.VoteSupport",
+                type: "uint8",
+                indexed: false,
+            },
+            { name: "_weight", internalType: "uint256", type: "uint256", indexed: false },
+        ],
+        name: "VoteCast",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_voteId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_outputId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_proposer", internalType: "address", type: "address", indexed: false },
+            { name: "_deadline", internalType: "uint256", type: "uint256", indexed: false },
+        ],
+        name: "VoteCreated",
+    },
+    { type: "error", inputs: [], name: "ActionVoting_AlreadyInitialized" },
+    {
+        type: "error",
+        inputs: [
+            { name: "_voteId", internalType: "uint256", type: "uint256" },
+            { name: "_voter", internalType: "address", type: "address" },
+        ],
+        name: "ActionVoting_AlreadyVoted",
+    },
+    { type: "error", inputs: [], name: "ActionVoting_EmptyReason" },
+    { type: "error", inputs: [], name: "ActionVoting_InvalidDuration" },
+    {
+        type: "error",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_requested", internalType: "uint256", type: "uint256" },
+            { name: "_remaining", internalType: "uint256", type: "uint256" },
+        ],
+        name: "ActionVoting_MintCapExceeded",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_voteId", internalType: "uint256", type: "uint256" },
+            { name: "_voter", internalType: "address", type: "address" },
+        ],
+        name: "ActionVoting_NoVotingPower",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "ActionVoting_NotCircleLeadOrFacilitator",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_outputId", internalType: "uint256", type: "uint256" }],
+        name: "ActionVoting_OutputNotFound",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "ActionVoting_QuorumNotSet",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_voteId", internalType: "uint256", type: "uint256" }],
+        name: "ActionVoting_VoteNotActive",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_voteId", internalType: "uint256", type: "uint256" }],
+        name: "ActionVoting_VoteNotFound",
+    },
+    { type: "error", inputs: [], name: "ActionVoting_ZeroAddress" },
+    { type: "error", inputs: [], name: "ActionVoting_ZeroAmount" },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CircleRegistry
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1212,6 +1527,158 @@ export const govTokenAbi = [
         type: "error",
         inputs: [{ name: "expiry", internalType: "uint256", type: "uint256" }],
         name: "VotesExpiredSignature",
+    },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// GovernanceMeeting
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const governanceMeetingAbi = [
+    { type: "constructor", inputs: [], stateMutability: "nonpayable" },
+    {
+        type: "function",
+        inputs: [],
+        name: "circleRegistry",
+        outputs: [{ name: "", internalType: "contract CircleRegistry", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "completeMeeting",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "conveneMeeting",
+        outputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "getCircleMeetings",
+        outputs: [{ name: "_meetingIds", internalType: "uint256[]", type: "uint256[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "getMeeting",
+        outputs: [
+            {
+                name: "_meeting",
+                internalType: "struct HolacracyTypes.GovernanceMeeting",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "circleId", internalType: "uint256", type: "uint256" },
+                    { name: "convenedBy", internalType: "address", type: "address" },
+                    { name: "createdAt", internalType: "uint256", type: "uint256" },
+                    { name: "completedAt", internalType: "uint256", type: "uint256" },
+                    { name: "exists", internalType: "bool", type: "bool" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "getMeetingProposals",
+        outputs: [{ name: "_proposalIds", internalType: "uint256[]", type: "uint256[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "governanceProcess",
+        outputs: [{ name: "", internalType: "contract GovernanceProcess", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_circleRegistry", internalType: "contract CircleRegistry", type: "address" },
+            {
+                name: "_governanceProcess",
+                internalType: "contract GovernanceProcess",
+                type: "address",
+            },
+        ],
+        name: "initialize",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_meetingId", internalType: "uint256", type: "uint256" },
+            { name: "_proposalId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "linkProposal",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256", indexed: true }],
+        name: "MeetingCompleted",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_meetingId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_convenedBy", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "MeetingConvened",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_meetingId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_proposalId", internalType: "uint256", type: "uint256", indexed: true },
+        ],
+        name: "ProposalLinked",
+    },
+    { type: "error", inputs: [], name: "GovernanceMeeting_AlreadyInitialized" },
+    {
+        type: "error",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "GovernanceMeeting_MeetingAlreadyCompleted",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "GovernanceMeeting_MeetingNotFound",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_caller", internalType: "address", type: "address" },
+        ],
+        name: "GovernanceMeeting_NotCircleMember",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "GovernanceMeeting_NotFacilitator",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_meetingId", internalType: "uint256", type: "uint256" },
+            { name: "_proposalId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "GovernanceMeeting_ProposalAlreadyLinked",
     },
 ] as const;
 
@@ -2556,6 +3023,88 @@ export const idaoGovernorAbi = [
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// MeetingComponentsFactory
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const meetingComponentsFactoryAbi = [
+    {
+        type: "constructor",
+        inputs: [
+            { name: "_tacticalMeetingImpl", internalType: "address", type: "address" },
+            { name: "_governanceMeetingImpl", internalType: "address", type: "address" },
+            { name: "_actionVotingImpl", internalType: "address", type: "address" },
+        ],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "actionVotingImplementation",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_orgId", internalType: "uint256", type: "uint256" },
+            { name: "_circleRegistry", internalType: "address", type: "address" },
+            { name: "_roleRegistry", internalType: "address", type: "address" },
+            { name: "_governanceProcess", internalType: "address", type: "address" },
+            { name: "_govToken", internalType: "address", type: "address" },
+        ],
+        name: "deploy",
+        outputs: [
+            {
+                name: "deployment",
+                internalType: "struct IMeetingComponentsFactory.Deployment",
+                type: "tuple",
+                components: [
+                    { name: "tacticalMeeting", internalType: "address", type: "address" },
+                    { name: "governanceMeeting", internalType: "address", type: "address" },
+                    { name: "actionVoting", internalType: "address", type: "address" },
+                ],
+            },
+        ],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "governanceMeetingImplementation",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "tacticalMeetingImplementation",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_orgId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_tacticalMeeting", internalType: "address", type: "address", indexed: true },
+            { name: "_governanceMeeting", internalType: "address", type: "address", indexed: true },
+            { name: "_actionVoting", internalType: "address", type: "address", indexed: false },
+        ],
+        name: "MeetingComponentsDeployed",
+    },
+    { type: "error", inputs: [], name: "FailedDeployment" },
+    {
+        type: "error",
+        inputs: [
+            { name: "balance", internalType: "uint256", type: "uint256" },
+            { name: "needed", internalType: "uint256", type: "uint256" },
+        ],
+        name: "InsufficientBalance",
+    },
+    { type: "error", inputs: [], name: "MeetingComponentsFactory_ZeroAddress" },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // OrganizationFactory
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3071,6 +3620,322 @@ export const roleRegistryAbi = [
         name: "RoleRegistry_RoleNotFound",
     },
     { type: "error", inputs: [], name: "RoleRegistry_Unauthorized" },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// TacticalMeeting
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const tacticalMeetingAbi = [
+    { type: "constructor", inputs: [], stateMutability: "nonpayable" },
+    {
+        type: "function",
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256" },
+            { name: "_label", internalType: "string", type: "string" },
+        ],
+        name: "addChecklistItem",
+        outputs: [{ name: "_checklistItemId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256" },
+            { name: "_label", internalType: "string", type: "string" },
+        ],
+        name: "addMetric",
+        outputs: [{ name: "_metricId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "circleRegistry",
+        outputs: [{ name: "", internalType: "contract CircleRegistry", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "completeMeeting",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "conveneMeeting",
+        outputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_checklistItemId", internalType: "uint256", type: "uint256" }],
+        name: "getChecklistItem",
+        outputs: [
+            {
+                name: "_item",
+                internalType: "struct HolacracyTypes.ChecklistItem",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "roleId", internalType: "uint256", type: "uint256" },
+                    { name: "label", internalType: "string", type: "string" },
+                    { name: "exists", internalType: "bool", type: "bool" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "getCircleMeetings",
+        outputs: [{ name: "_meetingIds", internalType: "uint256[]", type: "uint256[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "getMeeting",
+        outputs: [
+            {
+                name: "_meeting",
+                internalType: "struct HolacracyTypes.TacticalMeeting",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "circleId", internalType: "uint256", type: "uint256" },
+                    { name: "convenedBy", internalType: "address", type: "address" },
+                    { name: "createdAt", internalType: "uint256", type: "uint256" },
+                    { name: "completedAt", internalType: "uint256", type: "uint256" },
+                    { name: "exists", internalType: "bool", type: "bool" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "getMeetingOutputs",
+        outputs: [{ name: "_outputIds", internalType: "uint256[]", type: "uint256[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_metricId", internalType: "uint256", type: "uint256" }],
+        name: "getMetric",
+        outputs: [
+            {
+                name: "_metric",
+                internalType: "struct HolacracyTypes.Metric",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "roleId", internalType: "uint256", type: "uint256" },
+                    { name: "label", internalType: "string", type: "string" },
+                    { name: "exists", internalType: "bool", type: "bool" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_outputId", internalType: "uint256", type: "uint256" }],
+        name: "getOutput",
+        outputs: [
+            {
+                name: "_output",
+                internalType: "struct HolacracyTypes.MeetingOutput",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "meetingId", internalType: "uint256", type: "uint256" },
+                    {
+                        name: "outputType",
+                        internalType: "enum HolacracyTypes.OutputType",
+                        type: "uint8",
+                    },
+                    { name: "description", internalType: "string", type: "string" },
+                    { name: "assignedTo", internalType: "address", type: "address" },
+                    { name: "roleId", internalType: "uint256", type: "uint256" },
+                    { name: "createdAt", internalType: "uint256", type: "uint256" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
+        name: "getRoleChecklistItems",
+        outputs: [{ name: "_itemIds", internalType: "uint256[]", type: "uint256[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
+        name: "getRoleMetrics",
+        outputs: [{ name: "_metricIds", internalType: "uint256[]", type: "uint256[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_circleRegistry", internalType: "contract CircleRegistry", type: "address" },
+            { name: "_roleRegistry", internalType: "contract RoleRegistry", type: "address" },
+        ],
+        name: "initialize",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_meetingId", internalType: "uint256", type: "uint256" },
+            { name: "_outputType", internalType: "enum HolacracyTypes.OutputType", type: "uint8" },
+            { name: "_description", internalType: "string", type: "string" },
+            { name: "_assignedTo", internalType: "address", type: "address" },
+            { name: "_roleId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "recordOutput",
+        outputs: [{ name: "_outputId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_checklistItemId", internalType: "uint256", type: "uint256" }],
+        name: "removeChecklistItem",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_metricId", internalType: "uint256", type: "uint256" }],
+        name: "removeMetric",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "roleRegistry",
+        outputs: [{ name: "", internalType: "contract RoleRegistry", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_checklistItemId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_label", internalType: "string", type: "string", indexed: false },
+        ],
+        name: "ChecklistItemAdded",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_checklistItemId", internalType: "uint256", type: "uint256", indexed: true },
+        ],
+        name: "ChecklistItemRemoved",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256", indexed: true }],
+        name: "MeetingCompleted",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_meetingId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_convenedBy", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "MeetingConvened",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_metricId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_label", internalType: "string", type: "string", indexed: false },
+        ],
+        name: "MetricAdded",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_metricId", internalType: "uint256", type: "uint256", indexed: true },
+        ],
+        name: "MetricRemoved",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_meetingId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_outputId", internalType: "uint256", type: "uint256", indexed: true },
+            {
+                name: "_outputType",
+                internalType: "enum HolacracyTypes.OutputType",
+                type: "uint8",
+                indexed: true,
+            },
+            { name: "_assignedTo", internalType: "address", type: "address", indexed: false },
+        ],
+        name: "OutputRecorded",
+    },
+    { type: "error", inputs: [], name: "TacticalMeeting_AlreadyInitialized" },
+    {
+        type: "error",
+        inputs: [{ name: "_checklistItemId", internalType: "uint256", type: "uint256" }],
+        name: "TacticalMeeting_ChecklistItemNotFound",
+    },
+    { type: "error", inputs: [], name: "TacticalMeeting_EmptyString" },
+    {
+        type: "error",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "TacticalMeeting_MeetingAlreadyCompleted",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "TacticalMeeting_MeetingNotFound",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_metricId", internalType: "uint256", type: "uint256" }],
+        name: "TacticalMeeting_MetricNotFound",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "TacticalMeeting_NotCircleLead",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_caller", internalType: "address", type: "address" },
+        ],
+        name: "TacticalMeeting_NotCircleMember",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
+        name: "TacticalMeeting_NotFacilitator",
+    },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

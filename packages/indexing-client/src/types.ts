@@ -157,6 +157,114 @@ export type TreasuryDeposit = {
     txHash: HexStr;
 };
 
+// ─── Tactical meetings ────────────────────────────────────────────────────────
+
+export type TacticalMeeting = {
+    id: string;
+    meetingId: BigIntStr;
+    contractAddress: HexStr;
+    circleId: BigIntStr;
+    orgId: BigIntStr;
+    convenedBy: HexStr;
+    createdAt: BigIntStr;
+    completedAt: BigIntStr | null;
+    txHash: HexStr;
+};
+
+/** 0=NextAction 1=Project 2=Request 3=Information */
+export type OutputType = 0 | 1 | 2 | 3;
+
+export type MeetingOutput = {
+    id: string;
+    outputId: BigIntStr;
+    contractAddress: HexStr;
+    meetingId: BigIntStr;
+    outputType: OutputType;
+    description: string;
+    assignedTo: HexStr;
+    roleId: BigIntStr;
+    createdAt: BigIntStr;
+    txHash: HexStr;
+};
+
+export type ChecklistItem = {
+    id: string;
+    itemId: BigIntStr;
+    contractAddress: HexStr;
+    roleId: BigIntStr;
+    label: string;
+    isActive: boolean;
+    createdAt: BigIntStr;
+    txHash: HexStr;
+};
+
+export type Metric = {
+    id: string;
+    metricId: BigIntStr;
+    contractAddress: HexStr;
+    roleId: BigIntStr;
+    label: string;
+    isActive: boolean;
+    createdAt: BigIntStr;
+    txHash: HexStr;
+};
+
+// ─── Governance meetings ──────────────────────────────────────────────────────
+
+export type GovernanceMeeting = {
+    id: string;
+    meetingId: BigIntStr;
+    contractAddress: HexStr;
+    circleId: BigIntStr;
+    orgId: BigIntStr;
+    convenedBy: HexStr;
+    createdAt: BigIntStr;
+    completedAt: BigIntStr | null;
+    txHash: HexStr;
+};
+
+export type GovernanceMeetingLink = {
+    id: string;
+    contractAddress: HexStr;
+    meetingId: BigIntStr;
+    proposalId: BigIntStr;
+    linkedAt: BigIntStr;
+    txHash: HexStr;
+};
+
+// ─── Action voting ────────────────────────────────────────────────────────────
+
+export type ActionVote = {
+    id: string;
+    voteId: BigIntStr;
+    contractAddress: HexStr;
+    circleId: BigIntStr;
+    outputId: BigIntStr;
+    proposer: HexStr;
+    reason: string;
+    snapshotBlock: BigIntStr;
+    deadline: BigIntStr;
+    forVotes: BigIntStr;
+    againstVotes: BigIntStr;
+    abstainVotes: BigIntStr;
+    createdAt: BigIntStr;
+    txHash: HexStr;
+};
+
+/** 0=Against 1=For 2=Abstain */
+export type ActionVoteSupport = 0 | 1 | 2;
+
+export type ActionVoteCast = {
+    id: string;
+    contractAddress: HexStr;
+    voteId: BigIntStr;
+    voter: HexStr;
+    support: ActionVoteSupport;
+    weight: BigIntStr;
+    castAt: BigIntStr;
+    txHash: HexStr;
+};
+
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
 export type PageInfo = {

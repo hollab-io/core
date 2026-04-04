@@ -2,10 +2,7 @@ import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { holLabContractActions } from "@hollab-io/viem-extension";
 
-const ORGANIZATION_FACTORY_ADDRESS =
-    "0x9c065888Bf9dA328dBc521FccdEeCD8bF7A57C63" as const;
-
-
+const ORGANIZATION_FACTORY_ADDRESS = "0xB0dEAE30f9Df19Db5066a889044B66b4fcB95553" as const;
 
 function deriveSubname(orgName: string): string {
     return orgName

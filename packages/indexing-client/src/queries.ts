@@ -49,6 +49,39 @@ export const TREASURY_DEPOSIT_FIELDS = `
     id treasuryAddress sender token amount depositedAt txHash
 `;
 
+export const TACTICAL_MEETING_FIELDS = `
+    id meetingId contractAddress circleId orgId convenedBy createdAt completedAt txHash
+`;
+
+export const MEETING_OUTPUT_FIELDS = `
+    id outputId contractAddress meetingId outputType description assignedTo roleId createdAt txHash
+`;
+
+export const CHECKLIST_ITEM_FIELDS = `
+    id itemId contractAddress roleId label isActive createdAt txHash
+`;
+
+export const METRIC_FIELDS = `
+    id metricId contractAddress roleId label isActive createdAt txHash
+`;
+
+export const GOVERNANCE_MEETING_FIELDS = `
+    id meetingId contractAddress circleId orgId convenedBy createdAt completedAt txHash
+`;
+
+export const GOVERNANCE_MEETING_LINK_FIELDS = `
+    id contractAddress meetingId proposalId linkedAt txHash
+`;
+
+export const ACTION_VOTE_FIELDS = `
+    id voteId contractAddress circleId outputId proposer reason
+    snapshotBlock deadline forVotes againstVotes abstainVotes createdAt txHash
+`;
+
+export const ACTION_VOTE_CAST_FIELDS = `
+    id contractAddress voteId voter support weight castAt txHash
+`;
+
 // ─── Single-item queries ──────────────────────────────────────────────────────
 
 export const GET_ORGANIZATION = `
@@ -174,6 +207,84 @@ export const LIST_DEPOSITS_BY_TREASURY = `
     query ListDepositsByTreasury($treasuryAddress: String!, $limit: Int, $after: String, $before: String) {
         treasuryDeposits(where: { treasuryAddress: $treasuryAddress }, limit: $limit, after: $after, before: $before, orderBy: "depositedAt", orderDirection: "desc") {
             items { ${TREASURY_DEPOSIT_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+// ─── Tactical meetings ────────────────────────────────────────────────────────
+
+export const LIST_TACTICAL_MEETINGS_BY_CIRCLE = `
+    query ListTacticalMeetingsByCircle($contractAddress: String!, $circleId: String!, $limit: Int, $after: String, $before: String) {
+        tacticalMeetings(where: { contractAddress: $contractAddress, circleId: $circleId }, limit: $limit, after: $after, before: $before, orderBy: "createdAt", orderDirection: "desc") {
+            items { ${TACTICAL_MEETING_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+export const LIST_MEETING_OUTPUTS = `
+    query ListMeetingOutputs($contractAddress: String!, $meetingId: String!, $limit: Int, $after: String, $before: String) {
+        meetingOutputs(where: { contractAddress: $contractAddress, meetingId: $meetingId }, limit: $limit, after: $after, before: $before) {
+            items { ${MEETING_OUTPUT_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+export const LIST_CHECKLIST_ITEMS_BY_ROLE = `
+    query ListChecklistItemsByRole($contractAddress: String!, $roleId: String!, $limit: Int, $after: String, $before: String) {
+        checklistItems(where: { contractAddress: $contractAddress, roleId: $roleId, isActive: true }, limit: $limit, after: $after, before: $before) {
+            items { ${CHECKLIST_ITEM_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+export const LIST_METRICS_BY_ROLE = `
+    query ListMetricsByRole($contractAddress: String!, $roleId: String!, $limit: Int, $after: String, $before: String) {
+        metrics(where: { contractAddress: $contractAddress, roleId: $roleId, isActive: true }, limit: $limit, after: $after, before: $before) {
+            items { ${METRIC_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+// ─── Governance meetings ──────────────────────────────────────────────────────
+
+export const LIST_GOVERNANCE_MEETINGS_BY_CIRCLE = `
+    query ListGovernanceMeetingsByCircle($contractAddress: String!, $circleId: String!, $limit: Int, $after: String, $before: String) {
+        governanceMeetings(where: { contractAddress: $contractAddress, circleId: $circleId }, limit: $limit, after: $after, before: $before, orderBy: "createdAt", orderDirection: "desc") {
+            items { ${GOVERNANCE_MEETING_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+export const LIST_GOVERNANCE_MEETING_LINKS = `
+    query ListGovernanceMeetingLinks($contractAddress: String!, $meetingId: String!, $limit: Int, $after: String, $before: String) {
+        governanceMeetingLinks(where: { contractAddress: $contractAddress, meetingId: $meetingId }, limit: $limit, after: $after, before: $before) {
+            items { ${GOVERNANCE_MEETING_LINK_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+// ─── Action voting ────────────────────────────────────────────────────────────
+
+export const LIST_ACTION_VOTES_BY_CIRCLE = `
+    query ListActionVotesByCircle($contractAddress: String!, $circleId: String!, $limit: Int, $after: String, $before: String) {
+        actionVotes(where: { contractAddress: $contractAddress, circleId: $circleId }, limit: $limit, after: $after, before: $before, orderBy: "createdAt", orderDirection: "desc") {
+            items { ${ACTION_VOTE_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+export const LIST_ACTION_VOTE_CASTS = `
+    query ListActionVoteCasts($contractAddress: String!, $voteId: String!, $limit: Int, $after: String, $before: String) {
+        actionVoteCasts(where: { contractAddress: $contractAddress, voteId: $voteId }, limit: $limit, after: $after, before: $before) {
+            items { ${ACTION_VOTE_CAST_FIELDS} }
             ${PAGE_INFO}
         }
     }
