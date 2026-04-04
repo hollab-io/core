@@ -1,9 +1,10 @@
 {
-    "name": "@hollab-io/viem-extension",
+    "name": "@hollab-io/indexing-client",
     "version": "0.0.1",
     "private": true,
-    "description": "Integration-ready frontend domain and viem helpers for Hollab",
+    "description": "Type-safe client for the HolLab Ponder GraphQL API",
     "license": "MIT",
+    "author": "Wonderland",
     "type": "module",
     "exports": {
         ".": {
@@ -20,17 +21,16 @@
     "scripts": {
         "build": "tsup",
         "check-types": "tsc --noEmit -p ./tsconfig.json",
-        "clean": "rm -rf dist",
-        "format": "prettier --check \"src/**/*.ts\"",
-        "format:fix": "prettier --write \"src/**/*.ts\"",
-        "lint": "eslint \"src/**/*.ts\"",
+        "clean": "rm -rf dist/",
+        "format": "prettier --check \"{src,test}/**/*.{js,ts,json}\"",
+        "format:fix": "prettier --write \"{src,test}/**/*.{js,ts,json}\"",
+        "lint": "eslint \"{src,test}/**/*.{js,ts,json}\"",
         "lint:fix": "pnpm lint --fix",
-        "test": "vitest run --passWithNoTests",
-        "test:cov": "vitest run --coverage"
+        "test": "vitest run --config vitest.config.ts --passWithNoTests",
+        "test:cov": "vitest run --config vitest.config.ts --coverage"
     },
     "dependencies": {
-        "@hollab-io/contracts": "workspace:*",
-        "viem": "2.21.4"
+        "graphql-request": "^7.0.0"
     },
     "devDependencies": {
         "tsup": "^8.0.0"
