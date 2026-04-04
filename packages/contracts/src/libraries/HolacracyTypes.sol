@@ -70,6 +70,21 @@ library HolacracyTypes {
     Information
   }
 
+  /// @notice Vote direction for action voting
+  enum VoteSupport {
+    Against,
+    For,
+    Abstain
+  }
+
+  /// @notice Status of an action vote
+  enum VoteStatus {
+    Active,
+    Passed,
+    Defeated,
+    Expired
+  }
+
   /*///////////////////////////////////////////////////////////////
                             STRUCTS
   //////////////////////////////////////////////////////////////*/
@@ -198,6 +213,21 @@ library HolacracyTypes {
     address convenedBy;
     uint256 createdAt;
     uint256 completedAt;
+    bool exists;
+  }
+
+  /// @notice A vote on a tactical meeting output
+  struct ActionVote {
+    uint256 id;
+    uint256 circleId;
+    uint256 outputId;
+    address proposer;
+    string reason;
+    uint256 snapshotBlock;
+    uint256 deadline;
+    uint256 forVotes;
+    uint256 againstVotes;
+    uint256 abstainVotes;
     bool exists;
   }
 
