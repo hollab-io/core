@@ -62,7 +62,10 @@ ARG VITE_DYNAMIC_ENVIRONMENT_ID
 ARG VITE_INDEXER_URL
 ENV VITE_DYNAMIC_ENVIRONMENT_ID=$VITE_DYNAMIC_ENVIRONMENT_ID
 ENV VITE_INDEXER_URL=$VITE_INDEXER_URL
-# Build workspace deps first (viem-extension, indexing-client), then hola-modern
+# Build workspace deps first (viem-extension, indexing-client), then hola-modern.
+# NODE_OPTIONS caps the V8 heap so the builder doesn't OOM on low-memory hosts;
+# Node will GC more aggressively rather than growing the heap indefinitely.
+ENV NODE_OPTIONS=--max-old-space-size=1536
 RUN node_modules/.bin/turbo run build --filter=hola-modern
 
 # ── hola-modern ───────────────────────────────────────────────────────────────
