@@ -57,6 +57,15 @@ type BubbleMetrics = {
     zIndex: number;
 };
 
+type GroupLayoutHint = {
+    nodesX: number;
+    nodesY: number;
+    titleMaxWidth: number;
+    titleSize: number;
+    titleX: number;
+    titleY: number;
+};
+
 type RoleDraft = {
     targetGroupId: string;
     title: string;
@@ -94,6 +103,41 @@ const EXTRA_CLUSTER_LAYOUTS = [
         parking: { x: 860, y: 700, r: 88 },
     },
 ];
+
+const GROUP_LAYOUT_HINTS: Record<string, GroupLayoutHint> = {
+    leadership: {
+        nodesX: -0.18,
+        nodesY: -0.16,
+        titleMaxWidth: 230,
+        titleSize: 34,
+        titleX: 0.28,
+        titleY: 0.02,
+    },
+    product: {
+        nodesX: -0.02,
+        nodesY: -0.18,
+        titleMaxWidth: 180,
+        titleSize: 26,
+        titleX: 0,
+        titleY: 0.34,
+    },
+    people: {
+        nodesX: -0.02,
+        nodesY: -0.14,
+        titleMaxWidth: 190,
+        titleSize: 24,
+        titleX: 0,
+        titleY: 0.34,
+    },
+    growth: {
+        nodesX: -0.02,
+        nodesY: -0.12,
+        titleMaxWidth: 190,
+        titleSize: 24,
+        titleX: 0,
+        titleY: 0.34,
+    },
+};
 
 const BUBBLE_SPRING = {
     type: "spring",
@@ -210,34 +254,34 @@ function mergeById<T extends { id: string }>(baseItems: T[], customItems: T[]) {
 const initialGroups: GroupMeta[] = [
     {
         id: "leadership",
-        title: "Leadership & governance",
+        title: "Leadership &\ngovernance",
         accent: "#4B8DFF",
         description: "Strategic direction, governance design, and executive coordination.",
-        background: { x: 500, y: 345, r: 178 },
+        background: { x: 480, y: 280, r: 200 },
         parking: { x: 170, y: 190, r: 92 },
     },
     {
         id: "product",
-        title: "Product & engineering",
+        title: "Product &\nengineering",
         accent: "#6AA7FF",
         description: "Product strategy, design, engineering delivery, and platform quality.",
-        background: { x: 260, y: 500, r: 132 },
+        background: { x: 240, y: 540, r: 200 },
         parking: { x: 180, y: 410, r: 96 },
     },
     {
         id: "people",
-        title: "Employee experience",
+        title: "Employee\nexperience",
         accent: "#7BBAFF",
         description: "People operations, onboarding, learning, and employee support.",
-        background: { x: 500, y: 700, r: 128 },
+        background: { x: 540, y: 720, r: 200 },
         parking: { x: 180, y: 650, r: 96 },
     },
     {
         id: "growth",
-        title: "Growth & support",
+        title: "Growth &\nsupport",
         accent: "#90C2FF",
         description: "Marketing, sales, support, and customer-facing operations.",
-        background: { x: 740, y: 485, r: 118 },
+        background: { x: 770, y: 480, r: 160 },
         parking: { x: 860, y: 420, r: 96 },
     },
 ];
@@ -767,6 +811,24 @@ function matchesSearch(node: CircleNode, query: string) {
     return haystack.includes(query);
 }
 
+function getBubblePalette(node: CircleNode, isSelected: boolean) {
+    if (node.type === "primary") {
+        return {
+            background: isSelected ? "#8FC6E6" : "#99CEE9",
+            border: "rgba(133, 188, 219, 0.65)",
+            shadow: "0 10px 24px rgba(133, 188, 219, 0.12)",
+            text: "#31444C",
+        };
+    }
+
+    return {
+        background: isSelected ? "#B7D38A" : "#BDD990",
+        border: "rgba(170, 193, 127, 0.58)",
+        shadow: "0 10px 24px rgba(168, 192, 124, 0.12)",
+        text: "#46533E",
+    };
+}
+
 function getDynamicBackgroundRadius(group: GroupMeta, nodes: CircleNode[]) {
     const secondaryCount = nodes.filter(
         (node) => node.groupId === group.id && node.type === "secondary",
@@ -822,6 +884,105 @@ function getNextClusterLayout(groupCount: number) {
     };
 }
 
+function getPackedRowSizes(total: number) {
+    if (total <= 3) return [total];
+    if (total === 4) return [2, 2];
+    if (total === 5) return [3, 2];
+    if (total === 6) return [3, 3];
+    if (total === 7) return [3, 2, 2];
+    if (total === 8) return [3, 3, 2];
+    if (total === 9) return [3, 3, 3];
+    if (total === 10) return [4, 3, 3];
+    if (total === 11) return [4, 4, 3];
+    if (total === 12) return [4, 4, 4];
+
+    const rows = Math.ceil(Math.sqrt(total));
+    const base = Math.floor(total / rows);
+    const remainder = total % rows;
+
+    return Array.from({ length: rows }, (_, index) => base + (index < remainder ? 1 : 0)).filter(
+        (size) => size > 0,
+    );
+}
+
+function getGroupLayoutHint(groupId: string): GroupLayoutHint {
+    return (
+        GROUP_LAYOUT_HINTS[groupId] ?? {
+            nodesX: 0,
+            nodesY: -0.16,
+            titleMaxWidth: 180,
+            titleSize: 24,
+            titleX: 0,
+            titleY: 0.34,
+        }
+    );
+}
+
+/**
+ * Arrange nodes in a grid pattern inside the cluster circle.
+ * Returns the grid-based x/y for a node given its group.
+ */
+function getGridPosition(node: CircleNode, allNodes: CircleNode[], group: GroupMeta) {
+    const groupNodes = allNodes
+        .filter((n) => n.groupId === group.id)
+        .sort((left, right) => {
+            if (left.type !== right.type) {
+                return left.type === "primary" ? -1 : 1;
+            }
+
+            return left.title.localeCompare(right.title);
+        });
+    const hint = getGroupLayoutHint(group.id);
+
+    const baseR = group.background.r;
+    const clusterR = Math.max(
+        baseR,
+        baseR + Math.ceil(Math.max(0, groupNodes.length - 6) / 3) * 22,
+    );
+    const slotRadius = Math.max(28, Math.min(42, clusterR * 0.16));
+    const primaryRadius = Math.min(slotRadius + 6, 48);
+    const stepX = slotRadius * 2 + 10;
+    const stepY = slotRadius * 2 + 10;
+    const rowSizes = getPackedRowSizes(groupNodes.length);
+    const idx = groupNodes.findIndex((n) => n.id === node.id);
+
+    if (idx === -1) {
+        return { x: node.x, y: node.y, r: node.r };
+    }
+
+    let cursor = 0;
+    let rowIndex = 0;
+    let colIndex = 0;
+
+    rowSizes.some((rowSize, currentRowIndex) => {
+        if (idx < cursor + rowSize) {
+            rowIndex = currentRowIndex;
+            colIndex = idx - cursor;
+            return true;
+        }
+
+        cursor += rowSize;
+        return false;
+    });
+
+    const totalRows = rowSizes.length;
+    const rowSize = rowSizes[rowIndex] ?? rowSizes[0] ?? 1;
+    const widestRow = Math.max(...rowSizes);
+    const rowWidth = (rowSize - 1) * stepX;
+    const gridHeight = (totalRows - 1) * stepY;
+    const anchorX = group.background.x + clusterR * hint.nodesX;
+    const anchorY = group.background.y + clusterR * hint.nodesY;
+    const startX = anchorX - rowWidth / 2;
+    const startY = anchorY - gridHeight / 2;
+    const rowOffset = ((widestRow - rowSize) * stepX) / 2;
+
+    return {
+        x: startX + rowOffset + colIndex * stepX,
+        y: startY + rowIndex * stepY,
+        r: node.type === "primary" ? primaryRadius : slotRadius,
+    };
+}
+
 function getNodeMetrics(
     node: CircleNode,
     nodes: CircleNode[],
@@ -830,12 +991,23 @@ function getNodeMetrics(
     query: string,
 ): BubbleMetrics {
     const isMatch = matchesSearch(node, query);
+    const group = groups.find((g) => g.id === node.groupId);
 
     if (!selectedNode) {
+        if (!group) {
+            return {
+                x: node.x,
+                y: node.y,
+                r: node.r,
+                opacity: query && !isMatch ? 0.2 : 1,
+                zIndex: node.type === "primary" ? 2 : 1,
+            };
+        }
+        const gridPos = getGridPosition(node, nodes, group);
         return {
-            x: node.x,
-            y: node.y,
-            r: node.r,
+            x: gridPos.x,
+            y: gridPos.y,
+            r: gridPos.r,
             opacity: query && !isMatch ? 0.2 : 1,
             zIndex: isMatch ? 3 : node.type === "primary" ? 2 : 1,
         };
@@ -877,7 +1049,7 @@ function getNodeMetrics(
         };
     }
 
-    const parkedGroup = groups.find((group) => group.id === node.groupId);
+    const parkedGroup = groups.find((g) => g.id === node.groupId);
 
     if (!parkedGroup) {
         return {
@@ -914,12 +1086,18 @@ function getBackgroundMetrics(
     selectedNode: CircleNode | null,
     query: string,
 ) {
+    const secondaryCount = nodes.filter(
+        (n) => n.groupId === group.id && n.type === "secondary",
+    ).length;
+    const baseR = group.background.r;
+    const dynamicR = Math.max(baseR, baseR + Math.ceil(secondaryCount / 5) * 14);
+
     if (!selectedNode) {
         return {
             x: group.background.x,
             y: group.background.y,
-            r: getDynamicBackgroundRadius(group, nodes),
-            opacity: query ? 0.38 : 0.58,
+            r: dynamicR,
+            opacity: query ? 0.44 : 0.72,
         };
     }
 
@@ -927,8 +1105,8 @@ function getBackgroundMetrics(
         return {
             x: FOCUS_CENTER.x,
             y: FOCUS_CENTER.y,
-            r: 278,
-            opacity: 0.82,
+            r: 300,
+            opacity: 0.86,
         };
     }
 
@@ -936,25 +1114,25 @@ function getBackgroundMetrics(
         x: group.parking.x,
         y: group.parking.y,
         r: group.parking.r,
-        opacity: 0.16,
+        opacity: 0.22,
     };
 }
 
 function Bubble({
     node,
     metrics,
-    accent,
     isSelected,
     isMatch,
     onSelect,
 }: {
     node: CircleNode;
     metrics: BubbleMetrics;
-    accent: string;
     isSelected: boolean;
     isMatch: boolean;
     onSelect: (id: string) => void;
 }) {
+    const palette = getBubblePalette(node, isSelected);
+
     return (
         <motion.button
             type="button"
@@ -970,14 +1148,11 @@ function Bubble({
                 top: metrics.y - metrics.r,
                 opacity: metrics.opacity,
                 zIndex: metrics.zIndex,
-                boxShadow: isSelected
-                    ? "0 24px 54px rgba(37, 99, 235, 0.28)"
-                    : node.type === "primary"
-                      ? "0 18px 38px rgba(59, 130, 246, 0.18)"
-                      : "0 12px 28px rgba(59, 130, 246, 0.08)",
-                scale: isSelected ? 1.04 : 1,
-                backgroundColor: node.type === "primary" ? accent : "#DCEBFF",
-                color: node.type === "primary" ? "#FFFFFF" : "#14437D",
+                boxShadow: palette.shadow,
+                scale: isSelected ? 1.025 : 1,
+                backgroundColor: palette.background,
+                borderColor: palette.border,
+                color: palette.text,
             }}
             transition={BUBBLE_SPRING}
             whileHover={{ scale: isSelected ? 1.06 : 1.05 }}
@@ -985,16 +1160,14 @@ function Bubble({
             className={`absolute flex items-center justify-center rounded-full border text-center ${
                 isMatch ? "ring-4 ring-yellow-300/70" : ""
             }`}
-            style={{
-                borderColor: node.type === "primary" ? "rgba(191,219,254,0.65)" : "#BBD7FF",
-            }}
             aria-pressed={isSelected}
             aria-label={`Open details for ${node.title}`}
         >
             <span
                 className="select-none whitespace-pre-line px-2 leading-tight"
                 style={{
-                    fontSize: Math.max(11, metrics.r / (node.type === "primary" ? 2.95 : 3.25)),
+                    fontSize: Math.max(10, metrics.r / (node.type === "primary" ? 3.9 : 4.4)),
+                    fontWeight: 500,
                 }}
             >
                 {node.label}
@@ -1290,21 +1463,23 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
 
             <div className="min-h-0 flex-1 xl:grid xl:grid-cols-[minmax(0,1fr)_420px]">
                 <div
-                    className="relative min-h-[760px] min-w-0 overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.08),_transparent_52%),linear-gradient(180deg,rgba(248,250,252,0.9),rgba(255,255,255,1))] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),_transparent_46%),linear-gradient(180deg,rgba(15,23,42,0.88),rgba(2,6,23,1))]"
+                    className="relative min-h-[760px] min-w-0 overflow-hidden bg-white dark:bg-slate-950"
                     onClick={() => setSelectedCircleId(null)}
                 >
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[980px] w-[980px] rounded-full bg-[#F2F8FD] pointer-events-none dark:bg-slate-900" />
+
                     <motion.div
                         className="absolute left-1/2 top-1/2"
                         initial={false}
                         animate={{
-                            x: selectedNode ? -545 : -500,
-                            y: selectedNode ? -505 : -500,
-                            scale: selectedNode ? 0.93 : 0.86,
+                            x: selectedNode ? -570 : -550,
+                            y: selectedNode ? -530 : -500,
+                            scale: selectedNode ? 0.88 : 0.78,
                         }}
                         transition={BUBBLE_SPRING}
                         style={{
-                            width: 1000,
-                            height: 1000,
+                            width: 1100,
+                            height: 1100,
                             transformOrigin: "center center",
                         }}
                     >
@@ -1319,7 +1494,7 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
                             return (
                                 <motion.div
                                     key={group.id}
-                                    className="absolute rounded-full border pointer-events-none"
+                                    className="absolute rounded-full pointer-events-none bg-[#E4F0FB] dark:bg-[rgba(255,255,255,0.06)]"
                                     initial={false}
                                     animate={{
                                         width: metrics.r * 2,
@@ -1327,13 +1502,54 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
                                         left: metrics.x - metrics.r,
                                         top: metrics.y - metrics.r,
                                         opacity: metrics.opacity,
-                                        backgroundColor: "rgba(191,219,254,0.42)",
-                                        borderColor: "rgba(147,197,253,0.5)",
                                     }}
                                     transition={BUBBLE_SPRING}
                                 />
                             );
                         })}
+
+                        {!selectedNode &&
+                            groups.map((group) => {
+                                const metrics = getBackgroundMetrics(
+                                    group,
+                                    nodes,
+                                    selectedNode,
+                                    normalizedSearch,
+                                );
+                                const hint = getGroupLayoutHint(group.id);
+
+                                if (metrics.r < 90) {
+                                    return null;
+                                }
+
+                                return (
+                                    <motion.div
+                                        key={`label-${group.id}`}
+                                        className="pointer-events-none absolute z-10"
+                                        initial={false}
+                                        animate={{
+                                            left: metrics.x + metrics.r * hint.titleX,
+                                            top: metrics.y + metrics.r * hint.titleY,
+                                            opacity: metrics.opacity,
+                                        }}
+                                        style={{
+                                            maxWidth: `${hint.titleMaxWidth}px`,
+                                            transform: "translate(-50%, -50%)",
+                                        }}
+                                        transition={BUBBLE_SPRING}
+                                    >
+                                        <div
+                                            className="whitespace-pre-line text-center font-normal leading-[1.04] text-slate-700"
+                                            style={{
+                                                fontSize: `${hint.titleSize}px`,
+                                                letterSpacing: "-0.04em",
+                                            }}
+                                        >
+                                            {group.title}
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
 
                         {nodes.map((node) => {
                             const metrics = getNodeMetrics(
@@ -1349,7 +1565,6 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
                                     key={node.id}
                                     node={node}
                                     metrics={metrics}
-                                    accent={groupAccents[node.groupId] ?? "#3B82F6"}
                                     isSelected={node.id === selectedNode?.id}
                                     isMatch={
                                         Boolean(normalizedSearch) &&
@@ -1366,7 +1581,7 @@ export default function OrganizationChart({ searchQuery = "" }: { searchQuery?: 
                             {groups.map((group) => (
                                 <div
                                     key={group.id}
-                                    className="rounded-full border border-white/80 bg-white/80 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-300"
+                                    className="rounded-full border border-[#D7E7F0] bg-white/72 px-4 py-2 text-sm font-medium text-slate-500 shadow-[0_12px_24px_-22px_rgba(51,65,85,0.4)] backdrop-blur"
                                 >
                                     {group.title}
                                 </div>
