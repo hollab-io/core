@@ -105,7 +105,7 @@ contract OrganizationFactory is IOrganizationFactory {
     uint256 _anchorCircleId = _circleRegistry.createAnchorCircle(_subname, _purpose);
 
     // Deploy AccessManager with org creator as initial admin
-    AccessManager _accessManager = new AccessManager(msg.sender);
+    address _accessManagerAddr = address(new AccessManager(msg.sender));
 
     // Deploy on-chain governance suite (GovToken + TimelockController + HolGovernor).
     // ENS registration is handled below, so subdomain is left empty here.
@@ -120,20 +120,22 @@ contract OrganizationFactory is IOrganizationFactory {
 
     // Store organization record
     _orgId = ++_orgCounter;
-    HolacracyTypes.Organization storage _org = _organizations[_orgId];
-    _org.id = _orgId;
-    _org.name = _subname;
-    _org.subname = _subname;
-    _org.creator = msg.sender;
-    _org.roleRegistry = address(_roleRegistry);
-    _org.circleRegistry = address(_circleRegistry);
-    _org.governanceProcess = address(_governanceProcess);
-    _org.accessManager = address(_accessManager);
-    _org.anchorCircleId = _anchorCircleId;
-    _org.createdAt = block.timestamp;
-    _org.governor = _gov.governor;
-    _org.token = _gov.token;
-    _org.timelock = _gov.timelock;
+    {
+      HolacracyTypes.Organization storage _org = _organizations[_orgId];
+      _org.id = _orgId;
+      _org.name = _subname;
+      _org.subname = _subname;
+      _org.creator = msg.sender;
+      _org.roleRegistry = address(_roleRegistry);
+      _org.circleRegistry = address(_circleRegistry);
+      _org.governanceProcess = address(_governanceProcess);
+      _org.accessManager = _accessManagerAddr;
+      _org.anchorCircleId = _anchorCircleId;
+      _org.createdAt = block.timestamp;
+      _org.governor = _gov.governor;
+      _org.token = _gov.token;
+      _org.timelock = _gov.timelock;
+    }
 
     _subnameToOrgId[_subnameHash] = _orgId;
 
