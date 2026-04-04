@@ -3,5 +3,6 @@ forge-std/=node_modules/forge-std/src
 
 contracts/=src/contracts
 ens/=src/ens
+helpers/=src/helpers
 interfaces/=src/interfaces
 libraries/=src/libraries

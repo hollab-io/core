@@ -59,15 +59,6 @@ importers:
                 specifier: 2.1.9
                 version: 2.1.9(@types/node@20.3.1)
 
-    apps/sample-app:
-        dependencies:
-            "@ts-turborepo-boilerplate/sample-lib":
-                specifier: workspace:*
-                version: link:../../packages/sample-lib
-            zod:
-                specifier: 3.23.8
-                version: 3.23.8
-
     packages/contracts:
         devDependencies:
             "@openzeppelin/contracts":
@@ -90,12 +81,6 @@ importers:
             "@noble/hashes":
                 specifier: ^1.7.1
                 version: 1.8.0
-            viem:
-                specifier: 2.21.4
-                version: 2.21.4(typescript@5.5.4)(zod@3.23.8)
-
-    packages/sample-lib:
-        dependencies:
             viem:
                 specifier: 2.21.4
                 version: 2.21.4(typescript@5.5.4)(zod@3.23.8)
@@ -5317,4 +5302,5 @@ snapshots:
 
     yocto-queue@1.2.1: {}
 
-    zod@3.23.8: {}
+    zod@3.23.8:
+        optional: true

@@ -30,14 +30,14 @@ interface IAddrResolver {
 ///   forge test --match-path test/fork/GovernanceENS.fork.t.sol -vvv
 contract GovernanceENSForkTest is Test {
   // ENS registry address is the same on mainnet and all testnets.
-  address constant ENS_REGISTRY = 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e;
+  address internal constant _ENS_REGISTRY = 0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e;
 
-  IENS ens = IENS(ENS_REGISTRY);
+  IENS internal _ens = IENS(_ENS_REGISTRY);
 
-  uint256 domainOwnerPk;
-  address domainOwner;
-  bytes32 parentNode;
-  string subdomain;
+  uint256 internal _domainOwnerPk;
+  address internal _domainOwner;
+  bytes32 internal _parentNode;
+  string internal _subdomain;
 
   /// @notice Thrown when the domain owner does not own the parent node
   error GovernanceENSForkTest_DomainOwnerDoesNotOwnParentNode();
@@ -45,24 +45,24 @@ contract GovernanceENSForkTest is Test {
   function setUp() external {
     vm.createSelectFork(vm.envString('SEPOLIA_RPC_URL'));
 
-    domainOwnerPk = vm.envUint('DOMAIN_OWNER_PRIVATE_KEY');
-    domainOwner = vm.addr(domainOwnerPk);
-    parentNode = vm.envBytes32('ENS_PARENT_NODE');
-    subdomain = vm.envOr('ENS_SUBDOMAIN', string('governor'));
+    _domainOwnerPk = vm.envUint('DOMAIN_OWNER_PRIVATE_KEY');
+    _domainOwner = vm.addr(_domainOwnerPk);
+    _parentNode = vm.envBytes32('ENS_PARENT_NODE');
+    _subdomain = vm.envOr('ENS_SUBDOMAIN', string('governor'));
 
-    if (ens.owner(parentNode) != domainOwner) {
+    if (_ens.owner(_parentNode) != _domainOwner) {
       revert GovernanceENSForkTest_DomainOwnerDoesNotOwnParentNode();
     }
   }
 
   function test_FullGovernanceENSFlow() external {
-    console.log('Domain owner:  ', domainOwner);
-    console.log('Subdomain:     ', subdomain);
+    console.log('Domain owner:  ', _domainOwner);
+    console.log('Subdomain:     ', _subdomain);
 
     // 1. Deploy registrar as the domain owner and approve it to manage the node.
-    vm.startPrank(domainOwner);
-    ENSSubdomainRegistrar registrar = new ENSSubdomainRegistrar(ENS_REGISTRY, parentNode);
-    ens.setApprovalForAll(address(registrar), true);
+    vm.startPrank(_domainOwner);
+    ENSSubdomainRegistrar registrar = new ENSSubdomainRegistrar(_ENS_REGISTRY, _parentNode);
+    _ens.setApprovalForAll(address(registrar), true);
 
     // 2. Deploy factory and authorize it on the registrar — all in one prank block
     //    so the factory address is known before we stop impersonating the owner.
@@ -86,7 +86,7 @@ contract GovernanceENSForkTest is Test {
         votingPeriod: uint32(50),
         proposalThreshold: 0,
         quorumNumerator: 4,
-        subdomain: subdomain,
+        subdomain: _subdomain,
         subdomainRegistrar: address(registrar)
       })
     );
@@ -96,12 +96,12 @@ contract GovernanceENSForkTest is Test {
     console.log('Timelock:      ', d.timelock);
 
     // 4. Verify the subdomain resolves to the governor.
-    bytes32 subnode = keccak256(abi.encodePacked(parentNode, keccak256(bytes(subdomain))));
-    address resolved = IAddrResolver(ens.resolver(subnode)).addr(subnode);
+    bytes32 subnode = keccak256(abi.encodePacked(_parentNode, keccak256(bytes(_subdomain))));
+    address resolved = IAddrResolver(_ens.resolver(subnode)).addr(subnode);
 
     console.log('Resolved addr: ', resolved);
 
     assertEq(resolved, d.governor, 'subdomain should resolve to governor');
-    assertEq(ens.owner(subnode), address(registrar), 'registrar should own the subnode');
+    assertEq(_ens.owner(subnode), address(registrar), 'registrar should own the subnode');
   }
 }

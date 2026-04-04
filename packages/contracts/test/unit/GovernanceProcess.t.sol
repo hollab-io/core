@@ -2,11 +2,35 @@
 pragma solidity 0.8.28;
 
 import {GovernanceProcess, IGovernanceProcess} from 'contracts/GovernanceProcess.sol';
-import {CircleRegistry, ICircleRegistry} from 'contracts/CircleRegistry.sol';
-import {RoleRegistry, IRoleRegistry} from 'contracts/RoleRegistry.sol';
+import {CircleRegistry} from 'contracts/CircleRegistry.sol';
+import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
 import {Test} from 'forge-std/Test.sol';
+
+/// @notice Mock DAO governor that records the most recent propose() call
+contract MockDAOGovernor {
+  uint256 internal _nextId = 42;
+  address public lastTarget;
+  bytes public lastCalldata;
+  string public lastDescription;
+
+  function nextProposalId() external view returns (uint256) {
+    return _nextId;
+  }
+
+  function propose(
+    address[] memory targets,
+    uint256[] memory,
+    bytes[] memory calldatas,
+    string memory description
+  ) external returns (uint256) {
+    lastTarget = targets[0];
+    lastCalldata = calldatas[0];
+    lastDescription = description;
+    return _nextId;
+  }
+}
 
 contract UnitGovernanceProcess is Test {
   RoleRegistry internal _roleRegistry;
@@ -692,5 +716,226 @@ contract UnitGovernanceProcess is Test {
     // it returns empty array
     uint256[] memory _pIds = _governance.getCircleProposals(999);
     assertEq(_pIds.length, 0);
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                    SET DAO GOVERNOR
+  //////////////////////////////////////////////////////////////*/
+
+  event DAOGovernorSet(address indexed _governor, address indexed _timelock);
+
+  function test_SetDAOGovernorWhenValid() external {
+    address _gov = makeAddr('governor');
+    address _tl = makeAddr('timelock');
+
+    // it emits DAOGovernorSet
+    vm.expectEmit(true, true, false, false, address(_governance));
+    emit DAOGovernorSet(_gov, _tl);
+
+    _governance.setDAOGovernor(_gov, _tl);
+
+    // it stores governor and timelock
+    assertEq(_governance.daoGovernor(), _gov);
+    assertEq(_governance.timelockController(), _tl);
+  }
+
+  function test_SetDAOGovernorWhenAlreadySet() external {
+    address _gov = makeAddr('governor');
+    address _tl = makeAddr('timelock');
+    _governance.setDAOGovernor(_gov, _tl);
+
+    // it reverts on second call
+    vm.expectRevert(IGovernanceProcess.GovernanceProcess_DAOAlreadySet.selector);
+    _governance.setDAOGovernor(makeAddr('other'), makeAddr('other2'));
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                    ESCALATE TO DAO
+  //////////////////////////////////////////////////////////////*/
+
+  event ProposalEscalated(uint256 indexed _proposalId, uint256 indexed _daoProposalId);
+
+  function _setupDAO() internal returns (address _gov, address _tl) {
+    _gov = address(new MockDAOGovernor());
+    _tl = makeAddr('timelock');
+    _governance.setDAOGovernor(_gov, _tl);
+  }
+
+  function test_EscalateToDAOWhenActive() external {
+    (address _gov,) = _setupDAO();
+    uint256 _proposalId = _submitAndActivateProposal(_member1, _role1Id);
+
+    // it emits ProposalEscalated
+    vm.expectEmit(true, true, false, false, address(_governance));
+    emit ProposalEscalated(_proposalId, MockDAOGovernor(_gov).nextProposalId());
+
+    vm.prank(_member1);
+    uint256 _daoId = _governance.escalateToDAO(_proposalId, 'Needs broader vote');
+
+    // it returns the DAO proposal ID
+    assertEq(_daoId, MockDAOGovernor(_gov).nextProposalId());
+
+    // it marks proposal as Escalated
+    HolacracyTypes.Proposal memory _proposal = _governance.getProposal(_proposalId);
+    assertEq(uint256(_proposal.status), uint256(HolacracyTypes.ProposalStatus.Escalated));
+  }
+
+  function test_EscalateToDAOWhenIntegrating() external {
+    _setupDAO();
+    uint256 _proposalId = _submitAndActivateProposal(_member1, _role1Id);
+
+    // Raise an objection to move to Integrating
+    vm.prank(_member2);
+    _governance.raiseObjection(_proposalId, _role2Id, 'Hard objection', false);
+
+    HolacracyTypes.Proposal memory _proposal = _governance.getProposal(_proposalId);
+    assertEq(uint256(_proposal.status), uint256(HolacracyTypes.ProposalStatus.Integrating));
+
+    // it allows escalation from Integrating
+    vm.prank(_member1);
+    _governance.escalateToDAO(_proposalId, 'Cannot resolve internally');
+
+    _proposal = _governance.getProposal(_proposalId);
+    assertEq(uint256(_proposal.status), uint256(HolacracyTypes.ProposalStatus.Escalated));
+  }
+
+  function test_EscalateToDAOWhenDAONotSet() external {
+    uint256 _proposalId = _submitAndActivateProposal(_member1, _role1Id);
+
+    vm.prank(_member1);
+    // it reverts
+    vm.expectRevert(IGovernanceProcess.GovernanceProcess_DAONotSet.selector);
+    _governance.escalateToDAO(_proposalId, 'No DAO configured');
+  }
+
+  function test_EscalateToDAOWhenNotCircleMember() external {
+    _setupDAO();
+    uint256 _proposalId = _submitAndActivateProposal(_member1, _role1Id);
+
+    vm.prank(_stranger);
+    // it reverts
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IGovernanceProcess.GovernanceProcess_NotCircleMember.selector, _anchorCircleId, _stranger
+      )
+    );
+    _governance.escalateToDAO(_proposalId, 'Sneaky escalation');
+  }
+
+  function test_EscalateToDAOWhenDraft() external {
+    _setupDAO();
+
+    vm.prank(_member1);
+    uint256 _proposalId = _governance.submitProposal(
+      _anchorCircleId, _role1Id, 'Tension', 'Example', 'Explanation', _defaultChange()
+    );
+
+    vm.prank(_member1);
+    // it reverts — Draft is not escalatable
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IGovernanceProcess.GovernanceProcess_InvalidProposalStatus.selector,
+        _proposalId,
+        HolacracyTypes.ProposalStatus.Active
+      )
+    );
+    _governance.escalateToDAO(_proposalId, 'Too early');
+  }
+
+  function test_EscalateToDAOEncodesCorrectCalldata() external {
+    (address _gov,) = _setupDAO();
+    uint256 _proposalId = _submitAndActivateProposal(_member1, _role1Id);
+
+    vm.prank(_member1);
+    _governance.escalateToDAO(_proposalId, 'Check calldata');
+
+    // it encodes executeEscalatedProposal(proposalId) as the calldata
+    bytes memory _expected = abi.encodeCall(_governance.executeEscalatedProposal, (_proposalId));
+    assertEq(MockDAOGovernor(_gov).lastCalldata(), _expected);
+
+    // it targets this governance process contract
+    assertEq(MockDAOGovernor(_gov).lastTarget(), address(_governance));
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                    EXECUTE ESCALATED PROPOSAL
+  //////////////////////////////////////////////////////////////*/
+
+  function test_ExecuteEscalatedProposalWhenTimelock() external {
+    (, address _tl) = _setupDAO();
+    uint256 _proposalId = _submitAndActivateProposal(_member1, _role1Id);
+
+    vm.prank(_member1);
+    _governance.escalateToDAO(_proposalId, 'Escalate');
+
+    uint256 _rolesBefore = _roleRegistry.getCircleRoleIds(_anchorCircleId).length;
+
+    vm.prank(_tl);
+    _governance.executeEscalatedProposal(_proposalId);
+
+    // it marks proposal as Adopted
+    HolacracyTypes.Proposal memory _proposal = _governance.getProposal(_proposalId);
+    assertEq(uint256(_proposal.status), uint256(HolacracyTypes.ProposalStatus.Adopted));
+    assertGt(_proposal.resolvedAt, 0);
+
+    // it executes the governance change (CreateRole adds a role)
+    assertEq(_roleRegistry.getCircleRoleIds(_anchorCircleId).length, _rolesBefore + 1);
+  }
+
+  function test_ExecuteEscalatedProposalEmitsAdopted() external {
+    (, address _tl) = _setupDAO();
+    uint256 _proposalId = _submitAndActivateProposal(_member1, _role1Id);
+    vm.prank(_member1);
+    _governance.escalateToDAO(_proposalId, 'Escalate');
+
+    vm.prank(_tl);
+    vm.expectEmit(true, false, false, false, address(_governance));
+    emit ProposalAdopted(_proposalId);
+    _governance.executeEscalatedProposal(_proposalId);
+  }
+
+  function test_ExecuteEscalatedProposalWhenNotTimelock() external {
+    (, address _tl) = _setupDAO();
+    uint256 _proposalId = _submitAndActivateProposal(_member1, _role1Id);
+    vm.prank(_member1);
+    _governance.escalateToDAO(_proposalId, 'Escalate');
+
+    vm.prank(_stranger);
+    // it reverts
+    vm.expectRevert(IGovernanceProcess.GovernanceProcess_NotTimelock.selector);
+    _governance.executeEscalatedProposal(_proposalId);
+  }
+
+  function test_ExecuteEscalatedProposalWhenNotEscalated() external {
+    (, address _tl) = _setupDAO();
+    uint256 _proposalId = _submitAndActivateProposal(_member1, _role1Id);
+    // Proposal is Active, not Escalated
+
+    vm.prank(_tl);
+    // it reverts
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IGovernanceProcess.GovernanceProcess_InvalidProposalStatus.selector,
+        _proposalId,
+        HolacracyTypes.ProposalStatus.Escalated
+      )
+    );
+    _governance.executeEscalatedProposal(_proposalId);
+  }
+
+  function test_WithdrawProposalWhenEscalated() external {
+    _setupDAO();
+    uint256 _proposalId = _submitAndActivateProposal(_member1, _role1Id);
+    vm.prank(_member1);
+    _governance.escalateToDAO(_proposalId, 'Escalate');
+
+    vm.prank(_member1);
+    // it emits ProposalWithdrawn
+    vm.expectEmit(true, false, false, false, address(_governance));
+    emit ProposalWithdrawn(_proposalId);
+    _governance.withdrawProposal(_proposalId);
+
+    HolacracyTypes.Proposal memory _proposal = _governance.getProposal(_proposalId);
+    assertEq(uint256(_proposal.status), uint256(HolacracyTypes.ProposalStatus.Withdrawn));
   }
 }

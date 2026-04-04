@@ -190,7 +190,8 @@ contract UnitCircleRegistry is Test {
     vm.expectEmit(true, true, true, true, address(_circleRegistry));
     emit CircleRoleCreated(_anchorId, 1);
 
-    uint256 _roleId = _circleRegistry.createRoleInCircle(_anchorId, 'Designer', 'Design things', _domains, _accountabilities);
+    uint256 _roleId =
+      _circleRegistry.createRoleInCircle(_anchorId, 'Designer', 'Design things', _domains, _accountabilities);
 
     // it creates the role in RoleRegistry
     HolacracyTypes.Role memory _role = _roleRegistry.getRole(_roleId);
@@ -612,5 +613,166 @@ contract UnitCircleRegistry is Test {
     // it reverts
     vm.expectRevert(abi.encodeWithSelector(ICircleRegistry.CircleRegistry_PolicyNotFound.selector, 999));
     _circleRegistry.getPolicy(999);
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                    UPDATE CIRCLE
+  //////////////////////////////////////////////////////////////*/
+
+  event CircleUpdated(uint256 indexed _circleId, string _name, string _purpose);
+
+  function test_UpdateCircleWhenCircleLead() external {
+    uint256 _circleId = _createAnchorCircle();
+
+    vm.prank(_deployer);
+
+    // it emits CircleUpdated
+    vm.expectEmit(true, false, false, true, address(_circleRegistry));
+    emit CircleUpdated(_circleId, 'NewName', 'NewPurpose');
+
+    _circleRegistry.updateCircle(_circleId, 'NewName', 'NewPurpose');
+
+    // it updates the stored name and purpose
+    HolacracyTypes.Circle memory _circle = _circleRegistry.getCircle(_circleId);
+    assertEq(_circle.name, 'NewName');
+    assertEq(_circle.purpose, 'NewPurpose');
+  }
+
+  function test_UpdateCircleWhenGovernanceProcess() external {
+    address _mockGovernance = makeAddr('mockGovernance');
+    uint256 _circleId = _createAnchorCircle();
+
+    // Wire a governance process address
+    vm.prank(_deployer);
+    _circleRegistry.setGovernanceProcess(_mockGovernance);
+
+    vm.prank(_mockGovernance);
+    _circleRegistry.updateCircle(_circleId, 'GovernanceName', 'GovernancePurpose');
+
+    HolacracyTypes.Circle memory _circle = _circleRegistry.getCircle(_circleId);
+    assertEq(_circle.name, 'GovernanceName');
+    assertEq(_circle.purpose, 'GovernancePurpose');
+  }
+
+  function test_UpdateCircleWhenNotAuthorized() external {
+    uint256 _circleId = _createAnchorCircle();
+
+    vm.prank(_stranger);
+    // it reverts
+    vm.expectRevert(abi.encodeWithSelector(ICircleRegistry.CircleRegistry_NotCircleLead.selector, _circleId));
+    _circleRegistry.updateCircle(_circleId, 'Hack', 'Hack');
+  }
+
+  function test_UpdateCircleWhenDoesNotExist() external {
+    vm.prank(_deployer);
+    // it reverts
+    vm.expectRevert(abi.encodeWithSelector(ICircleRegistry.CircleRegistry_CircleNotFound.selector, 999));
+    _circleRegistry.updateCircle(999, 'Name', 'Purpose');
+  }
+
+  function test_UpdateCirclePreservesOtherFields() external {
+    uint256 _circleId = _createAnchorCircle();
+
+    vm.prank(_deployer);
+    _circleRegistry.updateCircle(_circleId, 'Updated', 'Updated purpose');
+
+    HolacracyTypes.Circle memory _circle = _circleRegistry.getCircle(_circleId);
+    // it does not touch structural fields
+    assertTrue(_circle.isAnchor);
+    assertTrue(_circle.exists);
+    assertEq(_circle.id, _circleId);
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                    TRANSFER DEPLOYER
+  //////////////////////////////////////////////////////////////*/
+
+  event DeployerTransferProposed(address indexed _pendingDeployer);
+  event DeployerTransferred(address indexed _oldDeployer, address indexed _newDeployer);
+
+  address internal _newDeployer = makeAddr('newDeployer');
+
+  function test_ProposeDeployerTransferWhenDeployer() external {
+    _createAnchorCircle();
+
+    vm.prank(_deployer);
+
+    // it emits DeployerTransferProposed
+    vm.expectEmit(true, false, false, false, address(_circleRegistry));
+    emit DeployerTransferProposed(_newDeployer);
+
+    _circleRegistry.proposeDeployerTransfer(_newDeployer);
+
+    // it sets pendingDeployer
+    assertEq(_circleRegistry.pendingDeployer(), _newDeployer);
+    // it does not yet change deployer
+    assertEq(_circleRegistry.deployer(), _deployer);
+  }
+
+  function test_ProposeDeployerTransferWhenNotDeployer() external {
+    _createAnchorCircle();
+
+    vm.prank(_stranger);
+    // it reverts
+    vm.expectRevert(ICircleRegistry.CircleRegistry_Unauthorized.selector);
+    _circleRegistry.proposeDeployerTransfer(_newDeployer);
+  }
+
+  function test_ProposeDeployerTransferWhenZeroAddress() external {
+    _createAnchorCircle();
+
+    vm.prank(_deployer);
+    // it reverts
+    vm.expectRevert(ICircleRegistry.CircleRegistry_InvalidAddress.selector);
+    _circleRegistry.proposeDeployerTransfer(address(0));
+  }
+
+  function test_AcceptDeployerTransferWhenPending() external {
+    _createAnchorCircle();
+
+    vm.prank(_deployer);
+    _circleRegistry.proposeDeployerTransfer(_newDeployer);
+
+    vm.prank(_newDeployer);
+
+    // it emits DeployerTransferred
+    vm.expectEmit(true, true, false, false, address(_circleRegistry));
+    emit DeployerTransferred(_deployer, _newDeployer);
+
+    _circleRegistry.acceptDeployerTransfer();
+
+    // it updates deployer
+    assertEq(_circleRegistry.deployer(), _newDeployer);
+    // it clears pendingDeployer
+    assertEq(_circleRegistry.pendingDeployer(), address(0));
+  }
+
+  function test_AcceptDeployerTransferWhenNotPending() external {
+    _createAnchorCircle();
+
+    vm.prank(_stranger);
+    // it reverts — no pending transfer in progress
+    vm.expectRevert(ICircleRegistry.CircleRegistry_NotPendingDeployer.selector);
+    _circleRegistry.acceptDeployerTransfer();
+  }
+
+  function test_DeployerTransferGrantsAnchorLeadControl() external {
+    uint256 _anchorId = _createAnchorCircle();
+
+    // Transfer deployer to newDeployer
+    vm.prank(_deployer);
+    _circleRegistry.proposeDeployerTransfer(_newDeployer);
+    vm.prank(_newDeployer);
+    _circleRegistry.acceptDeployerTransfer();
+
+    // Old deployer can no longer add leads to anchor circle
+    vm.prank(_deployer);
+    vm.expectRevert(ICircleRegistry.CircleRegistry_Unauthorized.selector);
+    _circleRegistry.addCircleLead(_anchorId, _stranger);
+
+    // New deployer can add leads to anchor circle
+    vm.prank(_newDeployer);
+    _circleRegistry.addCircleLead(_anchorId, _stranger);
+    assertTrue(_circleRegistry.isCircleLead(_anchorId, _stranger));
   }
 }
