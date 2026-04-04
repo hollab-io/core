@@ -4,12 +4,16 @@ pragma solidity 0.8.28;
 import {TimelockController} from 'lib/openzeppelin-contracts/contracts/governance/TimelockController.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {GovToken} from 'contracts/governance/GovToken.sol';
+import {GovComponentDeployer} from 'contracts/governance/GovComponentDeployer.sol';
 import {HolGovernor} from 'contracts/governance/HolGovernor.sol';
 
 /// @title HolGovernorFactory
 /// @notice Deploys a complete governance suite (GovToken + TimelockController + HolGovernor)
 ///         in a single transaction, wires all roles, and optionally mints initial token allocations.
 ///         ENS subdomain registration is opt-in per deployment via DeploymentConfig.
+///
+/// @dev GovToken and TimelockController are deployed via GovComponentDeployer to keep this
+///      contract's initcode under the 24 576-byte EIP-170 limit.
 contract HolGovernorFactory {
   // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -56,6 +60,16 @@ contract HolGovernorFactory {
   /// @notice Thrown when the subdomain contains characters outside [0-9a-z-].
   error InvalidSubdomain(string subdomain);
 
+  // ─── State ───────────────────────────────────────────────────────────────────
+
+  GovComponentDeployer public immutable COMPONENT_DEPLOYER;
+
+  // ─── Constructor ─────────────────────────────────────────────────────────────
+
+  constructor() {
+    COMPONENT_DEPLOYER = new GovComponentDeployer();
+  }
+
   // ─── External ────────────────────────────────────────────────────────────────
 
   /// @notice Deploy a complete governance suite from `config`.
@@ -64,7 +78,7 @@ contract HolGovernorFactory {
     if (config.initialHolders.length != config.initialAmounts.length) revert ArrayLengthMismatch();
 
     // 1. Deploy token with this factory as the initial minter so we can mint below.
-    GovToken token = new GovToken(config.tokenName, config.tokenSymbol, address(this));
+    GovToken token = GovToken(COMPONENT_DEPLOYER.deployToken(config.tokenName, config.tokenSymbol, address(this)));
 
     // 2. Mint initial allocations.
     for (uint256 i = 0; i < config.initialHolders.length; i++) {
@@ -79,7 +93,7 @@ contract HolGovernorFactory {
     address[] memory executors = new address[](1);
     executors[0] = address(0);
     TimelockController timelock =
-      new TimelockController(config.timelockDelay, proposers, executors, address(this));
+      TimelockController(payable(COMPONENT_DEPLOYER.deployTimelock(config.timelockDelay, proposers, executors, address(this))));
 
     // 4. Deploy governor.
     HolGovernor governor = new HolGovernor(
@@ -125,8 +139,8 @@ contract HolGovernorFactory {
     for (uint256 i = 0; i < b.length; i++) {
       bytes1 c = b[i];
       bool valid = (c >= 0x30 && c <= 0x39) // 0-9
-        || (c >= 0x61 && c <= 0x7a)          // a-z
-        || c == 0x2d;                         // -
+        || (c >= 0x61 && c <= 0x7a) // a-z
+        || c == 0x2d; // -
       if (!valid) return false;
     }
     return true;

@@ -1,4 +1,12 @@
 export const HolGovernorFactoryAbi = [
+    { type: "constructor", inputs: [], stateMutability: "nonpayable" },
+    {
+        type: "function",
+        name: "COMPONENT_DEPLOYER",
+        inputs: [],
+        outputs: [{ name: "", type: "address", internalType: "contract GovComponentDeployer" }],
+        stateMutability: "view",
+    },
     {
         type: "function",
         name: "deploy",
