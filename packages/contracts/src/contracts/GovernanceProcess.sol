@@ -12,6 +12,16 @@ import {RoleRegistry} from 'contracts/RoleRegistry.sol';
  * @dev Proposals go through: Draft → Active → (Objections?) → Integrating → Adopted/Discarded
  *      The Facilitator of each circle manages objection testing and proposal adoption.
  */
+/// @notice Minimal interface used to create governor proposals during escalation
+interface IDAOGovernor {
+  function propose(
+    address[] memory targets,
+    uint256[] memory values,
+    bytes[] memory calldatas,
+    string memory description
+  ) external returns (uint256 proposalId);
+}
+
 contract GovernanceProcess is IGovernanceProcess {
   /*///////////////////////////////////////////////////////////////
                             STATE
@@ -22,6 +32,12 @@ contract GovernanceProcess is IGovernanceProcess {
 
   /// @notice Reference to the role registry
   RoleRegistry public roleRegistry;
+
+  /// @notice DAO governor linked to this process (set once after deployment)
+  address public daoGovernor;
+
+  /// @notice Timelock controller linked to this process (set once after deployment)
+  address public timelockController;
 
   /// @notice Auto-incrementing proposal ID counter
   uint256 internal _proposalCounter;
@@ -281,6 +297,7 @@ contract GovernanceProcess is IGovernanceProcess {
       _proposal.status != HolacracyTypes.ProposalStatus.Draft
         && _proposal.status != HolacracyTypes.ProposalStatus.Active
         && _proposal.status != HolacracyTypes.ProposalStatus.Integrating
+        && _proposal.status != HolacracyTypes.ProposalStatus.Escalated
     ) {
       revert GovernanceProcess_InvalidProposalStatus(_proposalId, HolacracyTypes.ProposalStatus.Draft);
     }
@@ -289,6 +306,64 @@ contract GovernanceProcess is IGovernanceProcess {
     _proposal.resolvedAt = block.timestamp;
 
     emit ProposalWithdrawn(_proposalId);
+  }
+
+  /// @inheritdoc IGovernanceProcess
+  function setDAOGovernor(address _governor, address _timelock) external {
+    if (daoGovernor != address(0)) revert GovernanceProcess_DAOAlreadySet();
+    daoGovernor = _governor;
+    timelockController = _timelock;
+    emit DAOGovernorSet(_governor, _timelock);
+  }
+
+  /// @inheritdoc IGovernanceProcess
+  function escalateToDAO(uint256 _proposalId, string calldata _description) external returns (uint256 _daoProposalId) {
+    if (daoGovernor == address(0)) revert GovernanceProcess_DAONotSet();
+
+    HolacracyTypes.Proposal storage _proposal = _proposals[_proposalId];
+    if (_proposal.id == 0) revert GovernanceProcess_ProposalNotFound(_proposalId);
+    if (
+      _proposal.status != HolacracyTypes.ProposalStatus.Active
+        && _proposal.status != HolacracyTypes.ProposalStatus.Integrating
+    ) {
+      revert GovernanceProcess_InvalidProposalStatus(_proposalId, HolacracyTypes.ProposalStatus.Active);
+    }
+    if (!circleRegistry.isCircleMember(_proposal.circleId, msg.sender)) {
+      revert GovernanceProcess_NotCircleMember(_proposal.circleId, msg.sender);
+    }
+
+    _proposal.status = HolacracyTypes.ProposalStatus.Escalated;
+
+    address[] memory _targets = new address[](1);
+    _targets[0] = address(this);
+
+    uint256[] memory _values = new uint256[](1);
+    _values[0] = 0;
+
+    bytes[] memory _calldatas = new bytes[](1);
+    _calldatas[0] = abi.encodeCall(this.executeEscalatedProposal, (_proposalId));
+
+    _daoProposalId = IDAOGovernor(daoGovernor).propose(_targets, _values, _calldatas, _description);
+
+    emit ProposalEscalated(_proposalId, _daoProposalId);
+  }
+
+  /// @inheritdoc IGovernanceProcess
+  function executeEscalatedProposal(uint256 _proposalId) external {
+    if (msg.sender != timelockController) revert GovernanceProcess_NotTimelock();
+
+    HolacracyTypes.Proposal storage _proposal = _proposals[_proposalId];
+    if (_proposal.id == 0) revert GovernanceProcess_ProposalNotFound(_proposalId);
+    if (_proposal.status != HolacracyTypes.ProposalStatus.Escalated) {
+      revert GovernanceProcess_InvalidProposalStatus(_proposalId, HolacracyTypes.ProposalStatus.Escalated);
+    }
+
+    _proposal.status = HolacracyTypes.ProposalStatus.Adopted;
+    _proposal.resolvedAt = block.timestamp;
+
+    _executeChange(_proposal.circleId, _proposal.change);
+
+    emit ProposalAdopted(_proposalId);
   }
 
   /// @inheritdoc IGovernanceProcess

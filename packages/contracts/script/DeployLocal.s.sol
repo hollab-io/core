@@ -3,28 +3,21 @@ pragma solidity 0.8.28;
 
 import {Script, console} from 'forge-std/Script.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
+import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
+import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {CircleTreasury} from 'contracts/CircleTreasury.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {CircleRegistry} from 'contracts/CircleRegistry.sol';
 import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
-import {INameWrapper} from 'interfaces/IENS.sol';
+import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
 
-/// @notice Stub NameWrapper for local development — records subnames but has no ENS logic
-contract MockNameWrapper is INameWrapper {
-  mapping(bytes32 => address) public subnameOwners;
+/// @notice Stub ENS subdomain registrar for local development — records calls without ENS logic
+contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
+  mapping(bytes32 => address) public subnameTargets;
 
-  function setSubnodeRecord(
-    bytes32 _parentNode,
-    string calldata _label,
-    address _owner,
-    address,
-    uint64,
-    uint32,
-    uint64
-  ) external returns (bytes32 _node) {
-    _node = keccak256(abi.encodePacked(_parentNode, keccak256(bytes(_label))));
-    subnameOwners[_node] = _owner;
+  function registerSubnode(bytes32 _label, address _targetAddress) external {
+    subnameTargets[_label] = _targetAddress;
   }
 }
 
@@ -40,9 +33,6 @@ contract MockNameWrapper is INameWrapper {
  *     --broadcast -vvv
  */
 contract DeployLocal is Script {
-  /// @dev namehash("hollab.eth") — precomputed
-  bytes32 constant PARENT_NODE = 0x0e75a0b793d552e1513d498a13a8a6493c297768e25e0be29ddaeca9a1e156ac;
-
   function run() external {
     uint256 deployerKey =
       vm.envOr('PRIVATE_KEY', uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
@@ -53,36 +43,58 @@ contract DeployLocal is Script {
 
     vm.startBroadcast(deployerKey);
 
-    // 1. Deploy mock ENS infrastructure
-    MockNameWrapper nameWrapper = new MockNameWrapper();
+    // 1. Deploy mock ENS registrar
+    MockENSSubdomainRegistrar ensRegistrar = new MockENSSubdomainRegistrar();
 
-    // 2. Deploy implementation contracts individually
+    // 2. Deploy implementation contracts
     RoleRegistry roleRegistryImpl = new RoleRegistry();
     CircleRegistry circleRegistryImpl = new CircleRegistry();
     GovernanceProcess governanceProcessImpl = new GovernanceProcess();
 
-    // 3. Deploy OrganizationFactory with pre-deployed implementations
+    // 3. Deploy HolGovernorFactory
+    HolGovernorFactory govFactory = new HolGovernorFactory();
+
+    // 4. Deploy OrganizationFactory
     OrganizationFactory factory = new OrganizationFactory(
       address(roleRegistryImpl),
       address(circleRegistryImpl),
       address(governanceProcessImpl),
-      address(nameWrapper),
-      PARENT_NODE,
-      address(0) // resolver not needed locally
+      address(govFactory),
+      address(ensRegistrar)
     );
 
-    // 4. Create a sample organization
-    uint256 orgId = factory.createOrganization('demo', 'A demo Holacracy organization');
+    // 5. Create a sample organization with default governance parameters
+    address[] memory holders = new address[](1);
+    holders[0] = deployer;
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = 1_000_000e18;
 
-    // 5. Deploy a CircleTreasury for the anchor circle (1 day delay)
+    uint256 orgId = factory.createOrganization(
+      'demo',
+      'A demo Holacracy organization',
+      IOrganizationFactory.GovernanceConfig({
+        tokenName: 'Demo Token',
+        tokenSymbol: 'DEMO',
+        initialHolders: holders,
+        initialAmounts: amounts,
+        timelockDelay: 0,
+        votingDelay: 1,
+        votingPeriod: 50,
+        proposalThreshold: 0,
+        quorumNumerator: 4
+      })
+    );
+
+    // 6. Deploy a CircleTreasury for the anchor circle (1 day delay)
     HolacracyTypes.Organization memory org = factory.getOrganization(orgId);
     CircleTreasury treasury = new CircleTreasury(CircleRegistry(org.circleRegistry), org.anchorCircleId, 1 days);
 
     vm.stopBroadcast();
 
     // Log addresses
-    console.log('--- Deployed Contracts ---');
-    console.log('MockNameWrapper:      ', address(nameWrapper));
+    console.log('--- Infrastructure ---');
+    console.log('MockENSRegistrar:     ', address(ensRegistrar));
+    console.log('HolGovernorFactory:   ', address(govFactory));
     console.log('OrganizationFactory:  ', address(factory));
     console.log('');
     console.log('--- Implementations ---');
@@ -100,6 +112,11 @@ contract DeployLocal is Script {
     console.log('GovernanceProcess:    ', org.governanceProcess);
     console.log('AccessManager:        ', org.accessManager);
     console.log('Anchor Circle ID:     ', org.anchorCircleId);
+    console.log('');
+    console.log('--- On-chain Governance ---');
+    console.log('Governor:             ', org.governor);
+    console.log('GovToken:             ', org.token);
+    console.log('Timelock:             ', org.timelock);
     console.log('');
     console.log('--- Anchor Circle Treasury ---');
     console.log('CircleTreasury:       ', address(treasury));

@@ -21,6 +21,9 @@ contract CircleRegistry is ICircleRegistry {
   /// @notice The deployer / org creator
   address public deployer;
 
+  /// @notice Pending deployer during a two-step transfer (address(0) if none)
+  address public pendingDeployer;
+
   /// @notice The governance process contract (set after deployment)
   address public governanceProcess;
 
@@ -116,6 +119,23 @@ contract CircleRegistry is ICircleRegistry {
   /*///////////////////////////////////////////////////////////////
                             ADMIN
   //////////////////////////////////////////////////////////////*/
+
+  /// @inheritdoc ICircleRegistry
+  function proposeDeployerTransfer(address _newDeployer) external {
+    if (msg.sender != deployer) revert CircleRegistry_Unauthorized();
+    if (_newDeployer == address(0)) revert CircleRegistry_InvalidAddress();
+    pendingDeployer = _newDeployer;
+    emit DeployerTransferProposed(_newDeployer);
+  }
+
+  /// @inheritdoc ICircleRegistry
+  function acceptDeployerTransfer() external {
+    if (msg.sender != pendingDeployer) revert CircleRegistry_NotPendingDeployer();
+    address _oldDeployer = deployer;
+    deployer = pendingDeployer;
+    pendingDeployer = address(0);
+    emit DeployerTransferred(_oldDeployer, deployer);
+  }
 
   /// @notice Sets the governance process contract (can only be set once)
   /// @param _governanceProcess The governance process address
@@ -389,6 +409,18 @@ contract CircleRegistry is ICircleRegistry {
     _circlePolicies[_circleId].push(_policyId);
 
     emit PolicyAdded(_circleId, _policyId, _name);
+  }
+
+  /// @inheritdoc ICircleRegistry
+  function updateCircle(
+    uint256 _circleId,
+    string calldata _name,
+    string calldata _purpose
+  ) external circleExists(_circleId) onlyCircleLeadOrGovernance(_circleId) {
+    HolacracyTypes.Circle storage _circle = _circles[_circleId];
+    _circle.name = _name;
+    _circle.purpose = _purpose;
+    emit CircleUpdated(_circleId, _name, _purpose);
   }
 
   /// @inheritdoc ICircleRegistry

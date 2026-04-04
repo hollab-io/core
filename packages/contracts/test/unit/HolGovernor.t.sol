@@ -171,8 +171,10 @@ contract UnitHolGovernor is Test {
   function test_ProposalDefeatedWhenAgainstVotesWin() external {
     // Transfer half the supply to deployer so they can vote against
     uint256 half = _token.balanceOf(_voter) / 2;
-    vm.prank(_voter);
-    assertTrue(_token.transfer(_deployer, half));
+    vm.startPrank(_voter);
+    // solhint-disable-next-line reentrancy
+    _token.transfer(_deployer, half);
+    vm.stopPrank();
 
     vm.prank(_deployer);
     _token.delegate(_deployer);

@@ -5,10 +5,28 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
  * @title IOrganizationFactory
- * @notice Deploys Holacracy organizations as ERC-1167 minimal proxy clones
- *         and registers ENS subnames under hollab.eth
+ * @notice Deploys Holacracy organizations as ERC-1167 minimal proxy clones,
+ *         deploys an on-chain governance suite (GovToken + Timelock + HolGovernor),
+ *         and registers an ENS subname pointing to the governor under hollab.eth.
  */
 interface IOrganizationFactory {
+  /*///////////////////////////////////////////////////////////////
+                            TYPES
+  //////////////////////////////////////////////////////////////*/
+
+  /// @notice Parameters for the on-chain governance suite deployed with each organization
+  struct GovernanceConfig {
+    string tokenName;
+    string tokenSymbol;
+    address[] initialHolders;
+    uint256[] initialAmounts;
+    uint256 timelockDelay;
+    uint48 votingDelay;
+    uint32 votingPeriod;
+    uint256 proposalThreshold;
+    uint256 quorumNumerator;
+  }
+
   /*///////////////////////////////////////////////////////////////
                             EVENTS
   //////////////////////////////////////////////////////////////*/
@@ -36,11 +54,16 @@ interface IOrganizationFactory {
                             LOGIC
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Creates a new Holacracy organization
+  /// @notice Creates a new Holacracy organization with an on-chain governance suite
   /// @param _subname The ENS subname to register (e.g. "myorg" for myorg.hollab.eth)
   /// @param _purpose The purpose of the organization's anchor circle
+  /// @param _govConfig Parameters for the GovToken + Timelock + HolGovernor deployment
   /// @return _orgId The ID of the created organization
-  function createOrganization(string calldata _subname, string calldata _purpose) external returns (uint256 _orgId);
+  function createOrganization(
+    string calldata _subname,
+    string calldata _purpose,
+    GovernanceConfig calldata _govConfig
+  ) external returns (uint256 _orgId);
 
   /*///////////////////////////////////////////////////////////////
                             VARIABLES
