@@ -30,7 +30,7 @@ type Props = { org: Organization };
 export default function MembersView({ org }: Props) {
     const { authenticatedWalletAddress, circleMap, inviteMember, organization, snapshot } =
         useWorkspaceSnapshot();
-    const { addOrgMember } = useCircleRegistry();
+    const { addOrgMembers } = useCircleRegistry();
     const [inviteName, setInviteName] = useState("");
     const [inviteWallet, setInviteWallet] = useState("");
     const [inviteEmail, setInviteEmail] = useState("");
@@ -76,9 +76,9 @@ export default function MembersView({ org }: Props) {
         setTxHash(null);
 
         try {
-            const hash = await addOrgMember({
+            const hash = await addOrgMembers({
                 circleRegistryAddress: org.circleRegistry as `0x${string}`,
-                memberAddress: addr as `0x${string}`,
+                memberAddresses: [addr as `0x${string}`],
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
             });
             setTxHash(hash);
