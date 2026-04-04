@@ -10,15 +10,16 @@ This specification suite translates the Holacracy Constitution into a set of sma
 
 ## Document Index
 
-| Spec                                     | Constitution Article | Title                                     |
-| ---------------------------------------- | -------------------- | ----------------------------------------- |
-| [01](./01-organizational-structure.md)   | Article 1            | Organizational Structure                  |
-| [02](./02-rules-of-cooperation.md)       | Article 2            | Rules of Cooperation                      |
-| [03](./03-tactical-meetings.md)          | Article 3            | Tactical Meetings                         |
-| [04](./04-distributed-authority.md)      | Article 4            | Distributed Authority                     |
-| [05](./05-governance-process.md)         | Article 5            | Governance Process                        |
-| [06](./06-glossary.md)                   | —                    | Glossary of Defined Terms                 |
-| [07](./07-private-data-and-ai-agents.md) | —                    | Private Data Layer & AI Agent Integration |
+| Spec                                     | Constitution Article | Title                                          |
+| ---------------------------------------- | -------------------- | ---------------------------------------------- |
+| [01](./01-organizational-structure.md)   | Article 1            | Organizational Structure                       |
+| [02](./02-rules-of-cooperation.md)       | Article 2            | Rules of Cooperation                           |
+| [03](./03-tactical-meetings.md)          | Article 3            | Tactical Meetings                              |
+| [04](./04-distributed-authority.md)      | Article 4            | Distributed Authority                          |
+| [05](./05-governance-process.md)         | Article 5            | Governance Process                             |
+| [06](./06-glossary.md)                   | —                    | Glossary of Defined Terms                      |
+| [07](./07-private-data-and-ai-agents.md) | —                    | Private Data Layer & AI Agent Integration      |
+| [08](./08-ipfs-frontend-deployment.md)   | —                    | Decentralized Frontend Deployment (IPFS + ENS) |
 
 ## Key Design Principles
 
