@@ -1,0 +1,14 @@
+{
+  "actionVotingImpl": "0xE9BcD07F7806A94eE44504cbF7c50cbb1582D02f",
+  "chainId": 11155111,
+  "circleRegistryImpl": "0xBC33998994D03d688bE6427950b6b3d0fAE033ad",
+  "dataProvider": "0x585f0E2A9e28287FD2b614a3a63f5814407eff44",
+  "ensRegistrar": "0xC52297F984cceE42989ee16D0A32AcAd5c0a1976",
+  "govFactory": "0x4459cF975759aC8c16940A2EbB1dAEE0159e702B",
+  "governanceMeetingImpl": "0xf802C29bD82258933741bF45CbF14bB0ff5653D5",
+  "governanceProcessImpl": "0xfFF5E51b501D597c39f8669614F280f1c58f85C5",
+  "meetingFactory": "0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25",
+  "orgFactory": "0xB0dEAE30f9Df19Db5066a889044B66b4fcB95553",
+  "roleRegistryImpl": "0x148D778fc38A70841fa1Cd647140C7dF68488A8D",
+  "tacticalMeetingImpl": "0x399dd33B5C333B314d8de4DDd180207EC7FE09c4"
+}
