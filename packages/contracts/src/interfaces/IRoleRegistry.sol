@@ -39,6 +39,20 @@ interface IRoleRegistry {
   /// @param _lead The address of the unassigned role lead
   event RoleLeadUnassigned(uint256 indexed _roleId, address indexed _lead);
 
+  /// @notice Emitted when a content ref is set for an entity field
+  /// @param _entityType The entity type (keccak256 of "role", "policy", etc.)
+  /// @param _entityId The entity ID
+  /// @param _fieldName The field name (keccak256 of field)
+  /// @param _contentHash The hash of the plaintext content
+  /// @param _visibility The visibility tier
+  event ContentRefSet(
+    bytes32 indexed _entityType,
+    uint256 indexed _entityId,
+    bytes32 indexed _fieldName,
+    bytes32 _contentHash,
+    HolacracyTypes.DataVisibility _visibility
+  );
+
   /*///////////////////////////////////////////////////////////////
                             ERRORS
   //////////////////////////////////////////////////////////////*/
@@ -63,6 +77,9 @@ interface IRoleRegistry {
 
   /// @notice Thrown when the contract has already been initialized
   error RoleRegistry_AlreadyInitialized();
+
+  /// @notice Thrown when fieldNames and refs arrays have different lengths
+  error RoleRegistry_ArrayLengthMismatch();
 
   /*///////////////////////////////////////////////////////////////
                             VARIABLES
@@ -147,4 +164,50 @@ interface IRoleRegistry {
   /// @param _roleId The role ID
   /// @param _lead The address to unassign
   function unassignRoleLead(uint256 _roleId, address _lead) external;
+
+  /// @notice Creates a new role with content refs for off-chain encrypted fields
+  /// @param _circleId The circle ID this role belongs to
+  /// @param _name The name of the role
+  /// @param _purpose The purpose (may be a sentinel string)
+  /// @param _domains The domains (may contain sentinel strings)
+  /// @param _accountabilities The accountabilities (may contain sentinel strings)
+  /// @param _fieldNames The field name hashes for content refs
+  /// @param _refs The content refs corresponding to each field name
+  /// @return _roleId The ID of the created role
+  function createRoleWithRefs(
+    uint256 _circleId,
+    string calldata _name,
+    string calldata _purpose,
+    string[] calldata _domains,
+    string[] calldata _accountabilities,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external returns (uint256 _roleId);
+
+  /// @notice Updates an existing role with content refs
+  /// @param _roleId The role ID to update
+  /// @param _name The new name
+  /// @param _purpose The new purpose (may be a sentinel string)
+  /// @param _domains The new domains (may contain sentinel strings)
+  /// @param _accountabilities The new accountabilities (may contain sentinel strings)
+  /// @param _fieldNames The field name hashes for content refs
+  /// @param _refs The content refs corresponding to each field name
+  function updateRoleWithRefs(
+    uint256 _roleId,
+    string calldata _name,
+    string calldata _purpose,
+    string[] calldata _domains,
+    string[] calldata _accountabilities,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external;
+
+  /// @notice Returns the content ref for a role field
+  /// @param _roleId The role ID
+  /// @param _fieldName The field name hash
+  /// @return _ref The content ref
+  function getRoleContentRef(
+    uint256 _roleId,
+    bytes32 _fieldName
+  ) external view returns (HolacracyTypes.ContentRef memory _ref);
 }

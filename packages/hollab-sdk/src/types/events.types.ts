@@ -59,6 +59,16 @@ export interface CircleChange extends IndexedEvent {
     name?: string;
 }
 
+/** Content ref event from any contract */
+export interface ContentRefEvent extends IndexedEvent {
+    type: "ContentRefSet";
+    entityType: string;
+    entityId: bigint;
+    fieldName: string;
+    contentHash: string;
+    visibility: number;
+}
+
 /** Event indexer configuration */
 export interface EventIndexerConfig {
     /** RPC URL for the chain */

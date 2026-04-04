@@ -197,6 +197,20 @@ export const circleTreasuryEvents = [
     },
 ] as const;
 
+export const contentRefEvents = [
+    {
+        type: "event",
+        name: "ContentRefSet",
+        inputs: [
+            { name: "_entityType", type: "bytes32", indexed: true },
+            { name: "_entityId", type: "uint256", indexed: true },
+            { name: "_fieldName", type: "bytes32", indexed: true },
+            { name: "_contentHash", type: "bytes32", indexed: false },
+            { name: "_visibility", type: "uint8", indexed: false },
+        ],
+    },
+] as const;
+
 export const timelockControllerEvents = [
     {
         type: "event",

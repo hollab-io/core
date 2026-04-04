@@ -2,6 +2,7 @@ import type { Log } from "viem";
 
 import type {
     CircleChange,
+    ContentRefEvent,
     ProposalEvent,
     RoleChange,
     TreasuryEvent,
@@ -167,6 +168,23 @@ export function decodeGovernanceProcessEvent(log: DecodedLog): ProposalEvent | n
         default:
             return null;
     }
+}
+
+export function decodeContentRefEvent(log: DecodedLog): ContentRefEvent | null {
+    if (log.eventName !== "ContentRefSet") return null;
+
+    const base = baseEvent(log);
+    const args = log.args;
+
+    return {
+        ...base,
+        type: "ContentRefSet",
+        entityType: args._entityType as string,
+        entityId: args._entityId as bigint,
+        fieldName: args._fieldName as string,
+        contentHash: args._contentHash as string,
+        visibility: Number(args._visibility),
+    };
 }
 
 export function decodeTreasuryEvent(log: DecodedLog): TreasuryEvent | null {

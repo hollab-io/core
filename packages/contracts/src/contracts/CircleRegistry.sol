@@ -60,6 +60,12 @@ contract CircleRegistry is ICircleRegistry {
   /// @notice Whether the contract has been initialized
   bool internal _initialized;
 
+  /// @notice Circle ID => field name hash => ContentRef
+  mapping(uint256 => mapping(bytes32 => HolacracyTypes.ContentRef)) internal _circleContentRefs;
+
+  /// @notice Policy ID => field name hash => ContentRef
+  mapping(uint256 => mapping(bytes32 => HolacracyTypes.ContentRef)) internal _policyContentRefs;
+
   /*///////////////////////////////////////////////////////////////
                             MODIFIERS
   //////////////////////////////////////////////////////////////*/
@@ -406,6 +412,80 @@ contract CircleRegistry is ICircleRegistry {
     }
 
     emit PolicyRemoved(_circleId, _policyId);
+  }
+
+  /// @inheritdoc ICircleRegistry
+  function createRoleInCircleWithRefs(
+    uint256 _circleId,
+    string calldata _name,
+    string calldata _purpose,
+    string[] calldata _domains,
+    string[] calldata _accountabilities,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external circleExists(_circleId) onlyCircleLeadOrGovernance(_circleId) returns (uint256 _roleId) {
+    _roleId = roleRegistry.createRoleWithRefs(_circleId, _name, _purpose, _domains, _accountabilities, _fieldNames, _refs);
+    emit CircleRoleCreated(_circleId, _roleId);
+  }
+
+  /// @inheritdoc ICircleRegistry
+  function updateRoleInCircleWithRefs(
+    uint256 _circleId,
+    uint256 _roleId,
+    string calldata _name,
+    string calldata _purpose,
+    string[] calldata _domains,
+    string[] calldata _accountabilities,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external circleExists(_circleId) onlyCircleLeadOrGovernance(_circleId) {
+    _assertRoleInCircle(_roleId, _circleId);
+    roleRegistry.updateRoleWithRefs(_roleId, _name, _purpose, _domains, _accountabilities, _fieldNames, _refs);
+  }
+
+  /// @inheritdoc ICircleRegistry
+  function addPolicyWithRefs(
+    uint256 _circleId,
+    string calldata _name,
+    string calldata _body,
+    bytes32[] calldata _fieldNames,
+    HolacracyTypes.ContentRef[] calldata _refs
+  ) external circleExists(_circleId) onlyCircleLeadOrGovernance(_circleId) returns (uint256 _policyId) {
+    if (_fieldNames.length != _refs.length) revert CircleRegistry_ArrayLengthMismatch();
+
+    _policyId = ++_policyCounter;
+
+    HolacracyTypes.Policy storage _policy = _policies[_policyId];
+    _policy.id = _policyId;
+    _policy.circleId = _circleId;
+    _policy.name = _name;
+    _policy.body = _body;
+    _policy.exists = true;
+
+    _circlePolicies[_circleId].push(_policyId);
+
+    for (uint256 _i; _i < _fieldNames.length; ++_i) {
+      _policyContentRefs[_policyId][_fieldNames[_i]] = _refs[_i];
+      emit ContentRefSet(keccak256('policy'), _policyId, _fieldNames[_i], _refs[_i].contentHash, _refs[_i].visibility);
+    }
+
+    emit PolicyAdded(_circleId, _policyId, _name);
+  }
+
+  /// @inheritdoc ICircleRegistry
+  function getCircleContentRef(
+    uint256 _circleId,
+    bytes32 _fieldName
+  ) external view returns (HolacracyTypes.ContentRef memory _ref) {
+    _ref = _circleContentRefs[_circleId][_fieldName];
+  }
+
+  /// @inheritdoc ICircleRegistry
+  function getPolicyContentRef(
+    uint256 _policyId,
+    bytes32 _fieldName
+  ) external view returns (HolacracyTypes.ContentRef memory _ref) {
+    _ref = _policyContentRefs[_policyId][_fieldName];
   }
 
   /*///////////////////////////////////////////////////////////////

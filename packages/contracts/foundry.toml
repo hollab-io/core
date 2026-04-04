@@ -12,6 +12,7 @@ sort_imports = true
 solc_version = '0.8.28'
 libs = ['node_modules', 'lib']
 optimizer=false
+via_ir=true
 src = "src"
 out = "out"
 # This translates to `solc --allow-paths node_modules`

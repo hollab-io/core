@@ -44,6 +44,19 @@ export interface RoleConfig {
     agentConfig: Record<string, unknown> | null;
 }
 
+/** Visibility tier for off-chain data (mirrors Solidity enum) */
+export enum DataVisibility {
+    Public = 0,
+    OrgEncrypted = 1,
+    RoleEncrypted = 2,
+}
+
+/** Reference to off-chain encrypted content (mirrors Solidity struct) */
+export interface ContentRef {
+    contentHash: `0x${string}`;
+    visibility: DataVisibility;
+}
+
 /** Configuration for OrgClient */
 export interface OrgClientConfig {
     orgId: bigint;

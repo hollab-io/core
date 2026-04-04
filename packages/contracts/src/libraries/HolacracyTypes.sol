@@ -40,7 +40,11 @@ library HolacracyTypes {
     AmendPolicy,
     RemovePolicy,
     MoveRole,
-    Election
+    Election,
+    CreateRoleWithRefs,
+    AmendRoleWithRefs,
+    CreatePolicyWithRefs,
+    AmendPolicyWithRefs
   }
 
   /// @notice Elected role type within a circle
@@ -50,9 +54,22 @@ library HolacracyTypes {
     CircleRep
   }
 
+  /// @notice Visibility tier for off-chain data
+  enum DataVisibility {
+    Public,
+    OrgEncrypted,
+    RoleEncrypted
+  }
+
   /*///////////////////////////////////////////////////////////////
                             STRUCTS
   //////////////////////////////////////////////////////////////*/
+
+  /// @notice Reference to off-chain encrypted content
+  struct ContentRef {
+    bytes32 contentHash;
+    DataVisibility visibility;
+  }
 
   /// @notice A Role is the fundamental unit of organizational structure
   struct Role {

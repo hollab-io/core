@@ -59,14 +59,14 @@ describe("EventIndexer", () => {
     describe("start/stop lifecycle", () => {
         it("starts watching events", async () => {
             await indexer.start();
-            // circle, role, governance, treasury, timelock = 5 watchers
-            expect(mockPublicClient.watchContractEvent).toHaveBeenCalledTimes(5);
+            // circle, role, governance, treasury, timelock + 3 contentRef watchers = 8
+            expect(mockPublicClient.watchContractEvent).toHaveBeenCalledTimes(8);
         });
 
         it("does not double-start", async () => {
             await indexer.start();
             await indexer.start();
-            expect(mockPublicClient.watchContractEvent).toHaveBeenCalledTimes(5);
+            expect(mockPublicClient.watchContractEvent).toHaveBeenCalledTimes(8);
         });
 
         it("stop calls unwatch functions", async () => {
@@ -76,7 +76,7 @@ describe("EventIndexer", () => {
             await indexer.start();
             await indexer.stop();
 
-            expect(unwatch).toHaveBeenCalledTimes(5);
+            expect(unwatch).toHaveBeenCalledTimes(8);
         });
     });
 
@@ -86,8 +86,8 @@ describe("EventIndexer", () => {
 
             await indexer.start(0n);
 
-            // 0-499, 500-999, 1000-1200 = 3 chunks × 5 contract event calls
-            expect(mockPublicClient.getContractEvents).toHaveBeenCalledTimes(15);
+            // 0-499, 500-999, 1000-1200 = 3 chunks × 8 contract event calls
+            expect(mockPublicClient.getContractEvents).toHaveBeenCalledTimes(24);
         });
 
         it("handles single chunk", async () => {
@@ -95,8 +95,8 @@ describe("EventIndexer", () => {
 
             await indexer.start(0n);
 
-            // 1 chunk × 5 contract event calls
-            expect(mockPublicClient.getContractEvents).toHaveBeenCalledTimes(5);
+            // 1 chunk × 8 contract event calls
+            expect(mockPublicClient.getContractEvents).toHaveBeenCalledTimes(8);
         });
     });
 
