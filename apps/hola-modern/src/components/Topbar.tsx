@@ -26,6 +26,7 @@ export default function Topbar({
         projects: "Search projects",
         actions: "Search actions",
         calendar: "Search meetings",
+        governance: "Search proposals and elections",
     };
 
     const renderSegmentedControl = (
@@ -106,7 +107,8 @@ export default function Topbar({
                     {(activeTab === "chart" ||
                         activeTab === "projects" ||
                         activeTab === "actions" ||
-                        activeTab === "calendar") && (
+                        activeTab === "calendar" ||
+                        activeTab === "governance") && (
                         <label className="relative block">
                             <span className="sr-only">Search inside {TAB_TITLES[activeTab]}</span>
                             <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">

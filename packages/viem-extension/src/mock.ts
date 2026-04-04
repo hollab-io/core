@@ -1,8 +1,17 @@
 import type {
     ActionRecord,
     CircleRecord,
+    GovernanceAgendaItemRecord,
+    GovernanceAuditEntryRecord,
+    GovernanceElectionRecord,
+    GovernanceMeetingRecord,
+    GovernanceNominationRecord,
+    GovernanceObjectionRecord,
+    GovernanceProposalRecord,
     MeetingOutputRecord,
     PartnerRecord,
+    PolicyRecord,
+    ProcessBreakdownRecord,
     ProjectRecord,
     RoleRecord,
     TacticalMeetingRecord,
@@ -187,6 +196,362 @@ const ROLES: RoleRecord[] = [
             "Escalate recurring friction",
         ],
         memberIds: ["bob", "mila"],
+    },
+];
+
+const POLICIES: PolicyRecord[] = [
+    {
+        id: "policy-leadership-role-representation",
+        circleId: "leadership",
+        title: "Role representation guardrail",
+        summary:
+            "Limit governance representation to one active role lead per role during async review.",
+        rule: "When a role has multiple leads, one lead serves as governance representative unless the secretary expands the list for a specific proposal.",
+        recursive: false,
+    },
+    {
+        id: "policy-people-onboarding-handshake",
+        circleId: "people",
+        title: "Onboarding handshake policy",
+        summary: "Clarify which role can amend onboarding rituals affecting multiple teams.",
+        rule: "Employee Experience may change onboarding practices that affect all circles only after publishing the change through governance records.",
+        recursive: true,
+    },
+    {
+        id: "policy-growth-escalation-window",
+        circleId: "growth",
+        title: "Customer escalation window",
+        summary: "Constrain how support issues escalate into commercial commitments.",
+        rule: "Commercial promises impacting implementation or roadmap must be reviewed with the Growth role before they become commitments.",
+        recursive: true,
+    },
+];
+
+const GOVERNANCE_PROPOSALS: GovernanceProposalRecord[] = [
+    {
+        id: "proposal-leadership-governance-steward",
+        circleId: "leadership",
+        proposerId: "felix",
+        proposerRoleId: "cto",
+        tension:
+            "Governance changes are scattered across chat threads and difficult for the secretary to consolidate.",
+        example:
+            "The last facilitator election required copying rationale from multiple places before we could publish the final record.",
+        explanation:
+            "A Governance Steward role would centralize preparation, record hygiene, and handoff to the secretary, reducing friction before adoption.",
+        content: {
+            type: "create-role",
+            targetId: "governance-steward",
+            title: "Create Governance Steward role",
+            summary:
+                "Introduce a role to prepare proposals, integration notes, and governance publication packages.",
+            payload:
+                "Purpose: keep governance changes coherent. Accountabilities: structure proposal records, maintain integration notes, and prep outputs for publication.",
+        },
+        status: "active",
+        objectionIds: [],
+        isAsync: true,
+        createdAt: buildTimedWindow(-4, 11, 15, 15).start,
+    },
+    {
+        id: "proposal-people-onboarding-policy",
+        circleId: "people",
+        proposerId: "john",
+        proposerRoleId: "employee-experience",
+        tension:
+            "Cross-circle onboarding changes currently bypass governance and create surprise constraints for hiring and support teams.",
+        example:
+            "A new onboarding checklist was introduced last month and support only discovered the extra obligations after candidate handoff failed.",
+        explanation:
+            "Amending the onboarding handshake policy would require explicit governance publication before shared rituals change, reducing future surprises.",
+        content: {
+            type: "amend-policy",
+            targetId: "policy-people-onboarding-handshake",
+            title: "Amend onboarding handshake policy",
+            summary:
+                "Require publication-ready governance updates before onboarding obligations change across circles.",
+            payload:
+                "Employee Experience may amend onboarding workflows for multiple circles only after governance review and publication by the secretary.",
+        },
+        status: "integrating",
+        objectionIds: ["objection-people-recruiting-capacity"],
+        isAsync: true,
+        meetingId: "meeting-people-governance",
+        createdAt: buildTimedWindow(-6, 9, 0, 15).start,
+    },
+    {
+        id: "proposal-product-quality-review",
+        circleId: "product",
+        proposerId: "ava",
+        proposerRoleId: "product-circle",
+        tension:
+            "Quality review ownership is diffused, so role leads cannot tell who convenes release-risk discussions.",
+        example:
+            "During the last release, design and engineering both assumed the other would call the release-go / no-go review.",
+        explanation:
+            "Creating a Product Quality Review policy would make one role explicitly responsible for convening the decision point.",
+        content: {
+            type: "create-policy",
+            targetId: "policy-product-quality-review",
+            title: "Create Product Quality Review policy",
+            summary: "Establish a mandatory quality review before cross-functional releases.",
+            payload:
+                "Before a release affecting more than one delivery stream, Product must convene a quality review with design and engineering representatives.",
+        },
+        status: "draft",
+        objectionIds: [],
+        isAsync: true,
+        createdAt: buildTimedWindow(-1, 16, 10, 15).start,
+    },
+    {
+        id: "proposal-growth-circle-rep-election-rule",
+        circleId: "growth",
+        proposerId: "paul",
+        proposerRoleId: "growth-role",
+        tension:
+            "The growth circle has no explicit rule for preparing circle rep election context, so broader-circle constraints are surfaced late.",
+        example:
+            "When the support escalation rule changed, no one was ready to represent the downstream impact in the broader circle.",
+        explanation:
+            "A small election-prep rule would make tensions visible sooner and help candidates represent the circle effectively.",
+        content: {
+            type: "create-policy",
+            targetId: "policy-growth-circle-rep-prep",
+            title: "Create circle rep preparation policy",
+            summary: "Require a written tension brief before each circle rep election.",
+            payload:
+                "Before any circle rep election, circle members publish the top tensions they expect the rep to process in the broader circle.",
+        },
+        status: "adopted",
+        objectionIds: [],
+        isAsync: true,
+        createdAt: buildTimedWindow(-18, 10, 30, 15).start,
+        resolvedAt: buildTimedWindow(-11, 15, 0, 15).start,
+    },
+];
+
+const GOVERNANCE_OBJECTIONS: GovernanceObjectionRecord[] = [
+    {
+        id: "objection-people-recruiting-capacity",
+        proposalId: "proposal-people-onboarding-policy",
+        objectorId: "anna",
+        objectorRoleId: "employee-experience",
+        concern:
+            "The draft policy would make recruiting wait for governance publication even for local checklist adjustments, reducing recruiting capacity during active hiring.",
+        isConstitutionalViolation: false,
+        impactOnCircle: true,
+        impactOnRepresentedRole: true,
+        createdByProposal: true,
+        noTimeToAdapt: true,
+        status: "valid",
+        resolution:
+            "Narrow the amendment so only cross-circle onboarding obligations require governance publication; local recruiting checklists remain operational work.",
+        createdAt: buildTimedWindow(-5, 14, 10, 15).start,
+    },
+];
+
+const GOVERNANCE_MEETINGS: GovernanceMeetingRecord[] = [
+    {
+        id: "meeting-leadership-governance",
+        circleId: "leadership",
+        title: "Leadership Governance Forum",
+        scheduledById: "marcus",
+        facilitatorId: "elena",
+        secretaryId: "marcus",
+        intention: "Process active governance proposals and prepare the next elected role term.",
+        limits: "Focus on leadership roles, policies, and elected roles only.",
+        participantIds: ["elena", "marcus", "felix", "marta"],
+        agendaItemIds: [
+            "agenda-leadership-steward-proposal",
+            "agenda-leadership-facilitator-election",
+        ],
+        status: "scheduled",
+        phase: "agenda-processing",
+        scheduledAt: buildTimedWindow(6, 15, 0, 90).start,
+        startedAt: buildTimedWindow(6, 15, 0, 90).start,
+    },
+    {
+        id: "meeting-people-governance",
+        circleId: "people",
+        title: "Special Governance: Onboarding Policy",
+        scheduledById: "maria",
+        facilitatorId: "john",
+        secretaryId: "maria",
+        intention: "Resolve the active objection on the onboarding handshake amendment.",
+        limits: "Only the onboarding handshake policy may be processed in this meeting.",
+        participantIds: ["john", "maria", "anna"],
+        agendaItemIds: ["agenda-people-onboarding-policy"],
+        status: "scheduled",
+        phase: "check-in",
+        scheduledAt: buildTimedWindow(2, 16, 30, 60).start,
+    },
+];
+
+const GOVERNANCE_AGENDA_ITEMS: GovernanceAgendaItemRecord[] = [
+    {
+        id: "agenda-leadership-steward-proposal",
+        meetingId: "meeting-leadership-governance",
+        ownerId: "felix",
+        label: "Governance Steward role proposal",
+        type: "proposal",
+        proposalId: "proposal-leadership-governance-steward",
+        status: "processing",
+    },
+    {
+        id: "agenda-leadership-facilitator-election",
+        meetingId: "meeting-leadership-governance",
+        ownerId: "elena",
+        label: "Facilitator term election",
+        type: "election",
+        electionId: "election-leadership-facilitator",
+        status: "pending",
+    },
+    {
+        id: "agenda-people-onboarding-policy",
+        meetingId: "meeting-people-governance",
+        ownerId: "john",
+        label: "Onboarding handshake amendment",
+        type: "proposal",
+        proposalId: "proposal-people-onboarding-policy",
+        status: "pending",
+    },
+];
+
+const GOVERNANCE_ELECTIONS: GovernanceElectionRecord[] = [
+    {
+        id: "election-leadership-facilitator",
+        circleId: "leadership",
+        targetRoleId: "facilitator-role",
+        targetRoleLabel: "Facilitator",
+        termSeconds: 60 * 60 * 24 * 180,
+        nominationIds: [
+            "nomination-felix-for-facilitator",
+            "nomination-elena-for-facilitator",
+            "nomination-marta-for-facilitator",
+        ],
+        proposedCandidateId: "felix",
+        status: "objection-round",
+        expiresAt: buildTimedWindow(180, 9, 0, 15).start,
+    },
+    {
+        id: "election-product-circle-rep",
+        circleId: "product",
+        targetRoleId: "circle-rep-role",
+        targetRoleLabel: "Circle Rep",
+        termSeconds: 60 * 60 * 24 * 120,
+        nominationIds: ["nomination-ava-for-circle-rep", "nomination-clara-for-circle-rep"],
+        status: "sharing",
+    },
+];
+
+const GOVERNANCE_NOMINATIONS: GovernanceNominationRecord[] = [
+    {
+        id: "nomination-felix-for-facilitator",
+        electionId: "election-leadership-facilitator",
+        nominatorId: "elena",
+        candidateId: "felix",
+        reason: "Felix has been holding the logic of objections cleanly and keeps the process moving.",
+        changed: false,
+    },
+    {
+        id: "nomination-elena-for-facilitator",
+        electionId: "election-leadership-facilitator",
+        nominatorId: "marta",
+        candidateId: "elena",
+        reason: "Elena has the broadest view of leadership tensions and keeps integrations grounded.",
+        changed: true,
+        changedTo: "felix",
+        changeReason:
+            "After sharing, Felix looked better positioned to facilitate without also carrying the proposer role.",
+    },
+    {
+        id: "nomination-marta-for-facilitator",
+        electionId: "election-leadership-facilitator",
+        nominatorId: "felix",
+        candidateId: "marta",
+        reason: "Marta has been neutral across tensions and consistently maintains process focus.",
+        changed: false,
+    },
+    {
+        id: "nomination-ava-for-circle-rep",
+        electionId: "election-product-circle-rep",
+        nominatorId: "jon",
+        candidateId: "ava",
+        reason: "Ava can translate product tensions into broader-circle governance constraints.",
+        changed: false,
+    },
+    {
+        id: "nomination-clara-for-circle-rep",
+        electionId: "election-product-circle-rep",
+        nominatorId: "clara",
+        candidateId: "clara",
+        reason: "Clara is closest to cross-functional workflow breakdowns affecting delivery quality.",
+        changed: false,
+    },
+];
+
+const PROCESS_BREAKDOWNS: ProcessBreakdownRecord[] = [
+    {
+        id: "breakdown-growth-escalation",
+        circleId: "growth",
+        declaredById: "paul",
+        declaredByRole: "facilitator",
+        reason: "Repeated proposals on customer commitments stalled without integration, creating a pattern of unresolved constitutional process.",
+        status: "active",
+        additionalCircleLeadId: "sarah",
+        declaredAt: buildTimedWindow(-3, 17, 0, 15).start,
+    },
+    {
+        id: "breakdown-product-release-review",
+        circleId: "product",
+        declaredById: "ava",
+        declaredByRole: "secretary",
+        reason: "Release governance proposals cycled between objections and silence until the super-circle facilitator intervened.",
+        status: "restored",
+        declaredAt: buildTimedWindow(-22, 13, 0, 15).start,
+        restoredAt: buildTimedWindow(-12, 15, 30, 15).start,
+    },
+];
+
+const GOVERNANCE_AUDIT_TRAIL: GovernanceAuditEntryRecord[] = [
+    {
+        id: "audit-proposal-growth-adopted",
+        circleId: "growth",
+        actorId: "paul",
+        title: "Proposal adopted",
+        summary:
+            "Circle rep preparation policy was adopted after async review closed without objections.",
+        occurredAt: buildTimedWindow(-11, 15, 0, 15).start,
+        proposalId: "proposal-growth-circle-rep-election-rule",
+    },
+    {
+        id: "audit-leadership-meeting-scheduled",
+        circleId: "leadership",
+        actorId: "marcus",
+        title: "Governance meeting scheduled",
+        summary: "Leadership Governance Forum was scheduled for role and elected-role processing.",
+        occurredAt: buildTimedWindow(-2, 10, 0, 15).start,
+        meetingId: "meeting-leadership-governance",
+    },
+    {
+        id: "audit-people-objection-raised",
+        circleId: "people",
+        actorId: "anna",
+        title: "Objection raised",
+        summary:
+            "A valid capacity objection was raised against the onboarding handshake amendment.",
+        occurredAt: buildTimedWindow(-5, 14, 10, 15).start,
+        proposalId: "proposal-people-onboarding-policy",
+    },
+    {
+        id: "audit-growth-breakdown-declared",
+        circleId: "growth",
+        actorId: "paul",
+        title: "Process breakdown declared",
+        summary:
+            "Growth circle entered process breakdown due to unresolved governance objections over customer commitments.",
+        occurredAt: buildTimedWindow(-3, 17, 0, 15).start,
+        breakdownId: "breakdown-growth-escalation",
     },
 ];
 
@@ -481,9 +846,18 @@ export function getMockWorkspaceSnapshot(): WorkspaceSnapshot {
         partners: PARTNERS,
         circles: CIRCLES,
         roles: ROLES,
+        policies: POLICIES,
         projects: PROJECTS,
         actions: ACTIONS,
         meetings: MEETINGS,
         meetingOutputs: MEETING_OUTPUTS,
+        governanceProposals: GOVERNANCE_PROPOSALS,
+        governanceObjections: GOVERNANCE_OBJECTIONS,
+        governanceMeetings: GOVERNANCE_MEETINGS,
+        governanceAgendaItems: GOVERNANCE_AGENDA_ITEMS,
+        governanceElections: GOVERNANCE_ELECTIONS,
+        governanceNominations: GOVERNANCE_NOMINATIONS,
+        processBreakdowns: PROCESS_BREAKDOWNS,
+        governanceAuditTrail: GOVERNANCE_AUDIT_TRAIL,
     };
 }

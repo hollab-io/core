@@ -6,6 +6,8 @@ import Topbar from "./components/Topbar";
 import { TAB_DESCRIPTIONS, TAB_TITLES } from "./config/navigation";
 import ActionsList from "./views/ActionsList";
 import CalendarView from "./views/CalendarView";
+import GovernanceMeetingRoom from "./views/GovernanceMeetingRoom";
+import GovernanceWorkspace from "./views/GovernanceWorkspace";
 import IntegrationsSettings from "./views/IntegrationsSettings";
 import OKRsTree from "./views/OKRsTree";
 import OrganizationChart from "./views/OrganizationChart";
@@ -53,6 +55,8 @@ function App() {
                 return <ActionsList />;
             case "calendar":
                 return <CalendarView searchQuery={searchQuery} setSearchQuery={setSearchQuery} />;
+            case "governance":
+                return <GovernanceWorkspace searchQuery={searchQuery} />;
             default:
                 return (
                     <PlaceholderView
@@ -94,6 +98,7 @@ function App() {
                     {renderContent()}
                 </main>
                 <TacticalMeetingRoom onNavigateToTab={setActiveTab} />
+                <GovernanceMeetingRoom />
             </div>
         </div>
     );

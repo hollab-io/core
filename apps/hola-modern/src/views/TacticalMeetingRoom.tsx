@@ -11,9 +11,10 @@ import {
     Users,
     X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import type { AppTabId } from "../config/navigation";
+import { getProjectAccentToken } from "../config/workspace";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 type MeetingPhaseId =
@@ -89,13 +90,56 @@ export default function TacticalMeetingRoom({
 }: {
     onNavigateToTab: (tabId: AppTabId) => void;
 }) {
-    const { activeMeeting, circleMap, closeMeeting, partnerMap, roleMap, snapshot } =
-        useWorkspaceSnapshot();
+    const {
+        activeMeeting,
+        addProject,
+        circleMap,
+        closeMeeting,
+        partnerMap,
+        roleMap,
+        setProjectBoardCircleId,
+        snapshot,
+    } = useWorkspaceSnapshot();
     const [phaseOverrides, setPhaseOverrides] = useState<Record<string, MeetingPhaseId>>({});
+    const [showAddProject, setShowAddProject] = useState(false);
+    const [newProjectTitle, setNewProjectTitle] = useState("");
+    const [newProjectRoleId, setNewProjectRoleId] = useState<string>("");
     const activePhase = activeMeeting
         ? (phaseOverrides[activeMeeting.id] ??
           getDefaultPhase(activeMeeting.meetingType, activeMeeting.status))
         : "Triage items";
+
+    const handleAddProject = useCallback(() => {
+        if (!activeMeeting || !newProjectTitle.trim() || !newProjectRoleId) {
+            return;
+        }
+
+        const newProject = {
+            id: `project-${Date.now()}`,
+            circleId: activeMeeting.circleId,
+            roleId: newProjectRoleId,
+            title: newProjectTitle.trim(),
+            stage: "current" as const,
+            accentToken: getProjectAccentToken(activeMeeting.circleId),
+            sourceMeetingId: activeMeeting.id,
+        };
+
+        addProject(newProject);
+        setProjectBoardCircleId(activeMeeting.circleId);
+        setShowAddProject(false);
+        setNewProjectTitle("");
+        setNewProjectRoleId("");
+        closeMeeting();
+        onNavigateToTab("projects");
+    }, [
+        activeMeeting,
+        newProjectTitle,
+        newProjectRoleId,
+        addProject,
+        closeMeeting,
+        onNavigateToTab,
+        setProjectBoardCircleId,
+    ]);
 
     const meetingOutputs = useMemo(
         () =>
@@ -498,6 +542,25 @@ export default function TacticalMeetingRoom({
                                         <div className="mt-4 space-y-3">
                                             <button
                                                 type="button"
+                                                onClick={() => setShowAddProject(true)}
+                                                className="flex w-full items-center justify-between rounded-2xl border border-dashed border-blue-400/30 bg-blue-500/10 px-4 py-4 text-left transition-colors hover:border-blue-400/50 hover:bg-blue-500/15"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <KanbanSquare size={16} aria-hidden="true" />
+                                                    <div>
+                                                        <div className="text-sm font-medium text-blue-100">
+                                                            Add Project
+                                                        </div>
+                                                        <div className="mt-1 text-xs text-blue-200/60">
+                                                            Create a new project from this meeting
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <ChevronRight size={16} aria-hidden="true" />
+                                            </button>
+
+                                            <button
+                                                type="button"
                                                 onClick={() => {
                                                     closeMeeting();
                                                     onNavigateToTab("calendar");
@@ -569,6 +632,106 @@ export default function TacticalMeetingRoom({
                                 </div>
                             </div>
                         </div>
+
+                        {/* Add Project Modal */}
+                        <AnimatePresence>
+                            {showAddProject && (
+                                <motion.div
+                                    className="absolute inset-0 z-[80] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setShowAddProject(false)}
+                                >
+                                    <motion.div
+                                        className="w-full max-w-md rounded-3xl border border-slate-700/80 bg-[#0f1726] p-6 text-slate-100 shadow-2xl"
+                                        initial={{ scale: 0.95, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        exit={{ scale: 0.95, opacity: 0 }}
+                                        transition={panelTransition}
+                                        onClick={(event) => event.stopPropagation()}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-xl font-semibold text-white">
+                                                Add New Project
+                                            </h3>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowAddProject(false)}
+                                                className="rounded-full border border-slate-700 p-2 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-900"
+                                                aria-label="Close"
+                                            >
+                                                <X size={18} aria-hidden="true" />
+                                            </button>
+                                        </div>
+
+                                        <div className="mt-6 space-y-4">
+                                            <div>
+                                                <label className="mb-2 block text-sm font-medium text-slate-300">
+                                                    Project Title
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={newProjectTitle}
+                                                    onChange={(e) =>
+                                                        setNewProjectTitle(e.target.value)
+                                                    }
+                                                    placeholder="Enter project title..."
+                                                    className="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-blue-400/50 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
+                                                    autoFocus
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="mb-2 block text-sm font-medium text-slate-300">
+                                                    Role
+                                                </label>
+                                                <select
+                                                    value={newProjectRoleId}
+                                                    onChange={(e) =>
+                                                        setNewProjectRoleId(e.target.value)
+                                                    }
+                                                    className="w-full rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-white focus:border-blue-400/50 focus:outline-none focus:ring-2 focus:ring-blue-400/20"
+                                                >
+                                                    <option value="" disabled>
+                                                        Select a role...
+                                                    </option>
+                                                    {activeMeeting &&
+                                                        activeMeeting.invitedRoleIds.map(
+                                                            (roleId) => (
+                                                                <option key={roleId} value={roleId}>
+                                                                    {roleMap[roleId]?.title ??
+                                                                        roleId}
+                                                                </option>
+                                                            ),
+                                                        )}
+                                                </select>
+                                            </div>
+
+                                            <div className="flex gap-3 pt-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowAddProject(false)}
+                                                    className="flex-1 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleAddProject}
+                                                    disabled={
+                                                        !newProjectTitle.trim() || !newProjectRoleId
+                                                    }
+                                                    className="flex-1 rounded-xl border border-blue-400/50 bg-blue-500/20 px-4 py-3 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+                                                >
+                                                    Create Project
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </motion.aside>
                 </motion.div>
             )}

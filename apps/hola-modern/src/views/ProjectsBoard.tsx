@@ -1,5 +1,7 @@
-import { Bot, MoreHorizontal } from "lucide-react";
+import { Bot, MoreHorizontal, X } from "lucide-react";
+import { useState } from "react";
 
+import { getProjectAccentToken } from "../config/workspace";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 const PROJECT_COLUMNS = [
@@ -11,23 +13,74 @@ const PROJECT_COLUMNS = [
 ] as const;
 
 export default function ProjectsBoard() {
-    const { snapshot, partnerMap, circleMap, meetingMap, openMeeting } = useWorkspaceSnapshot();
-    const activeCircleId = "people";
+    const {
+        snapshot,
+        partnerMap,
+        circleMap,
+        meetingMap,
+        openMeeting,
+        addProject,
+        projectBoardCircleId,
+        setProjectBoardCircleId,
+    } = useWorkspaceSnapshot();
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newProjectTitle, setNewProjectTitle] = useState("");
+    const [newProjectRoleId, setNewProjectRoleId] = useState("");
+    const activeCircleId = circleMap[projectBoardCircleId]
+        ? projectBoardCircleId
+        : Object.keys(circleMap)[0];
     const activeCircle = circleMap[activeCircleId];
     const circleProjects = snapshot.projects.filter(
         (project) => project.circleId === activeCircleId,
     );
+    const circleRoles = snapshot.roles.filter((role) => role.circleId === activeCircleId);
     const activeProjects = circleProjects.filter((project) => project.stage !== "done").length;
+    const hasValidSelectedRole = circleRoles.some((role) => role.id === newProjectRoleId);
+
+    const handleAddProject = () => {
+        if (!newProjectTitle.trim() || !hasValidSelectedRole) {
+            return;
+        }
+
+        const newProject = {
+            id: `project-${Date.now()}`,
+            circleId: activeCircleId,
+            roleId: newProjectRoleId,
+            title: newProjectTitle.trim(),
+            stage: "future" as const,
+            accentToken: getProjectAccentToken(activeCircleId),
+        };
+
+        addProject(newProject);
+        setShowAddModal(false);
+        setNewProjectTitle("");
+        setNewProjectRoleId("");
+    };
 
     return (
         <div className="flex h-full flex-col pt-4">
             <div className="mb-6 flex flex-wrap gap-3 px-2">
-                <button
-                    type="button"
-                    className="rounded-lg border border-primary bg-primary/5 px-4 py-1.5 font-medium text-primary"
-                >
-                    {activeCircle?.title ?? "Employee Experience"}
-                </button>
+                {snapshot.circles.map((circle) => {
+                    const isActive = circle.id === activeCircleId;
+
+                    return (
+                        <button
+                            key={circle.id}
+                            type="button"
+                            onClick={() => {
+                                setProjectBoardCircleId(circle.id);
+                                setNewProjectRoleId("");
+                            }}
+                            className={`rounded-lg border px-4 py-1.5 font-medium transition-colors ${
+                                isActive
+                                    ? "border-primary bg-primary/5 text-primary"
+                                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                            }`}
+                        >
+                            {circle.title}
+                        </button>
+                    );
+                })}
                 <div className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700">
                     {activeProjects} active projects
                 </div>
@@ -120,17 +173,100 @@ export default function ProjectsBoard() {
                                         );
                                     })}
 
-                                <button
-                                    type="button"
-                                    className="mt-2 flex w-full items-center justify-center rounded-xl border border-dashed border-transparent py-3 text-slate-400 transition-all hover:border-slate-200 hover:bg-white hover:text-primary"
-                                >
-                                    + Add Project
-                                </button>
+                                {column.id === "future" && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowAddModal(true)}
+                                        className="mt-2 flex w-full items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-white/50 py-3 text-sm font-medium text-slate-500 transition-all hover:border-primary hover:bg-primary/5 hover:text-primary"
+                                    >
+                                        + Add Project
+                                    </button>
+                                )}
                             </div>
                         </section>
                     ))}
                 </div>
             </div>
+
+            {/* Add Project Modal */}
+            {showAddModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                    onClick={() => setShowAddModal(false)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="mb-4 flex items-center justify-between">
+                            <h3 className="text-lg font-semibold text-slate-900">
+                                Add New Project
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => setShowAddModal(false)}
+                                className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                            >
+                                <X size={20} aria-hidden="true" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Project Title
+                                </label>
+                                <input
+                                    type="text"
+                                    value={newProjectTitle}
+                                    onChange={(e) => setNewProjectTitle(e.target.value)}
+                                    placeholder="Enter project title..."
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                                    Role
+                                </label>
+                                <select
+                                    value={newProjectRoleId}
+                                    onChange={(event) => setNewProjectRoleId(event.target.value)}
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                >
+                                    <option value="" disabled>
+                                        Select a role...
+                                    </option>
+                                    {circleRoles.map((role) => (
+                                        <option key={role.id} value={role.id}>
+                                            {role.title}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddModal(false)}
+                                    className="flex-1 rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleAddProject}
+                                    disabled={!newProjectTitle.trim() || !hasValidSelectedRole}
+                                    className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+                                >
+                                    Create Project
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

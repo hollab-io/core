@@ -3,6 +3,7 @@ import {
     Bell,
     Calendar,
     CheckSquare,
+    Gavel,
     KanbanSquare,
     LayoutGrid,
     Network,
@@ -19,6 +20,7 @@ export const TAB_TITLES = {
     actions: "Actions",
     okrs: "OKRs",
     calendar: "Calendar",
+    governance: "Governance",
     members: "Members",
     settings: "Settings: Business",
 } as const;
@@ -39,6 +41,7 @@ export const NAV_ITEMS: NavItem[] = [
     { id: "actions", icon: CheckSquare, label: "Actions" },
     { id: "okrs", icon: Target, label: "OKRs tree" },
     { id: "calendar", icon: Calendar, label: "Calendar" },
+    { id: "governance", icon: Gavel, label: "Governance" },
     { id: "members", icon: Users, label: "Members" },
     { id: "settings", icon: LayoutGrid, label: "Settings" },
 ];
@@ -51,6 +54,7 @@ export const TAB_DESCRIPTIONS: Record<AppTabId, string> = {
     actions: "Review assigned work, deadlines, and completion status.",
     okrs: "Browse strategic goals and their dependencies across the organization.",
     calendar: "See upcoming rituals, meetings, and important operating cadences.",
+    governance: "Process proposals, objections, elections, and governance breakdowns.",
     members: "Browse people, responsibilities, and ownership across the org.",
     settings: "Configure integrations and business settings for the workspace.",
 };
