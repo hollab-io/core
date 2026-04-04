@@ -79,6 +79,14 @@ interface ICircleRegistry {
   /// @param _purpose The new purpose
   event CircleUpdated(uint256 indexed _circleId, string _name, string _purpose);
 
+  /// @notice Emitted when an org member is added to the anchor circle
+  /// @param _member The member address
+  event OrgMemberAdded(address indexed _member);
+
+  /// @notice Emitted when an org member is removed from the anchor circle
+  /// @param _member The member address
+  event OrgMemberRemoved(address indexed _member);
+
   /// @notice Emitted when a deployer transfer is proposed
   /// @param _pendingDeployer The address proposed as the new deployer
   event DeployerTransferProposed(address indexed _pendingDeployer);
@@ -376,6 +384,30 @@ interface ICircleRegistry {
 
   /// @notice Returns the pending deployer address (address(0) if no transfer is in progress)
   function pendingDeployer() external view returns (address);
+
+  /// @notice Adds an org member (adds to anchor circle as circle lead)
+  /// @dev Only callable by the deployer
+  /// @param _member The address to add
+  function addOrgMember(address _member) external;
+
+  /// @notice Adds multiple org members in a single transaction
+  /// @dev Only callable by the deployer
+  /// @param _members The addresses to add
+  function addOrgMembers(address[] calldata _members) external;
+
+  /// @notice Removes an org member (removes from anchor circle)
+  /// @dev Only callable by the deployer
+  /// @param _member The address to remove
+  function removeOrgMember(address _member) external;
+
+  /// @notice Returns all org members (anchor circle leads)
+  /// @return _members The org member addresses
+  function getOrgMembers() external view returns (address[] memory _members);
+
+  /// @notice Checks if an address is an org member
+  /// @param _account The address to check
+  /// @return _isMember Whether the address is an org member
+  function isOrgMember(address _account) external view returns (bool _isMember);
 
   /// @notice Proposes a deployer transfer to a new address. The new address must accept.
   /// @dev Only callable by the current deployer. Use address(0) to cancel a pending transfer.
