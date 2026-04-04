@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {ERC20} from "lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {ERC20Permit} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import {ERC20Votes} from "lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import {Nonces} from "lib/openzeppelin-contracts/contracts/utils/Nonces.sol";
+import {ERC20} from 'lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol';
+import {ERC20Permit} from 'lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol';
+import {ERC20Votes} from 'lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol';
+import {Nonces} from 'lib/openzeppelin-contracts/contracts/utils/Nonces.sol';
 
 /// @title GovToken
 /// @notice ERC20 token with voting power delegation, used as the governance token.

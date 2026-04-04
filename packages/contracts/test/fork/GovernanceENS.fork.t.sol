@@ -39,6 +39,9 @@ contract GovernanceENSForkTest is Test {
   bytes32 parentNode;
   string subdomain;
 
+  /// @notice Thrown when the domain owner does not own the parent node
+  error GovernanceENSForkTest_DomainOwnerDoesNotOwnParentNode();
+
   function setUp() external {
     vm.createSelectFork(vm.envString('SEPOLIA_RPC_URL'));
 
@@ -47,7 +50,9 @@ contract GovernanceENSForkTest is Test {
     parentNode = vm.envBytes32('ENS_PARENT_NODE');
     subdomain = vm.envOr('ENS_SUBDOMAIN', string('governor'));
 
-    require(ens.owner(parentNode) == domainOwner, 'DOMAIN_OWNER_PRIVATE_KEY does not own ENS_PARENT_NODE on Sepolia');
+    if (ens.owner(parentNode) != domainOwner) {
+      revert GovernanceENSForkTest_DomainOwnerDoesNotOwnParentNode();
+    }
   }
 
   function test_FullGovernanceENSFlow() external {

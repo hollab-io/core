@@ -7,8 +7,9 @@
     "author": "Wonderland",
     "type": "module",
     "scripts": {
-        "build": "forge build",
+        "build": "command -v forge >/dev/null 2>&1 && forge build || echo 'forge not found, skipping contracts build'",
         "clean": "rm -rf out && rm -rf cache",
+        "deploy:local": "forge script script/DeployLocal.s.sol --tc DeployLocal --rpc-url http://127.0.0.1:8545 --broadcast -vvv",
         "lint": "forge fmt",
         "lint:fix": "forge fmt && pnpm lint:sol-tests --fix && pnpm lint:sol-logic --fix",
         "lint:sol-logic": "solhint -c .solhint.json 'src/**/*.sol'",
@@ -23,6 +24,7 @@
         "package.json": "sort-package-json"
     },
     "devDependencies": {
+        "@openzeppelin/contracts": "^5.0.0",
         "forge-std": "github:foundry-rs/forge-std#semver:1.9.2",
         "solhint-community": "4.0.0"
     }

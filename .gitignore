@@ -39,6 +39,7 @@ coverage
 # Foundry
 contracts/out
 contracts/cache
+broadcast/
 
 # Temporary files
 .tmp
