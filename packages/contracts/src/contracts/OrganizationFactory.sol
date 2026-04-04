@@ -5,15 +5,21 @@ import {AccessManager} from '@openzeppelin/contracts/access/manager/AccessManage
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
-import {INameWrapper} from 'interfaces/IENS.sol';
+import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
+import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {CircleRegistry} from 'contracts/CircleRegistry.sol';
 import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
 
 /**
  * @title OrganizationFactory
- * @notice Deploys Holacracy organizations as ERC-1167 minimal proxy clones
- *         and registers ENS subnames under hollab.eth via NameWrapper
+ * @notice Deploys Holacracy organizations as ERC-1167 minimal proxy clones,
+ *         deploys an on-chain governance suite (GovToken + Timelock + HolGovernor)
+ *         via HolGovernorFactory, and registers an ENS subname pointing to the
+ *         governor under hollab.eth via ENSSubdomainRegistrar.
+ *
+ *         The ENSSubdomainRegistrar must authorize this contract before any
+ *         organization can be created (call registrar.authorize(address(this))).
  */
 contract OrganizationFactory is IOrganizationFactory {
   /*///////////////////////////////////////////////////////////////
@@ -29,14 +35,11 @@ contract OrganizationFactory is IOrganizationFactory {
   /// @notice The GovernanceProcess implementation used for cloning
   address public immutable governanceProcessImplementation;
 
-  /// @notice The ENS NameWrapper contract
-  INameWrapper public immutable ENS_NAMEWRAPPER;
+  /// @notice Factory used to deploy GovToken + TimelockController + HolGovernor per org
+  HolGovernorFactory public immutable GOV_FACTORY;
 
-  /// @notice The namehash of the parent ENS node (hollab.eth)
-  bytes32 public immutable PARENT_NODE;
-
-  /// @notice The ENS resolver address used for subnames
-  address public immutable ENS_RESOLVER;
+  /// @notice ENS subdomain registrar — registers subnames under the parent node
+  IENSSubdomainRegistrar public immutable ENS_REGISTRAR;
 
   /// @notice Auto-incrementing organization ID counter
   uint256 internal _orgCounter;
@@ -51,28 +54,23 @@ contract OrganizationFactory is IOrganizationFactory {
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Stores pre-deployed implementation addresses and ENS references
   /// @param _roleRegistryImpl The RoleRegistry implementation address
   /// @param _circleRegistryImpl The CircleRegistry implementation address
   /// @param _governanceProcessImpl The GovernanceProcess implementation address
-  /// @param _nameWrapper The ENS NameWrapper contract address
-  /// @param _parentNode The namehash of the parent node (hollab.eth)
-  /// @param _resolver The ENS resolver address
+  /// @param _govFactory Deployed HolGovernorFactory used to create the governance suite
+  /// @param _ensRegistrar ENSSubdomainRegistrar authorized to register subnames under the parent node
   constructor(
     address _roleRegistryImpl,
     address _circleRegistryImpl,
     address _governanceProcessImpl,
-    address _nameWrapper,
-    bytes32 _parentNode,
-    address _resolver
+    address _govFactory,
+    address _ensRegistrar
   ) {
     roleRegistryImplementation = _roleRegistryImpl;
     circleRegistryImplementation = _circleRegistryImpl;
     governanceProcessImplementation = _governanceProcessImpl;
-
-    ENS_NAMEWRAPPER = INameWrapper(_nameWrapper);
-    PARENT_NODE = _parentNode;
-    ENS_RESOLVER = _resolver;
+    GOV_FACTORY = HolGovernorFactory(_govFactory);
+    ENS_REGISTRAR = IENSSubdomainRegistrar(_ensRegistrar);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -82,7 +80,8 @@ contract OrganizationFactory is IOrganizationFactory {
   /// @inheritdoc IOrganizationFactory
   function createOrganization(
     string calldata _subname,
-    string calldata _purpose
+    string calldata _purpose,
+    GovernanceConfig calldata _govConfig
   ) external returns (uint256 _orgId) {
     // Validate subname
     _validateSubname(_subname);
@@ -92,12 +91,12 @@ contract OrganizationFactory is IOrganizationFactory {
       revert OrganizationFactory_SubnameAlreadyTaken(_subname);
     }
 
-    // Clone contracts
+    // Clone holacracy contracts
     RoleRegistry _roleRegistry = RoleRegistry(Clones.clone(roleRegistryImplementation));
     CircleRegistry _circleRegistry = CircleRegistry(Clones.clone(circleRegistryImplementation));
     GovernanceProcess _governanceProcess = GovernanceProcess(Clones.clone(governanceProcessImplementation));
 
-    // Initialize all three — CircleRegistry.initialize sets itself as the authorized caller on RoleRegistry
+    // Initialize all three
     _roleRegistry.initialize();
     _governanceProcess.initialize(_circleRegistry, _roleRegistry);
     _circleRegistry.initialize(_roleRegistry, msg.sender, address(_governanceProcess));
@@ -108,8 +107,16 @@ contract OrganizationFactory is IOrganizationFactory {
     // Deploy AccessManager with org creator as initial admin
     AccessManager _accessManager = new AccessManager(msg.sender);
 
-    // Register ENS subname — org creator becomes the subname owner
-    ENS_NAMEWRAPPER.setSubnodeRecord(PARENT_NODE, _subname, msg.sender, ENS_RESOLVER, 0, 0, type(uint64).max);
+    // Deploy on-chain governance suite (GovToken + TimelockController + HolGovernor).
+    // ENS registration is handled below, so subdomain is left empty here.
+    HolGovernorFactory.Deployment memory _gov = GOV_FACTORY.deploy(_buildGovDeploymentConfig(_subname, _govConfig));
+
+    // Link the DAO governor and timelock to the holacracy governance process so that
+    // circle proposals can be escalated to a DAO vote via escalateToDAO().
+    _governanceProcess.setDAOGovernor(_gov.governor, _gov.timelock);
+
+    // Register ENS subname — the subdomain resolves to the governor address.
+    ENS_REGISTRAR.registerSubnode(keccak256(bytes(_subname)), _gov.governor);
 
     // Store organization record
     _orgId = ++_orgCounter;
@@ -124,6 +131,9 @@ contract OrganizationFactory is IOrganizationFactory {
     _org.accessManager = address(_accessManager);
     _org.anchorCircleId = _anchorCircleId;
     _org.createdAt = block.timestamp;
+    _org.governor = _gov.governor;
+    _org.token = _gov.token;
+    _org.timelock = _gov.timelock;
 
     _subnameToOrgId[_subnameHash] = _orgId;
 
@@ -157,10 +167,29 @@ contract OrganizationFactory is IOrganizationFactory {
                             INTERNAL
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Validates a subname according to the rules:
-  ///         - Min 3 characters
-  ///         - Only lowercase alphanumeric + hyphens
-  ///         - Cannot start/end with hyphen
+  /// @notice Builds a HolGovernorFactory.DeploymentConfig from an org subname and governance config.
+  ///         Extracted to avoid stack-too-deep in createOrganization.
+  function _buildGovDeploymentConfig(
+    string calldata _subname,
+    GovernanceConfig calldata _govConfig
+  ) internal pure returns (HolGovernorFactory.DeploymentConfig memory _cfg) {
+    _cfg = HolGovernorFactory.DeploymentConfig({
+      tokenName: _govConfig.tokenName,
+      tokenSymbol: _govConfig.tokenSymbol,
+      initialHolders: _govConfig.initialHolders,
+      initialAmounts: _govConfig.initialAmounts,
+      timelockDelay: _govConfig.timelockDelay,
+      governorName: _subname,
+      votingDelay: _govConfig.votingDelay,
+      votingPeriod: _govConfig.votingPeriod,
+      proposalThreshold: _govConfig.proposalThreshold,
+      quorumNumerator: _govConfig.quorumNumerator,
+      subdomain: '',
+      subdomainRegistrar: address(0)
+    });
+  }
+
+  /// @notice Validates a subname: min 3 chars, only [a-z0-9-], no leading/trailing hyphen.
   function _validateSubname(string calldata _subname) internal pure {
     bytes calldata _b = bytes(_subname);
 

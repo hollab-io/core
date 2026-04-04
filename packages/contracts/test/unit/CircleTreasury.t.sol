@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import {CircleTreasury, ICircleTreasury} from 'contracts/CircleTreasury.sol';
-import {CircleRegistry, ICircleRegistry} from 'contracts/CircleRegistry.sol';
+import {CircleRegistry} from 'contracts/CircleRegistry.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
 import {TimelockController} from '@openzeppelin/contracts/governance/TimelockController.sol';
@@ -60,7 +60,7 @@ contract UnitCircleTreasury is Test {
   address internal _stranger = makeAddr('stranger');
 
   uint256 internal _anchorCircleId;
-  uint256 internal constant MIN_DELAY = 1 days;
+  uint256 internal constant _MIN_DELAY = 1 days;
 
   function setUp() external {
     // Deploy org contracts
@@ -86,7 +86,7 @@ contract UnitCircleTreasury is Test {
     _circleRegistry.setElectedRole(_anchorCircleId, HolacracyTypes.ElectedRole.Facilitator, _facilitator);
 
     // Deploy treasury for anchor circle
-    _treasury = new CircleTreasury(_circleRegistry, _anchorCircleId, MIN_DELAY);
+    _treasury = new CircleTreasury(_circleRegistry, _anchorCircleId, _MIN_DELAY);
 
     // Deploy mock token
     _token = new MockERC20();
@@ -174,7 +174,7 @@ contract UnitCircleTreasury is Test {
       '', // no calldata — just ETH transfer
       bytes32(0), // no predecessor
       bytes32(uint256(1)), // salt
-      MIN_DELAY
+      _MIN_DELAY
     );
 
     // Can't execute before delay
@@ -182,7 +182,7 @@ contract UnitCircleTreasury is Test {
     _tl.execute(_recipient, 1 ether, '', bytes32(0), bytes32(uint256(1)));
 
     // Warp past delay
-    vm.warp(block.timestamp + MIN_DELAY + 1);
+    vm.warp(block.timestamp + _MIN_DELAY + 1);
 
     // Anyone can execute after delay
     vm.prank(_stranger);
@@ -196,7 +196,7 @@ contract UnitCircleTreasury is Test {
 
     vm.prank(_stranger);
     vm.expectRevert();
-    _tl.schedule(_recipient, 1 ether, '', bytes32(0), bytes32(uint256(1)), MIN_DELAY);
+    _tl.schedule(_recipient, 1 ether, '', bytes32(0), bytes32(uint256(1)), _MIN_DELAY);
   }
 
   function test_FacilitatorCanCancel() external {
@@ -207,7 +207,7 @@ contract UnitCircleTreasury is Test {
 
     // Schedule as circle lead
     vm.prank(_deployer);
-    _tl.schedule(_recipient, 1 ether, '', bytes32(0), bytes32(uint256(1)), MIN_DELAY);
+    _tl.schedule(_recipient, 1 ether, '', bytes32(0), bytes32(uint256(1)), _MIN_DELAY);
 
     assertTrue(_tl.isOperationPending(_id));
 
@@ -226,7 +226,7 @@ contract UnitCircleTreasury is Test {
 
     // Schedule as circle lead
     vm.prank(_deployer);
-    _tl.schedule(_recipient, 1 ether, '', bytes32(0), bytes32(uint256(1)), MIN_DELAY);
+    _tl.schedule(_recipient, 1 ether, '', bytes32(0), bytes32(uint256(1)), _MIN_DELAY);
 
     vm.prank(_stranger);
     vm.expectRevert();
@@ -247,10 +247,10 @@ contract UnitCircleTreasury is Test {
 
     // Schedule
     vm.prank(_deployer);
-    _tl.schedule(address(_token), 0, _data, bytes32(0), bytes32(uint256(2)), MIN_DELAY);
+    _tl.schedule(address(_token), 0, _data, bytes32(0), bytes32(uint256(2)), _MIN_DELAY);
 
     // Execute after delay
-    vm.warp(block.timestamp + MIN_DELAY + 1);
+    vm.warp(block.timestamp + _MIN_DELAY + 1);
     _tl.execute(address(_token), 0, _data, bytes32(0), bytes32(uint256(2)));
 
     assertEq(_token.balanceOf(_recipient), 500e18);

@@ -53,6 +53,16 @@ interface IGovernanceProcess {
   /// @param _proposalId The proposal ID
   event ProposalDiscarded(uint256 indexed _proposalId);
 
+  /// @notice Emitted when a proposal is escalated to the DAO governor
+  /// @param _proposalId The holacracy proposal ID
+  /// @param _daoProposalId The resulting governor proposal ID
+  event ProposalEscalated(uint256 indexed _proposalId, uint256 indexed _daoProposalId);
+
+  /// @notice Emitted when the DAO governor and timelock are linked
+  /// @param _governor The governor address
+  /// @param _timelock The timelock address
+  event DAOGovernorSet(address indexed _governor, address indexed _timelock);
+
   /*///////////////////////////////////////////////////////////////
                             ERRORS
   //////////////////////////////////////////////////////////////*/
@@ -87,9 +97,24 @@ interface IGovernanceProcess {
   /// @notice Thrown when the contract has already been initialized
   error GovernanceProcess_AlreadyInitialized();
 
+  /// @notice Thrown when escalating but no DAO governor has been linked
+  error GovernanceProcess_DAONotSet();
+
+  /// @notice Thrown when executeEscalatedProposal is called by anyone other than the timelock
+  error GovernanceProcess_NotTimelock();
+
+  /// @notice Thrown when setDAOGovernor is called after the DAO is already set
+  error GovernanceProcess_DAOAlreadySet();
+
   /*///////////////////////////////////////////////////////////////
                             VARIABLES
   //////////////////////////////////////////////////////////////*/
+
+  /// @notice Returns the DAO governor linked to this process (address(0) if not set)
+  function daoGovernor() external view returns (address);
+
+  /// @notice Returns the timelock controller linked to this process (address(0) if not set)
+  function timelockController() external view returns (address);
 
   /// @notice Returns the total number of proposals
   /// @return _count The proposal count
@@ -179,4 +204,25 @@ interface IGovernanceProcess {
   /// @dev Only callable by the facilitator
   /// @param _proposalId The proposal to discard
   function discardProposal(uint256 _proposalId) external;
+
+  /// @notice Links a DAO governor and its timelock to this governance process
+  /// @dev One-time setter — can only be called once. Called by OrganizationFactory after deploying the governance suite.
+  /// @param _governor The HolGovernor address
+  /// @param _timelock The TimelockController address
+  function setDAOGovernor(address _governor, address _timelock) external;
+
+  /// @notice Escalates an Active or Integrating holacracy proposal to a DAO governor vote
+  /// @dev Creates a governor proposal whose execution calls executeEscalatedProposal on this contract.
+  ///      Only circle members of the proposal's circle may escalate.
+  ///      Proposal moves to Escalated status and can no longer be adopted or discarded internally.
+  /// @param _proposalId The holacracy proposal to escalate
+  /// @param _description Human-readable description forwarded to the governor proposal
+  /// @return _daoProposalId The ID of the created governor proposal
+  function escalateToDAO(uint256 _proposalId, string calldata _description) external returns (uint256 _daoProposalId);
+
+  /// @notice Executes the governance change encoded in an escalated proposal
+  /// @dev Only callable by the linked timelock after the DAO vote passes and the timelock delay elapses.
+  ///      Applies the governance change and marks the proposal as Adopted.
+  /// @param _proposalId The holacracy proposal ID
+  function executeEscalatedProposal(uint256 _proposalId) external;
 }

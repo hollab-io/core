@@ -18,7 +18,8 @@ library HolacracyTypes {
     Integrating,
     Adopted,
     Withdrawn,
-    Discarded
+    Discarded,
+    Escalated
   }
 
   /// @notice Status of an objection to a proposal
@@ -119,6 +120,10 @@ library HolacracyTypes {
     address accessManager;
     uint256 anchorCircleId;
     uint256 createdAt;
+    // On-chain governance
+    address governor;
+    address token;
+    address timelock;
   }
 
   /// @notice An objection raised against a proposal

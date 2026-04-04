@@ -64,6 +64,21 @@ interface ICircleRegistry {
   /// @param _lead The assigned lead address
   event RoleLeadAssignedViaCircle(uint256 indexed _circleId, uint256 indexed _roleId, address indexed _lead);
 
+  /// @notice Emitted when a circle's name or purpose is updated
+  /// @param _circleId The circle ID
+  /// @param _name The new name
+  /// @param _purpose The new purpose
+  event CircleUpdated(uint256 indexed _circleId, string _name, string _purpose);
+
+  /// @notice Emitted when a deployer transfer is proposed
+  /// @param _pendingDeployer The address proposed as the new deployer
+  event DeployerTransferProposed(address indexed _pendingDeployer);
+
+  /// @notice Emitted when a deployer transfer is accepted and completed
+  /// @param _oldDeployer The previous deployer address
+  /// @param _newDeployer The new deployer address
+  event DeployerTransferred(address indexed _oldDeployer, address indexed _newDeployer);
+
   /*///////////////////////////////////////////////////////////////
                             ERRORS
   //////////////////////////////////////////////////////////////*/
@@ -97,6 +112,12 @@ interface ICircleRegistry {
 
   /// @notice Thrown when the contract has already been initialized
   error CircleRegistry_AlreadyInitialized();
+
+  /// @notice Thrown when address(0) is passed where a valid address is required
+  error CircleRegistry_InvalidAddress();
+
+  /// @notice Thrown when the caller is not the pending deployer during transfer acceptance
+  error CircleRegistry_NotPendingDeployer();
 
   /*///////////////////////////////////////////////////////////////
                             VARIABLES
@@ -261,4 +282,22 @@ interface ICircleRegistry {
   /// @param _circleId The circle ID
   /// @param _policyId The policy ID to remove
   function removePolicy(uint256 _circleId, uint256 _policyId) external;
+
+  /// @notice Updates the name and purpose of an existing circle
+  /// @dev Only callable by a circle lead of that circle or the governance process
+  /// @param _circleId The circle to update
+  /// @param _name The new name
+  /// @param _purpose The new purpose
+  function updateCircle(uint256 _circleId, string calldata _name, string calldata _purpose) external;
+
+  /// @notice Returns the pending deployer address (address(0) if no transfer is in progress)
+  function pendingDeployer() external view returns (address);
+
+  /// @notice Proposes a deployer transfer to a new address. The new address must accept.
+  /// @dev Only callable by the current deployer. Use address(0) to cancel a pending transfer.
+  /// @param _newDeployer The address to propose as the new deployer
+  function proposeDeployerTransfer(address _newDeployer) external;
+
+  /// @notice Completes a pending deployer transfer. Must be called by the pending deployer.
+  function acceptDeployerTransfer() external;
 }
