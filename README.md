@@ -1,38 +1,196 @@
-# dao-contracts
+# hollab.eth
 
-DAO governance contracts implementing a Holacracy-inspired organizational structure on-chain.
+Minimalistic on-chain Holacracy framework. Only what needs to live on a public ledger goes on-chain — organizational structure, authority boundaries, and governance outcomes. Everything else stays off-chain.
+
+## How It Works
+
+### 1. Create an organization
+
+Sign in, state your mission. That's it — you have an org with an anchor circle on-chain. Name is optional; you can decide it together later.
+
+### 2. Invite members
+
+Bring in the people who will do the work. Each member gets a wallet-linked identity in the org.
+
+### 3. Governance huddle — define how you work
+
+Run a governance meeting to shape the org's structure. Members propose roles through Integrative Decision-Making (IDM) — present a tension, clarify, react, test objections, adopt. In this first huddle you might:
+
+-   Create roles: _Lead Dev_, _Designer_, _Community Lead_
+-   Elect a Facilitator and Secretary
+-   Create a **Community circle** — an open circle where token holders (future supporters, users, collaborators) can participate in the org's governance
+
+### 4. Tactical huddle — align on what to do first
+
+Run a tactical meeting to triage and commit to first actions. This isn't governance (no structural changes) — it's the team getting aligned. Projects and next-actions come out of it:
+
+-   Create a website
+-   Set up visitor tracking
+-   Set goal: 100 unique weekly visitors (OKR)
+-   Decide on the organization's name
+
+### 5. Community joins
+
+An external collaborator buys the governance token and joins the Community circle. They now have:
+
+-   Visibility into the org's structure, roles, and decisions (all on-chain)
+-   A structured channel to propose ideas — same tension-driven process, not a Discord free-for-all
+-   Voting power on proposals that affect the community
+
+### 6. Community and org govern together
+
+The community member proposes: _"Add a capybara to the landing page."_ The proposal goes through IDM in the Community circle. If the org has `daoVoteRequired` enabled, the org's internal circles and the community token holders both vote. The capybara gets its day in court.
+
+---
+
+This is the full loop: **create** an org, **structure** it through governance, **align** through tactical meetings, **grow** a community, and **govern together** — all on the same framework.
+
+## Why On-Chain
+
+Organizations need a credible, tamper-proof record of _who has authority to do what_. Today that lives in wikis, Notion pages, and people's heads — easy to dispute, hard to audit, impossible to compose with other systems.
+
+Holacracy already defines a rigorous structure for this: roles with explicit purposes, domains, and accountabilities, organized into circles, governed through a structured process. What it lacks is a substrate that makes that structure **verifiable** and **programmable**.
+
+A public ledger gives you both:
+
+-   **Verifiable** — Role assignments, circle boundaries, and governance decisions are immutable records. No one can quietly change who has authority over what.
+-   **Programmable** — Other contracts and systems can read the org structure directly. Treasury access, protocol permissions, and integrations can be gated by on-chain role assignments rather than multisig memberships.
+
+### What Goes On-Chain vs Off-Chain
+
+The design principle is simple: **on-chain for commitments, off-chain for coordination**.
+
+| On-chain (must be verifiable/permanent)               | Off-chain (coordination, content, discussion)                |
+| ----------------------------------------------------- | ------------------------------------------------------------ |
+| Org structure (circles, roles, memberships)           | Meeting facilitation flow (check-ins, reactions, discussion) |
+| Role definitions (purpose, domains, accountabilities) | Proposal content (tension descriptions, explanations)        |
+| Governance outcomes (proposal adopted/rejected)       | Objection deliberation and integration                       |
+| Elected role assignments (Facilitator, Secretary)     | Nomination discussions, candidate reasoning                  |
+| Authority boundaries (who can act on what)            | Tactical meeting triage and project updates                  |
+
+Meeting coordination events (IDM steps, agenda items, nominations) are emitted as **events only** — the indexer reconstructs the full meeting state, but the chain only stores what matters: who ended up in which role, and which governance changes were adopted.
+
+Proposals support **ContentRefs** — on-chain hashes pointing to off-chain encrypted content. The ledger proves _that_ a proposal with specific content was adopted, without storing the content itself.
+
+## Architecture
+
+Each organization deployed through `OrganizationFactory` gets its own set of contracts:
+
+```
+OrganizationFactory
+  │
+  │  Holacracy framework (ERC-1167 clones)
+  ├── CircleRegistry       — Circles, roles, memberships, elected positions
+  ├── RoleRegistry         — Role definitions (name, purpose, domains, accountabilities)
+  ├── GovernanceProcess    — Proposal lifecycle (Draft → Active → Adopted/Discarded)
+  ├── GovernanceMeeting    — Meeting outcomes (proposal adoption, election results)
+  │
+  │  DAO layer (token holders are org members)
+  ├── GovToken (ERC20Votes) — Governance token with delegation
+  ├── HolGovernor           — OZ Governor for token-holder votes
+  ├── TimelockController    — Delay between vote approval and execution
+  ├── CircleTreasury        — Per-circle spending with timelock
+  └── ENS Subname           — orgname.hollab.eth → governor address
+```
+
+### Holacracy Framework
+
+The core of the system — minimalistic contracts that store organizational structure and governance outcomes.
+
+| Contract              | What it stores                                                                                                 | Why on-chain                                                                                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CircleRegistry**    | Circle hierarchy, role-to-circle assignments, circle leads, elected roles (Facilitator, Secretary, Circle Rep) | This is the org's authority graph — who can act in which capacity. Other systems need to read it trustlessly.                                        |
+| **RoleRegistry**      | Role name, purpose, domains, accountabilities                                                                  | Defines the boundaries of distributed authority. A role's domains determine what its lead can control without asking permission.                     |
+| **GovernanceProcess** | Proposal status transitions, objection records, adoption/rejection outcomes                                    | The permanent record that a governance change was legitimately adopted through the constitutional process.                                           |
+| **GovernanceMeeting** | Meeting existence, participant authorization, adopted proposals, election results                              | Proves that outcomes came from a properly convened meeting with authorized participants. Coordination (IDM steps, agenda management) is events-only. |
+
+Proposals encode structural changes, executed atomically on adoption:
+
+-   **CreateRole / AmendRole / RemoveRole** — Add, modify, or remove roles within a circle
+-   **CreatePolicy / AmendPolicy / RemovePolicy** — Circle-level policies governing domains
+-   **Elections** — Facilitator, Secretary, Circle Rep (via meeting election process)
+
+### DAO Layer
+
+Every organization has token holders — they are a subset of the org's members. The DAO layer gives them a voice in governance. How much of a voice is configurable:
+
+-   **Escalation** — Any circle member can escalate a proposal to a token-holder vote at any time. The DAO acts as an appeals court for contentious decisions.
+-   **Vote gate** — Organizations can require token-holder approval before governance changes take effect (`daoVoteRequired` flag). The meeting IDM still happens first — circles decide _what_ to propose, the community decides _whether_ it passes.
+-   **Neither** — Token holders exist, the governor is deployed, but governance runs through circles with direct adoption. The DAO infrastructure is there when the org needs it.
+
+The DAO layer also provides the org's on-chain identity (ENS subname), treasury management, and a framework for structured community participation — resource requests, transparency into the org's structure and decisions, and a clear channel between the organization and its broader stakeholders.
+
+### How It Compares to Existing DAOs
+
+ENS, Aave, and Lido all started with token voting as the primary governance mechanism, then had to bolt on delegation structures after the fact — ENS Working Groups, Aave service providers, Lido's ~15 committee multisigs. They learned that token voting alone doesn't produce good decisions, and informal forum deliberation doesn't scale.
+
+HolLab inverts this: start with structured roles and deliberation (Holacracy), add token voting as an optional oversight layer. The deliberation quality comes from the process, not from hoping enough informed people show up to vote.
+
+|                        | **Typical DAO**                                   | **HolLab**                                             |
+| ---------------------- | ------------------------------------------------- | ------------------------------------------------------ |
+| **Starting point**     | Token vote, then figure out delegation            | Structured roles and circles, then add token oversight |
+| **Deliberation**       | Forum threads, Snapshot signals                   | Formal IDM: tension → clarify → react → object         |
+| **Expertise**          | Whoever holds tokens                              | Roles with explicit domains and accountabilities       |
+| **Speed**              | Every change needs a vote (or delegated multisig) | Direct adoption by default, vote gate when needed      |
+| **On-chain footprint** | Entire governance lifecycle                       | Only structure and outcomes                            |
 
 ## Specifications
 
-The `specs/` directory contains the full specification suite derived from the [Holacracy Constitution v5.0](https://www.holacracy.org/constitution/5-0/):
+The `specs/` directory contains the specification suite derived from the [Holacracy Constitution v5.0](https://www.holacracy.org/constitution/5-0/):
 
-| Spec                                                                    | Title                                                    |
-| ----------------------------------------------------------------------- | -------------------------------------------------------- |
-| [00 — Overview](./specs/00-overview.md)                                 | Architecture overview, actors, and lifecycle             |
-| [01 — Organizational Structure](./specs/01-organizational-structure.md) | Roles, Circles, Circle Leads                             |
-| [02 — Rules of Cooperation](./specs/02-rules-of-cooperation.md)         | Transparency, Processing, Prioritization duties          |
-| [03 — Tactical Meetings](./specs/03-tactical-meetings.md)               | Tactical Meeting process and outputs                     |
-| [04 — Distributed Authority](./specs/04-distributed-authority.md)       | Domains, spending, interpretation, Individual Initiative |
-| [05 — Governance Process](./specs/05-governance-process.md)             | Proposals, Objections, Elections, Process Breakdown      |
-| [06 — Glossary](./specs/06-glossary.md)                                 | All defined terms and enum types                         |
+| Spec                                                                      | Title                                                    |
+| ------------------------------------------------------------------------- | -------------------------------------------------------- |
+| [00 — Overview](./specs/00-overview.md)                                   | Architecture overview, actors, and lifecycle             |
+| [01 — Organizational Structure](./specs/01-organizational-structure.md)   | Roles, Circles, Circle Leads                             |
+| [02 — Rules of Cooperation](./specs/02-rules-of-cooperation.md)           | Transparency, Processing, Prioritization duties          |
+| [03 — Tactical Meetings](./specs/03-tactical-meetings.md)                 | Tactical Meeting process and outputs                     |
+| [04 — Distributed Authority](./specs/04-distributed-authority.md)         | Domains, spending, interpretation, Individual Initiative |
+| [05 — Governance Process](./specs/05-governance-process.md)               | Proposals, Objections, Elections, Process Breakdown      |
+| [06 — Glossary](./specs/06-glossary.md)                                   | All defined terms and enum types                         |
+| [07 — Private Data & AI Agents](./specs/07-private-data-and-ai-agents.md) | Private Data Layer & AI Agent Integration                |
 
-## Setup
+## Development
 
-1. Install dependencies running `pnpm install`
+### Prerequisites
 
-## Available Scripts
+-   [Foundry](https://book.getfoundry.sh/getting-started/installation)
+-   [pnpm](https://pnpm.io/)
+-   Node.js 18+
 
-| Script        | Description                                             |
-| ------------- | ------------------------------------------------------- |
-| `build`       | Build library using tsc                                 |
-| `check-types` | Check types issues using tsc                            |
-| `clean`       | Remove `dist` folder                                    |
-| `lint`        | Run ESLint to check for coding standards                |
-| `lint:fix`    | Run linter and automatically fix code formatting issues |
-| `format`      | Check code formatting and style using Prettier          |
-| `format:fix`  | Run formatter and automatically fix issues              |
-| `test`        | Run tests using vitest                                  |
-| `test:cov`    | Run tests with coverage report                          |
+### Setup
+
+```bash
+pnpm install
+```
+
+### Build & Test
+
+```bash
+# Build all packages
+pnpm build
+
+# Run contract tests
+cd packages/contracts
+forge test
+
+# Run with verbosity
+forge test -vvv
+
+# Coverage
+forge test --coverage
+```
+
+### Project Structure
+
+```
+packages/
+  contracts/         — Solidity contracts, tests, deploy scripts (Foundry)
+  dao-contracts/     — DAO layer contract extensions
+  hollab-sdk/        — TypeScript SDK for interacting with deployed contracts
+  viem-extension/    — Viem client extensions
+apps/                — Frontend applications
+specs/               — Holacracy Constitution → smart contract specifications
+```
 
 ## License & Attribution
 
@@ -48,11 +206,7 @@ The specification documents in `specs/` are derived from the **Holacracy Constit
 -   **Original source:** [holacracy.org/constitution](https://www.holacracy.org/constitution/5-0/) and [GitHub](https://github.com/holacracyone/Holacracy-Constitution)
 -   **Copyright:** HolacracyOne, LLC
 
-Under CC BY-SA 4.0, you are free to share and adapt the material for any purpose (including commercial), provided you:
-
-1. **Give appropriate credit** to HolacracyOne, LLC as the original author
-2. **Indicate changes** — our specs are a derivative work that restructures the Constitution into smart-contract specifications
-3. **Share alike** — distribute derivative works under the same or a compatible license
+Under CC BY-SA 4.0, you are free to share and adapt the material for any purpose (including commercial), provided you give appropriate credit, indicate changes, and share alike.
 
 ### Trademark Notice
 
