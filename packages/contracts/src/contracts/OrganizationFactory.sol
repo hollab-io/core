@@ -108,7 +108,7 @@ contract OrganizationFactory is IOrganizationFactory {
     _circleRegistry.initialize(_roleRegistry, msg.sender, address(_governanceProcess));
 
     // Create anchor circle with caller as first circle lead
-    uint256 _anchorCircleId = _circleRegistry.createAnchorCircle(_subname, _purpose);
+    uint256 _anchorCircleId = _circleRegistry.createAnchorCircle(_purpose);
 
     // Deploy AccessManager with org creator as initial admin
     address _accessManagerAddr = address(new AccessManager(msg.sender));

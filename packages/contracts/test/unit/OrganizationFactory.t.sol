@@ -140,9 +140,9 @@ contract UnitOrganizationFactory is Test {
     HolacracyTypes.Circle memory _circle1 = _cr1.getCircle(_org1.anchorCircleId);
     HolacracyTypes.Circle memory _circle2 = _cr2.getCircle(_org2.anchorCircleId);
 
-    assertEq(_circle1.name, 'orgone');
+    assertEq(_circle1.name, '');
     assertEq(_circle1.purpose, 'Purpose one');
-    assertEq(_circle2.name, 'orgtwo');
+    assertEq(_circle2.name, '');
     assertEq(_circle2.purpose, 'Purpose two');
   }
 
@@ -155,7 +155,7 @@ contract UnitOrganizationFactory is Test {
 
     // it creates an anchor circle with correct data
     HolacracyTypes.Circle memory _circle = _cr.getCircle(_org.anchorCircleId);
-    assertEq(_circle.name, 'myorg');
+    assertEq(_circle.name, '');
     assertEq(_circle.purpose, 'Build great things');
     assertTrue(_circle.isAnchor);
     assertTrue(_circle.exists);

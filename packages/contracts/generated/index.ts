@@ -23,6 +23,20 @@ export const circleRegistryAbi = [
     },
     {
         type: "function",
+        inputs: [{ name: "_member", internalType: "address", type: "address" }],
+        name: "addOrgMember",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_members", internalType: "address[]", type: "address[]" }],
+        name: "addOrgMembers",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
         inputs: [
             { name: "_circleId", internalType: "uint256", type: "uint256" },
             { name: "_name", internalType: "string", type: "string" },
@@ -77,10 +91,7 @@ export const circleRegistryAbi = [
     },
     {
         type: "function",
-        inputs: [
-            { name: "_name", internalType: "string", type: "string" },
-            { name: "_purpose", internalType: "string", type: "string" },
-        ],
+        inputs: [{ name: "_purpose", internalType: "string", type: "string" }],
         name: "createAnchorCircle",
         outputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
         stateMutability: "nonpayable",
@@ -215,6 +226,13 @@ export const circleRegistryAbi = [
     },
     {
         type: "function",
+        inputs: [],
+        name: "getOrgMembers",
+        outputs: [{ name: "_members", internalType: "address[]", type: "address[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
         inputs: [{ name: "_policyId", internalType: "uint256", type: "uint256" }],
         name: "getPolicy",
         outputs: [
@@ -304,6 +322,13 @@ export const circleRegistryAbi = [
     },
     {
         type: "function",
+        inputs: [{ name: "_account", internalType: "address", type: "address" }],
+        name: "isOrgMember",
+        outputs: [{ name: "_isMember", internalType: "bool", type: "bool" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
         inputs: [],
         name: "pendingDeployer",
         outputs: [{ name: "", internalType: "address", type: "address" }],
@@ -323,6 +348,13 @@ export const circleRegistryAbi = [
             { name: "_lead", internalType: "address", type: "address" },
         ],
         name: "removeCircleLead",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_member", internalType: "address", type: "address" }],
+        name: "removeOrgMember",
         outputs: [],
         stateMutability: "nonpayable",
     },
@@ -449,10 +481,7 @@ export const circleRegistryAbi = [
     {
         type: "event",
         anonymous: false,
-        inputs: [
-            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "_name", internalType: "string", type: "string", indexed: false },
-        ],
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256", indexed: true }],
         name: "AnchorCircleCreated",
     },
     {
@@ -540,6 +569,18 @@ export const circleRegistryAbi = [
             { name: "_account", internalType: "address", type: "address", indexed: false },
         ],
         name: "ElectedRoleSet",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [{ name: "_member", internalType: "address", type: "address", indexed: true }],
+        name: "OrgMemberAdded",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [{ name: "_member", internalType: "address", type: "address", indexed: true }],
+        name: "OrgMemberRemoved",
     },
     {
         type: "event",

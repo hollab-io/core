@@ -30,12 +30,11 @@ function makeLog(
 describe("Event Decoders", () => {
     describe("decodeCircleRegistryEvent", () => {
         it("decodes AnchorCircleCreated", () => {
-            const log = makeLog("AnchorCircleCreated", { _circleId: 1n, _name: "Anchor" });
+            const log = makeLog("AnchorCircleCreated", { _circleId: 1n });
             const result = decodeCircleRegistryEvent(log as any);
             expect(result).toMatchObject({
                 type: "AnchorCircleCreated",
                 circleId: 1n,
-                name: "Anchor",
             });
         });
 

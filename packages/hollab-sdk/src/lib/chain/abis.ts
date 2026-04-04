@@ -4,10 +4,7 @@ export const circleRegistryEvents = [
     {
         type: "event",
         name: "AnchorCircleCreated",
-        inputs: [
-            { name: "_circleId", type: "uint256", indexed: true },
-            { name: "_name", type: "string", indexed: false },
-        ],
+        inputs: [{ name: "_circleId", type: "uint256", indexed: true }],
     },
     {
         type: "event",
