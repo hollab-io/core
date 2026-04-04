@@ -1,113 +1,142 @@
 # HolLab
 
-On-chain Holacracy governance with DAO token-holder oversight. Organizations run structured decision-making internally, with an optional community vote gate before changes take effect.
+Minimalistic on-chain Holacracy framework. Only what needs to live on a public ledger goes on-chain — organizational structure, authority boundaries, and governance outcomes. Everything else stays off-chain.
 
-## The Problem
+## How It Works
 
-DAOs today face a fundamental tension between speed and legitimacy:
+### 1. Create an organization
 
--   **Token voting alone** (ENS, Aave, Lido) gives every token holder equal say regardless of context or expertise. Proposals are shaped by informal forum discussions, and quality control depends on social norms. Whales with no domain knowledge outweigh active contributors.
--   **Multisig committees** (common in Lido's ~15 committees, ENS Working Groups) move fast but concentrate trust in a small group. The broader community has no structured way to participate in _how_ decisions are made, only whether to fund them.
--   **No DAO has a formal deliberation layer.** The gap between "someone posts a proposal" and "token holders vote" is filled by forum threads, Discord debates, and Snapshot signaling — all informal, unstructured, and easy to game.
+Sign in, state your mission. That's it — you have an org with an anchor circle on-chain. Name is optional; you can decide it together later.
 
-## What We Build
+### 2. Invite members
 
-HolLab puts a **structured deliberation process** (Holacracy's Integrative Decision-Making) before the DAO vote. Circle members with domain expertise shape proposals through a formal process — clarifying questions, reaction rounds, objection testing — before the broader community weighs in.
+Bring in the people who will do the work. Each member gets a wallet-linked identity in the org.
 
-### Two Governance Paths
+### 3. Governance huddle — define how you work
 
-```
-                         ┌─────────────────────────────┐
-                         │  Circle identifies Tension   │
-                         └──────────────┬──────────────┘
-                                        │
-                         ┌──────────────▼──────────────┐
-                         │  Governance Meeting (IDM)    │
-                         │  Present → Clarify → React   │
-                         │  → Amend → Objection Round   │
-                         └──────────────┬──────────────┘
-                                        │
-                    ┌───────────────────┴───────────────────┐
-                    │                                       │
-         daoVoteRequired = false                 daoVoteRequired = true
-                    │                                       │
-         ┌──────────▼──────────┐                 ┌──────────▼──────────┐
-         │   Direct Adoption   │                 │   DAO Governor Vote │
-         │   Change executes   │                 │   Token holders     │
-         │   immediately       │                 │   approve/reject    │
-         └─────────────────────┘                 └──────────┬──────────┘
-                                                            │
-                                                 ┌──────────▼──────────┐
-                                                 │   Timelock Delay    │
-                                                 │   Then executes     │
-                                                 └─────────────────────┘
-```
+Run a governance meeting to shape the org's structure. Members propose roles through Integrative Decision-Making (IDM) — present a tension, clarify, react, test objections, adopt. In this first huddle you might:
 
-**Direct path** — Circle members run IDM, facilitator adopts, change executes immediately. Fast iteration for orgs that trust their internal process.
+-   Create roles: _Lead Dev_, _Designer_, _Community Lead_
+-   Elect a Facilitator and Secretary
+-   Create a **Community circle** — an open circle where token holders (future supporters, users, collaborators) can participate in the org's governance
 
-**DAO-gated path** — Same IDM process, but the approved proposal is escalated to a token-holder vote (OZ Governor + TimelockController) before execution. The community gets a binding vote on what the circle decided.
+### 4. Tactical huddle — align on what to do first
 
-**Manual escalation** — Any circle member can escalate an active proposal to a DAO vote at any time, regardless of the `daoVoteRequired` flag. This is the safety valve for contentious decisions.
+Run a tactical meeting to triage and commit to first actions. This isn't governance (no structural changes) — it's the team getting aligned. Projects and next-actions come out of it:
 
-The gate is **per-organization** — some orgs want full community oversight, others want pure Holacracy speed. Set once at deployment via `OrganizationFactory`.
+-   Create a website
+-   Set up visitor tracking
+-   Set goal: 100 unique weekly visitors (OKR)
+-   Decide on the organization's name
 
-### How It Compares
+### 5. Community joins
 
-|                           | **ENS**                 | **Aave v3**             | **Lido**                                | **HolLab**                                       |
-| ------------------------- | ----------------------- | ----------------------- | --------------------------------------- | ------------------------------------------------ |
-| **Who shapes proposals**  | Anyone with 100K tokens | Anyone with 80K+ tokens | Forum discussion                        | Circle members via formal IDM                    |
-| **Deliberation quality**  | Informal forum          | Informal forum          | Informal forum + Snapshot signal        | Structured: tension → clarify → react → object   |
-| **Expertise integration** | Social norms            | Service providers       | ~15 delegated committees                | Roles with explicit domains and accountabilities |
-| **Vote required**         | Always (executable)     | Always                  | Always (or Easy Track)                  | Configurable per-org                             |
-| **Routine operations**    | Working group budgets   | Full governance         | Easy Track (optimistic, 72h)            | Direct adoption when gate is off                 |
-| **Governor framework**    | OZ Governor             | Custom (BGD Labs)       | Aragon                                  | OZ Governor                                      |
-| **Timelock**              | 2 days                  | 1-10 days (multi-chain) | 3-45 days (dynamic via Dual Governance) | Configurable                                     |
+An external collaborator buys the governance token and joins the Community circle. They now have:
 
-**Key insight**: ENS, Aave, and Lido all had to bolt on delegation mechanisms _after_ launching pure token governance — ENS Working Groups, Aave service providers, Lido's committee multisigs. HolLab starts with structured delegation (circles and roles) and adds token voting as an oversight layer, not the other way around.
+-   Visibility into the org's structure, roles, and decisions (all on-chain)
+-   A structured channel to propose ideas — same tension-driven process, not a Discord free-for-all
+-   Voting power on proposals that affect the community
+
+### 6. Community and org govern together
+
+The community member proposes: _"Add a capybara to the landing page."_ The proposal goes through IDM in the Community circle. If the org has `daoVoteRequired` enabled, the org's internal circles and the community token holders both vote. The capybara gets its day in court.
+
+---
+
+This is the full loop: **create** an org, **structure** it through governance, **align** through tactical meetings, **grow** a community, and **govern together** — all on the same framework.
+
+## Why On-Chain
+
+Organizations need a credible, tamper-proof record of _who has authority to do what_. Today that lives in wikis, Notion pages, and people's heads — easy to dispute, hard to audit, impossible to compose with other systems.
+
+Holacracy already defines a rigorous structure for this: roles with explicit purposes, domains, and accountabilities, organized into circles, governed through a structured process. What it lacks is a substrate that makes that structure **verifiable** and **programmable**.
+
+A public ledger gives you both:
+
+-   **Verifiable** — Role assignments, circle boundaries, and governance decisions are immutable records. No one can quietly change who has authority over what.
+-   **Programmable** — Other contracts and systems can read the org structure directly. Treasury access, protocol permissions, and integrations can be gated by on-chain role assignments rather than multisig memberships.
+
+### What Goes On-Chain vs Off-Chain
+
+The design principle is simple: **on-chain for commitments, off-chain for coordination**.
+
+| On-chain (must be verifiable/permanent)               | Off-chain (coordination, content, discussion)                |
+| ----------------------------------------------------- | ------------------------------------------------------------ |
+| Org structure (circles, roles, memberships)           | Meeting facilitation flow (check-ins, reactions, discussion) |
+| Role definitions (purpose, domains, accountabilities) | Proposal content (tension descriptions, explanations)        |
+| Governance outcomes (proposal adopted/rejected)       | Objection deliberation and integration                       |
+| Elected role assignments (Facilitator, Secretary)     | Nomination discussions, candidate reasoning                  |
+| Authority boundaries (who can act on what)            | Tactical meeting triage and project updates                  |
+
+Meeting coordination events (IDM steps, agenda items, nominations) are emitted as **events only** — the indexer reconstructs the full meeting state, but the chain only stores what matters: who ended up in which role, and which governance changes were adopted.
+
+Proposals support **ContentRefs** — on-chain hashes pointing to off-chain encrypted content. The ledger proves _that_ a proposal with specific content was adopted, without storing the content itself.
 
 ## Architecture
 
-Each organization deployed through `OrganizationFactory` gets its own set of cloned contracts:
+Each organization deployed through `OrganizationFactory` gets its own set of contracts:
 
 ```
 OrganizationFactory
   │
-  ├── CircleRegistry (clone)     — Circles, roles, memberships, elected positions
-  ├── RoleRegistry (clone)       — Role definitions (name, purpose, domains, accountabilities)
-  ├── GovernanceProcess (clone)  — Async proposal lifecycle (Draft → Active → Adopted)
-  ├── GovernanceMeeting (clone)  — Meeting-based IDM (schedule → start → IDM → adopt/escalate)
-  ├── HolGovernor               — OZ Governor for DAO token votes
-  ├── GovToken (ERC20Votes)     — Governance token with delegation
-  ├── TimelockController        — Delay between vote approval and execution
-  ├── CircleTreasury            — Per-circle spending with timelock
-  └── ENS Subname               — orgname.hollab.eth → governor address
+  │  Holacracy framework (ERC-1167 clones)
+  ├── CircleRegistry       — Circles, roles, memberships, elected positions
+  ├── RoleRegistry         — Role definitions (name, purpose, domains, accountabilities)
+  ├── GovernanceProcess    — Proposal lifecycle (Draft → Active → Adopted/Discarded)
+  ├── GovernanceMeeting    — Meeting outcomes (proposal adoption, election results)
+  │
+  │  DAO layer (token holders are org members)
+  ├── GovToken (ERC20Votes) — Governance token with delegation
+  ├── HolGovernor           — OZ Governor for token-holder votes
+  ├── TimelockController    — Delay between vote approval and execution
+  ├── CircleTreasury        — Per-circle spending with timelock
+  └── ENS Subname           — orgname.hollab.eth → governor address
 ```
 
-### Contract Overview
+### Holacracy Framework
 
-| Contract                | Purpose                                                                                                                                                                                                    |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CircleRegistry**      | Manages the org tree: circles, sub-circles, role assignments, elected roles (Facilitator, Secretary, Circle Rep), circle leads. The source of truth for "who can do what".                                 |
-| **RoleRegistry**        | CRUD for role definitions — name, purpose, domains, accountabilities. Owned by CircleRegistry.                                                                                                             |
-| **GovernanceProcess**   | The async proposal state machine. Proposals go Draft → Active → Integrating (if objections) → Adopted/Escalated/Discarded. Handles objection testing, facilitator actions, and proposal execution.         |
-| **GovernanceMeeting**   | Thin executor for synchronous governance meetings (Holacracy Constitution Section 5.4). On-chain: authorization + outcomes. Coordination (check-ins, agenda, IDM steps) emitted as events for the indexer. |
-| **HolGovernor**         | OpenZeppelin Governor with configurable voting delay, period, quorum, and proposal threshold. Used for DAO-gated proposals and manual escalations.                                                         |
-| **TimelockController**  | Standard OZ timelock. Sits between the governor and GovernanceProcess — after a vote passes, the timelock delay must elapse before the governance change executes.                                         |
-| **CircleTreasury**      | Per-circle treasury with its own timelock. Circle leads can propose spending; timelock enforces delay.                                                                                                     |
-| **OrganizationFactory** | Deploys all of the above as a single transaction. Clones holacracy contracts (ERC-1167), deploys the governance suite, registers an ENS subname.                                                           |
+The core of the system — minimalistic contracts that store organizational structure and governance outcomes.
 
-### Governance Change Types
+| Contract              | What it stores                                                                                                 | Why on-chain                                                                                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CircleRegistry**    | Circle hierarchy, role-to-circle assignments, circle leads, elected roles (Facilitator, Secretary, Circle Rep) | This is the org's authority graph — who can act in which capacity. Other systems need to read it trustlessly.                                        |
+| **RoleRegistry**      | Role name, purpose, domains, accountabilities                                                                  | Defines the boundaries of distributed authority. A role's domains determine what its lead can control without asking permission.                     |
+| **GovernanceProcess** | Proposal status transitions, objection records, adoption/rejection outcomes                                    | The permanent record that a governance change was legitimately adopted through the constitutional process.                                           |
+| **GovernanceMeeting** | Meeting existence, participant authorization, adopted proposals, election results                              | Proves that outcomes came from a properly convened meeting with authorized participants. Coordination (IDM steps, agenda management) is events-only. |
 
-Proposals can encode any of these changes, executed atomically on adoption:
+Proposals encode structural changes, executed atomically on adoption:
 
 -   **CreateRole / AmendRole / RemoveRole** — Add, modify, or remove roles within a circle
--   **CreatePolicy / AmendPolicy / RemovePolicy** — Circle-level policies (domains, constraints)
+-   **CreatePolicy / AmendPolicy / RemovePolicy** — Circle-level policies governing domains
 -   **Elections** — Facilitator, Secretary, Circle Rep (via meeting election process)
--   All variants support **ContentRefs** for off-chain encrypted data (private proposals with on-chain hashes)
+
+### DAO Layer
+
+Every organization has token holders — they are a subset of the org's members. The DAO layer gives them a voice in governance. How much of a voice is configurable:
+
+-   **Escalation** — Any circle member can escalate a proposal to a token-holder vote at any time. The DAO acts as an appeals court for contentious decisions.
+-   **Vote gate** — Organizations can require token-holder approval before governance changes take effect (`daoVoteRequired` flag). The meeting IDM still happens first — circles decide _what_ to propose, the community decides _whether_ it passes.
+-   **Neither** — Token holders exist, the governor is deployed, but governance runs through circles with direct adoption. The DAO infrastructure is there when the org needs it.
+
+The DAO layer also provides the org's on-chain identity (ENS subname), treasury management, and a framework for structured community participation — resource requests, transparency into the org's structure and decisions, and a clear channel between the organization and its broader stakeholders.
+
+### How It Compares to Existing DAOs
+
+ENS, Aave, and Lido all started with token voting as the primary governance mechanism, then had to bolt on delegation structures after the fact — ENS Working Groups, Aave service providers, Lido's ~15 committee multisigs. They learned that token voting alone doesn't produce good decisions, and informal forum deliberation doesn't scale.
+
+HolLab inverts this: start with structured roles and deliberation (Holacracy), add token voting as an optional oversight layer. The deliberation quality comes from the process, not from hoping enough informed people show up to vote.
+
+|                        | **Typical DAO**                                   | **HolLab**                                             |
+| ---------------------- | ------------------------------------------------- | ------------------------------------------------------ |
+| **Starting point**     | Token vote, then figure out delegation            | Structured roles and circles, then add token oversight |
+| **Deliberation**       | Forum threads, Snapshot signals                   | Formal IDM: tension → clarify → react → object         |
+| **Expertise**          | Whoever holds tokens                              | Roles with explicit domains and accountabilities       |
+| **Speed**              | Every change needs a vote (or delegated multisig) | Direct adoption by default, vote gate when needed      |
+| **On-chain footprint** | Entire governance lifecycle                       | Only structure and outcomes                            |
 
 ## Specifications
 
-The `specs/` directory contains the full specification suite derived from the [Holacracy Constitution v5.0](https://www.holacracy.org/constitution/5-0/):
+The `specs/` directory contains the specification suite derived from the [Holacracy Constitution v5.0](https://www.holacracy.org/constitution/5-0/):
 
 | Spec                                                                      | Title                                                    |
 | ------------------------------------------------------------------------- | -------------------------------------------------------- |
@@ -156,7 +185,7 @@ forge test --coverage
 ```
 packages/
   contracts/         — Solidity contracts, tests, deploy scripts (Foundry)
-  dao-contracts/     — DAO-specific contract extensions
+  dao-contracts/     — DAO layer contract extensions
   hollab-sdk/        — TypeScript SDK for interacting with deployed contracts
   viem-extension/    — Viem client extensions
 apps/                — Frontend applications
