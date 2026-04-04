@@ -1,7 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
     CalendarDays,
+    CheckSquare,
     ChevronRight,
+    Loader2,
     Scale,
     ScrollText,
     ShieldAlert,
@@ -9,8 +11,9 @@ import {
     Vote,
     X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
+import { useGovernanceMeeting } from "../hooks/useGovernanceMeeting";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 const panelTransition = {
@@ -52,16 +55,85 @@ function formatMeetingDate(value: string) {
     return dateFormatter.format(new Date(value));
 }
 
-export default function GovernanceMeetingRoom() {
+export default function GovernanceMeetingRoom({
+    governanceMeetingAddress,
+}: {
+    governanceMeetingAddress?: `0x${string}`;
+}) {
     const {
         activeGovernanceMeeting,
+        authenticatedWalletAddress,
         circleMap,
         closeGovernanceMeeting,
         partnerMap,
         setGovernanceMeetingPhase,
         snapshot,
     } = useWorkspaceSnapshot();
+    const { completeMeeting: completeMeetingOnChain, linkProposal } = useGovernanceMeeting();
     const [selectedAgendaItemId, setSelectedAgendaItemId] = useState<string | null>(null);
+    const [isTxPending, setIsTxPending] = useState(false);
+    const [txError, setTxError] = useState<string | null>(null);
+
+    const handleCompleteMeeting = useCallback(async () => {
+        if (!activeGovernanceMeeting) return;
+
+        if (governanceMeetingAddress && authenticatedWalletAddress) {
+            setIsTxPending(true);
+            setTxError(null);
+            try {
+                await completeMeetingOnChain({
+                    governanceMeetingAddress,
+                    meetingId: BigInt(activeGovernanceMeeting.id),
+                    walletAddress: authenticatedWalletAddress as `0x${string}`,
+                });
+            } catch (err) {
+                setTxError(err instanceof Error ? err.message : "Failed to complete meeting");
+                setIsTxPending(false);
+                return;
+            }
+            setIsTxPending(false);
+        }
+
+        closeGovernanceMeeting();
+    }, [
+        activeGovernanceMeeting,
+        authenticatedWalletAddress,
+        closeGovernanceMeeting,
+        completeMeetingOnChain,
+        governanceMeetingAddress,
+    ]);
+
+    const handleLinkProposal = useCallback(
+        async (proposalId: string) => {
+            if (
+                !activeGovernanceMeeting ||
+                !governanceMeetingAddress ||
+                !authenticatedWalletAddress
+            )
+                return;
+
+            setIsTxPending(true);
+            setTxError(null);
+            try {
+                await linkProposal({
+                    governanceMeetingAddress,
+                    meetingId: BigInt(activeGovernanceMeeting.id),
+                    proposalId: BigInt(proposalId),
+                    walletAddress: authenticatedWalletAddress as `0x${string}`,
+                });
+            } catch (err) {
+                setTxError(err instanceof Error ? err.message : "Failed to link proposal");
+            } finally {
+                setIsTxPending(false);
+            }
+        },
+        [
+            activeGovernanceMeeting,
+            authenticatedWalletAddress,
+            governanceMeetingAddress,
+            linkProposal,
+        ],
+    );
 
     const agendaItems = useMemo(
         () =>
@@ -259,6 +331,37 @@ export default function GovernanceMeetingRoom() {
                                             );
                                         })}
                                     </div>
+
+                                    {activeGovernanceMeeting.phase === "closing-round" && (
+                                        <button
+                                            type="button"
+                                            disabled={isTxPending}
+                                            onClick={handleCompleteMeeting}
+                                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl
+                                                border border-emerald-400/40 bg-emerald-500/15
+                                                px-4 py-3 text-sm font-semibold text-emerald-100
+                                                transition-colors hover:bg-emerald-500/25
+                                                disabled:opacity-60 disabled:pointer-events-none"
+                                        >
+                                            {isTxPending ? (
+                                                <Loader2 size={15} className="animate-spin" />
+                                            ) : (
+                                                <CheckSquare size={15} />
+                                            )}
+                                            {isTxPending
+                                                ? "Completing meeting…"
+                                                : "Complete meeting"}
+                                        </button>
+                                    )}
+
+                                    {txError && (
+                                        <div
+                                            className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/[0.08]
+                                            px-4 py-2.5 text-[12px] text-rose-400"
+                                        >
+                                            {txError}
+                                        </div>
+                                    )}
                                 </section>
 
                                 <div className="space-y-6">
@@ -345,8 +448,36 @@ export default function GovernanceMeetingRoom() {
                                         {linkedProposal && (
                                             <div className="mt-4 space-y-4">
                                                 <div className="rounded-2xl border border-slate-800 bg-[#131c2d] px-4 py-4">
-                                                    <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                                                        Proposal
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                                            Proposal
+                                                        </div>
+                                                        {governanceMeetingAddress && (
+                                                            <button
+                                                                type="button"
+                                                                disabled={isTxPending}
+                                                                onClick={() =>
+                                                                    handleLinkProposal(
+                                                                        linkedProposal.id,
+                                                                    )
+                                                                }
+                                                                className="flex items-center gap-1.5 rounded-full
+                                                                    border border-violet-400/30 bg-violet-500/10
+                                                                    px-3 py-1 text-[11px] font-semibold text-violet-300
+                                                                    transition-colors hover:bg-violet-500/20
+                                                                    disabled:opacity-60 disabled:pointer-events-none"
+                                                            >
+                                                                {isTxPending ? (
+                                                                    <Loader2
+                                                                        size={11}
+                                                                        className="animate-spin"
+                                                                    />
+                                                                ) : (
+                                                                    <Scale size={11} />
+                                                                )}
+                                                                Link on-chain
+                                                            </button>
+                                                        )}
                                                     </div>
                                                     <div className="mt-2 text-lg font-semibold text-white">
                                                         {linkedProposal.content.title}

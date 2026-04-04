@@ -11,12 +11,14 @@ import {
     circleRegistryAbi,
     circleTreasuryAbi,
     govComponentDeployerAbi,
+    governanceMeetingAbi,
     governanceProcessAbi,
     govTokenAbi,
     holGovernorAbi,
     holGovernorFactoryAbi,
     organizationFactoryAbi,
     roleRegistryAbi,
+    tacticalMeetingAbi,
     treasuryDeployerAbi,
 } from "@hollab-io/contracts/actions";
 import { simulateContract, writeContract } from "viem/actions";
@@ -68,11 +70,13 @@ export function holLabContractActions() {
         circleTreasury: makeContractActions(circleTreasuryAbi)(client),
         govComponentDeployer: makeContractActions(govComponentDeployerAbi)(client),
         govToken: makeContractActions(govTokenAbi)(client),
+        governanceMeeting: makeContractActions(governanceMeetingAbi)(client),
         governanceProcess: makeContractActions(governanceProcessAbi)(client),
         holGovernor: makeContractActions(holGovernorAbi)(client),
         holGovernorFactory: makeContractActions(holGovernorFactoryAbi)(client),
         organizationFactory: makeContractActions(organizationFactoryAbi)(client),
         roleRegistry: makeContractActions(roleRegistryAbi)(client),
+        tacticalMeeting: makeContractActions(tacticalMeetingAbi)(client),
         treasuryDeployer: makeContractActions(treasuryDeployerAbi)(client),
     });
 }

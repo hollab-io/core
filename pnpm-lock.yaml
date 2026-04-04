@@ -14536,7 +14536,7 @@ snapshots:
         dependencies:
             env-paths: 2.2.1
             import-fresh: 3.3.1
-            js-yaml: 4.1.0
+            js-yaml: 4.1.1
             parse-json: 5.2.0
         optionalDependencies:
             typescript: 5.5.4
@@ -15370,7 +15370,7 @@ snapshots:
             fs.realpath: 1.0.0
             inflight: 1.0.6
             inherits: 2.0.4
-            minimatch: 3.1.2
+            minimatch: 3.1.5
             once: 1.4.0
             path-is-absolute: 1.0.1
 

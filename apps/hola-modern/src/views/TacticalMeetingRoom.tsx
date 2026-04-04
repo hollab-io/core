@@ -6,6 +6,7 @@ import {
     ChevronRight,
     Clock3,
     KanbanSquare,
+    Loader2,
     MapPin,
     Sparkles,
     Users,
@@ -15,6 +16,7 @@ import { useCallback, useMemo, useState } from "react";
 
 import type { AppTabId } from "../config/navigation";
 import { getProjectAccentToken } from "../config/workspace";
+import { OutputType, useTacticalMeeting } from "../hooks/useTacticalMeeting";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 type MeetingPhaseId =
@@ -87,12 +89,15 @@ function getDefaultPhase(meetingType: string, status: string): MeetingPhaseId {
 
 export default function TacticalMeetingRoom({
     onNavigateToTab,
+    tacticalMeetingAddress,
 }: {
     onNavigateToTab: (tabId: AppTabId) => void;
+    tacticalMeetingAddress?: `0x${string}`;
 }) {
     const {
         activeMeeting,
         addProject,
+        authenticatedWalletAddress,
         circleMap,
         closeMeeting,
         partnerMap,
@@ -100,18 +105,44 @@ export default function TacticalMeetingRoom({
         setProjectBoardCircleId,
         snapshot,
     } = useWorkspaceSnapshot();
+    const { recordOutput, completeMeeting: completeMeetingOnChain } = useTacticalMeeting();
     const [phaseOverrides, setPhaseOverrides] = useState<Record<string, MeetingPhaseId>>({});
     const [showAddProject, setShowAddProject] = useState(false);
     const [newProjectTitle, setNewProjectTitle] = useState("");
     const [newProjectRoleId, setNewProjectRoleId] = useState<string>("");
+    const [isTxPending, setIsTxPending] = useState(false);
+    const [txError, setTxError] = useState<string | null>(null);
     const activePhase = activeMeeting
         ? (phaseOverrides[activeMeeting.id] ??
           getDefaultPhase(activeMeeting.meetingType, activeMeeting.status))
         : "Triage items";
 
-    const handleAddProject = useCallback(() => {
+    const handleAddProject = useCallback(async () => {
         if (!activeMeeting || !newProjectTitle.trim() || !newProjectRoleId) {
             return;
+        }
+
+        setTxError(null);
+
+        // Record output on-chain if contract address is available
+        if (tacticalMeetingAddress && authenticatedWalletAddress) {
+            setIsTxPending(true);
+            try {
+                await recordOutput({
+                    tacticalMeetingAddress,
+                    meetingId: BigInt(activeMeeting.id),
+                    outputType: OutputType.Project,
+                    description: newProjectTitle.trim(),
+                    assignedTo: authenticatedWalletAddress as `0x${string}`,
+                    roleId: BigInt(newProjectRoleId),
+                    walletAddress: authenticatedWalletAddress as `0x${string}`,
+                });
+            } catch (err) {
+                setTxError(err instanceof Error ? err.message : "Failed to record output on-chain");
+                setIsTxPending(false);
+                return;
+            }
+            setIsTxPending(false);
         }
 
         const newProject = {
@@ -133,12 +164,46 @@ export default function TacticalMeetingRoom({
         onNavigateToTab("actions");
     }, [
         activeMeeting,
+        authenticatedWalletAddress,
         newProjectTitle,
         newProjectRoleId,
         addProject,
         closeMeeting,
         onNavigateToTab,
+        recordOutput,
         setProjectBoardCircleId,
+        tacticalMeetingAddress,
+    ]);
+
+    const handleCompleteMeeting = useCallback(async () => {
+        if (!activeMeeting) return;
+
+        if (tacticalMeetingAddress && authenticatedWalletAddress) {
+            setIsTxPending(true);
+            setTxError(null);
+            try {
+                await completeMeetingOnChain({
+                    tacticalMeetingAddress,
+                    meetingId: BigInt(activeMeeting.id),
+                    walletAddress: authenticatedWalletAddress as `0x${string}`,
+                });
+            } catch (err) {
+                setTxError(
+                    err instanceof Error ? err.message : "Failed to complete meeting on-chain",
+                );
+                setIsTxPending(false);
+                return;
+            }
+            setIsTxPending(false);
+        }
+
+        closeMeeting();
+    }, [
+        activeMeeting,
+        authenticatedWalletAddress,
+        closeMeeting,
+        completeMeetingOnChain,
+        tacticalMeetingAddress,
     ]);
 
     const meetingOutputs = useMemo(
@@ -404,6 +469,37 @@ export default function TacticalMeetingRoom({
                                                 );
                                             })}
                                         </div>
+
+                                        {activePhase === "Closing round" && (
+                                            <button
+                                                type="button"
+                                                disabled={isTxPending}
+                                                onClick={handleCompleteMeeting}
+                                                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl
+                                                    border border-emerald-400/40 bg-emerald-500/15
+                                                    px-4 py-3 text-sm font-semibold text-emerald-100
+                                                    transition-colors hover:bg-emerald-500/25
+                                                    disabled:opacity-60 disabled:pointer-events-none"
+                                            >
+                                                {isTxPending ? (
+                                                    <Loader2 size={15} className="animate-spin" />
+                                                ) : (
+                                                    <CheckSquare size={15} />
+                                                )}
+                                                {isTxPending
+                                                    ? "Completing meeting…"
+                                                    : "Complete meeting"}
+                                            </button>
+                                        )}
+
+                                        {txError && (
+                                            <div
+                                                className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/[0.08]
+                                                px-4 py-2.5 text-[12px] text-rose-400"
+                                            >
+                                                {txError}
+                                            </div>
+                                        )}
                                     </section>
 
                                     <section className="rounded-[28px] border border-slate-800 bg-slate-900/80 p-5">
