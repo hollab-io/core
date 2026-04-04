@@ -6,7 +6,6 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
-import {CircleTreasury} from 'contracts/CircleTreasury.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {CircleRegistry} from 'contracts/CircleRegistry.sol';
 import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
@@ -81,13 +80,10 @@ contract DeployLocal is Script {
         votingDelay: 1,
         votingPeriod: 50,
         proposalThreshold: 0,
-        quorumNumerator: 4
+        quorumNumerator: 4,
+        treasuryTimelockDelay: 1 days
       })
     );
-
-    // 6. Deploy a CircleTreasury for the anchor circle (1 day delay)
-    HolacracyTypes.Organization memory org = factory.getOrganization(orgId);
-    CircleTreasury treasury = new CircleTreasury(CircleRegistry(org.circleRegistry), org.anchorCircleId, 1 days);
 
     vm.stopBroadcast();
 
@@ -104,7 +100,7 @@ contract DeployLocal is Script {
     console.log('');
     console.log('--- Sample Organization (id:', orgId, ') ---');
 
-    org = factory.getOrganization(orgId);
+    HolacracyTypes.Organization memory org = factory.getOrganization(orgId);
     console.log('Subname:              ', org.subname);
     console.log('Creator:              ', org.creator);
     console.log('RoleRegistry:         ', org.roleRegistry);
@@ -119,7 +115,6 @@ contract DeployLocal is Script {
     console.log('Timelock:             ', org.timelock);
     console.log('');
     console.log('--- Anchor Circle Treasury ---');
-    console.log('CircleTreasury:       ', address(treasury));
-    console.log('TimelockController:   ', address(treasury.TIMELOCK()));
+    console.log('CircleTreasury:       ', org.treasury);
   }
 }
