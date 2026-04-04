@@ -1,3 +1,4 @@
+/* Based on total-typescript no-dom library config */
 {
     "extends": "../../tsconfig.build.json",
     "compilerOptions": {
@@ -7,5 +8,5 @@
         "outDir": "dist"
     },
     "include": ["src/**/*"],
-    "exclude": ["node_modules", "dist", "test"]
+    "exclude": ["node_modules", "dist", "tests"]
 }

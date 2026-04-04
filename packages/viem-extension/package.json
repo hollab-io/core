@@ -1,33 +1,28 @@
 {
-    "name": "@ts-turborepo-boilerplate/viem-extension",
+    "name": "@hollab/viem-extension",
     "version": "0.0.1",
     "private": true,
-    "description": "",
+    "description": "Integration-ready frontend domain and viem helpers for Hollab",
     "license": "MIT",
-    "author": "Wonderland",
     "type": "module",
-    "main": "./dist/src/index.js",
-    "types": "./dist/src/index.d.ts",
+    "main": "./src/index.ts",
+    "types": "./src/index.ts",
     "directories": {
         "src": "src"
     },
     "files": [
-        "dist/*",
-        "package.json",
-        "!**/*.tsbuildinfo"
+        "src/*",
+        "package.json"
     ],
     "scripts": {
         "build": "tsc -p tsconfig.build.json",
         "check-types": "tsc --noEmit -p ./tsconfig.json",
-        "clean": "rm -rf dist/",
-        "format": "prettier --check \"{src,test}/**/*.{js,ts,json}\"",
-        "format:fix": "prettier --write \"{src,test}/**/*.{js,ts,json}\"",
-        "lint": "eslint \"{src,test}/**/*.{js,ts,json}\"",
+        "clean": "rm -rf dist",
+        "format": "prettier --check \"src/**/*.ts\"",
+        "format:fix": "prettier --write \"src/**/*.ts\"",
+        "lint": "eslint \"src/**/*.ts\"",
         "lint:fix": "pnpm lint --fix",
-        "test": "vitest run --config vitest.config.ts --passWithNoTests",
-        "test:cov": "vitest run --config vitest.config.ts --coverage"
-    },
-    "dependencies": {
-        "viem": "2.21.4"
+        "test": "vitest run --passWithNoTests",
+        "test:cov": "vitest run --coverage"
     }
 }
