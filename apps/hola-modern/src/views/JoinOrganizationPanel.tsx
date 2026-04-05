@@ -104,7 +104,7 @@ export default function JoinOrganizationPanel({ onClose, prefilled }: Props) {
     };
 
     const orgFound = lookupState.kind === "found";
-    const isPending = isPending;
+    const isPending = submitState === "pending";
     const canSubmit = orgFound && submitState === "idle";
 
     return (

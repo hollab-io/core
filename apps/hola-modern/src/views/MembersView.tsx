@@ -1,5 +1,4 @@
 import type { Organization } from "@hollab-io/indexing-client";
-import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, BadgeCheck, Loader2, Mail, Plus, Users, Wallet } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { isAddress } from "viem";
