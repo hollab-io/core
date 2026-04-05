@@ -1,13 +1,16 @@
 import type {
+    CircleRecord,
     DeclaredByRole,
     GovernanceChangeRecord,
     GovernanceMeetingPhase,
     GovernanceMeetingRecord,
     OrganizationRecord,
     PartnerRecord,
+    RoleRecord,
     TacticalMeetingRecord,
     WorkspaceSnapshot,
 } from "@hollab-io/viem-extension";
+import type { Circle, Role } from "@hollab-io/indexing-client";
 import type { PropsWithChildren } from "react";
 import {
     createCircleMap,
@@ -358,12 +361,15 @@ type WorkspaceContextValue = {
     authenticatedUserEmail: string | null;
     authenticatedWalletAddress: string | null;
     activateGovernanceProposal: (proposalId: string) => void;
+    addCircle: (circle: WorkspaceSnapshot["circles"][number]) => void;
     addProject: (project: WorkspaceSnapshot["projects"][number]) => void;
+    addRole: (role: WorkspaceSnapshot["roles"][number]) => void;
     adoptGovernanceProposal: (proposalId: string) => boolean;
     conveneGovernanceMeeting: (params: {
         meetingId: string;
         circleId: string;
         convenedBy: string;
+        onChainMeetingId?: string;
     }) => void;
     advanceGovernanceElection: (electionId: string) => void;
     circleMap: ReturnType<typeof createCircleMap>;
@@ -396,7 +402,9 @@ type WorkspaceContextValue = {
     setActiveOrganizationId: (id: string | null) => void;
     setProjectBoardCircleId: (circleId: string) => void;
     snapshot: WorkspaceSnapshot;
+    syncIndexedCircles: (indexedCircles: Circle[]) => void;
     syncIndexedMembers: (indexedMembers: { memberAddress: string; addedAt: string }[]) => void;
+    syncIndexedRoles: (indexedRoles: Role[]) => void;
     syncAuthenticatedIdentity: (input: {
         email?: string | null;
         walletAddress?: string | null;
@@ -442,6 +450,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             organization: activeOrg,
             // Start with only localStorage partners — real members come from the indexer
             partners: persistedPartners,
+            // Clear mock circles and roles — real data comes from the indexer
+            circles: [],
+            roles: [],
             projects: mergeProjects(baseSnapshot.projects, readPersistedProjects()),
             // Clear mock meetings — real data comes from the indexer
             meetings: [],
@@ -497,10 +508,17 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     }, []);
 
     const conveneGovernanceMeeting = useCallback(
-        (params: { meetingId: string; circleId: string; convenedBy: string }) => {
+        (params: { meetingId: string; circleId: string; convenedBy: string; onChainMeetingId?: string }) => {
             const circle = circleMap[params.circleId];
+            // Offset governance meeting IDs by 10_000_000 to prevent collisions
+            // with tactical meeting IDs in the workspace snapshot.
+            const GOV_ID_OFFSET = 10_000_000;
+            const numericPart = params.onChainMeetingId ?? params.meetingId;
+            const localId = /^\d+$/.test(numericPart)
+                ? String(Number(numericPart) + GOV_ID_OFFSET)
+                : params.meetingId;
             const meeting: GovernanceMeetingRecord = {
-                id: params.meetingId,
+                id: localId,
                 circleId: params.circleId,
                 title: `${circle?.title ?? "Circle"} Governance`,
                 scheduledById: params.convenedBy,
@@ -514,12 +532,13 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
                 phase: "check-in",
                 scheduledAt: new Date().toISOString(),
                 startedAt: new Date().toISOString(),
+                onChainMeetingId: params.onChainMeetingId ?? numericPart,
             };
             setSnapshot((prev) => ({
                 ...prev,
                 governanceMeetings: [meeting, ...prev.governanceMeetings],
             }));
-            setActiveGovernanceMeetingId(params.meetingId);
+            setActiveGovernanceMeetingId(localId);
         },
         [circleMap],
     );
@@ -546,6 +565,26 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             }),
         }));
     }, []);
+
+    const addCircle = useCallback(
+        (circle: WorkspaceSnapshot["circles"][number]) => {
+            setSnapshot((currentSnapshot) => ({
+                ...currentSnapshot,
+                circles: [...currentSnapshot.circles, circle],
+            }));
+        },
+        [],
+    );
+
+    const addRole = useCallback(
+        (role: WorkspaceSnapshot["roles"][number]) => {
+            setSnapshot((currentSnapshot) => ({
+                ...currentSnapshot,
+                roles: [...currentSnapshot.roles, role],
+            }));
+        },
+        [],
+    );
 
     const addProject = useCallback((project: ProjectRecord) => {
         const persistedProjects = readPersistedProjects();
@@ -769,6 +808,89 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         [],
     );
 
+    const CIRCLE_ACCENTS = ["#4B8DFF", "#6AA7FF", "#7BBAFF", "#90C2FF", "#8E8CFF", "#67B8FF"];
+
+    /**
+     * Replace workspace circles with on-chain data from the indexer.
+     * Maps indexer Circle type → frontend CircleRecord.
+     */
+    const syncIndexedCircles = useCallback((indexedCircles: Circle[]) => {
+        // Build a lookup from on-chain circleId (BigIntStr) → composite id
+        const circleIdToId = new Map<string, string>();
+        for (const c of indexedCircles) {
+            circleIdToId.set(c.circleId, c.id);
+        }
+
+        const circles: CircleRecord[] = indexedCircles.map((c, i) => ({
+            id: c.id,
+            title: c.name,
+            purpose: c.purpose,
+            summary: c.purpose,
+            accent: CIRCLE_ACCENTS[i % CIRCLE_ACCENTS.length],
+            parentCircleId:
+                c.isAnchor || c.parentCircleId === "0"
+                    ? null
+                    : circleIdToId.get(c.parentCircleId) ?? null,
+            isAnchor: c.isAnchor,
+        }));
+
+        setSnapshot((current) => ({ ...current, circles }));
+    }, []);
+
+    /**
+     * Replace workspace roles with on-chain data from the indexer.
+     * Maps indexer Role type → frontend RoleRecord.
+     * Role leads (addresses) are mapped to partner IDs by wallet address.
+     */
+    const syncIndexedRoles = useCallback((indexedRoles: Role[]) => {
+        setSnapshot((current) => {
+            // Build a wallet→partnerId lookup from current partners
+            const walletToPartnerId = new Map<string, string>();
+            for (const p of current.partners) {
+                if (p.walletAddress) {
+                    walletToPartnerId.set(p.walletAddress.toLowerCase(), p.id);
+                }
+            }
+
+            // Build circleId (BigIntStr) → composite circle id lookup
+            const circleIdToId = new Map<string, string>();
+            for (const c of current.circles) {
+                // The composite id is "<registryAddress>-<circleId>"
+                // We need to extract the on-chain circleId to map role.circleId
+                // But we can match via the circle array directly
+                circleIdToId.set(c.id, c.id);
+            }
+
+            const roles: RoleRecord[] = indexedRoles.map((r) => {
+                // Map lead addresses to partner IDs
+                const memberIds = (r.leads as string[])
+                    .map((addr) => walletToPartnerId.get(addr.toLowerCase()))
+                    .filter((id): id is string => id != null);
+
+                // Find the parent circle by matching the indexer's composite id pattern
+                // Role's circleId is a BigIntStr, circle's id is "<registryAddress>-<circleId>"
+                const circleId = `${r.registryAddress}-${r.circleId}`;
+
+                return {
+                    id: r.id,
+                    circleId,
+                    title: r.name,
+                    summary: r.purpose,
+                    cadence: "",
+                    scope: [...(r.domains as string[]), ...(r.accountabilities as string[])],
+                    memberIds,
+                    isExpandedToCircle: r.isExpandedToCircle,
+                    expandedCircleId:
+                        r.isExpandedToCircle && r.expandedCircleId !== "0"
+                            ? `${r.registryAddress}-${r.expandedCircleId}`
+                            : null,
+                };
+            });
+
+            return { ...current, roles };
+        });
+    }, []);
+
     const inviteMember = useCallback((input: InviteMemberInput) => {
         const normalizedName = input.name.trim();
         const normalizedWallet = normalizeWalletAddress(input.walletAddress);
@@ -823,7 +945,6 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             const requiresTension = !input.meetingId;
             if (
                 !input.circleId ||
-                !input.proposerRoleId ||
                 (requiresTension &&
                     (!normalizedTension || !normalizedExample || !normalizedExplanation)) ||
                 !input.content.title.trim() ||
@@ -854,20 +975,46 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
                 createdAt: new Date().toISOString(),
             };
 
-            setSnapshot((currentSnapshot) => ({
-                ...currentSnapshot,
-                governanceProposals: [proposal, ...currentSnapshot.governanceProposals],
-                governanceAuditTrail: [
-                    buildGovernanceAuditEntry(
-                        proposal.circleId,
-                        currentSnapshot.currentPartnerId,
-                        "Proposal created",
-                        proposal.content.title,
-                        { proposalId: proposal.id },
-                    ),
-                    ...currentSnapshot.governanceAuditTrail,
-                ],
-            }));
+            setSnapshot((currentSnapshot) => {
+                const updates: Partial<WorkspaceSnapshot> = {
+                    governanceProposals: [proposal, ...currentSnapshot.governanceProposals],
+                    governanceAuditTrail: [
+                        buildGovernanceAuditEntry(
+                            proposal.circleId,
+                            currentSnapshot.currentPartnerId,
+                            "Proposal created",
+                            proposal.content.title,
+                            { proposalId: proposal.id },
+                        ),
+                        ...currentSnapshot.governanceAuditTrail,
+                    ],
+                };
+
+                // When created inside a meeting, also create an agenda item
+                if (input.meetingId) {
+                    const agendaItem = {
+                        id: `agenda-${Date.now()}`,
+                        meetingId: input.meetingId,
+                        ownerId: currentSnapshot.currentPartnerId,
+                        label: proposal.content.title,
+                        type: "proposal" as const,
+                        proposalId: proposal.id,
+                        status: "pending" as const,
+                    };
+                    updates.governanceAgendaItems = [
+                        agendaItem,
+                        ...currentSnapshot.governanceAgendaItems,
+                    ];
+                    // Also add the agenda item ID to the meeting
+                    updates.governanceMeetings = currentSnapshot.governanceMeetings.map((m) =>
+                        m.id === input.meetingId
+                            ? { ...m, agendaItemIds: [...m.agendaItemIds, agendaItem.id] }
+                            : m,
+                    );
+                }
+
+                return { ...currentSnapshot, ...updates };
+            });
 
             return proposal;
         },
@@ -1348,7 +1495,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             authenticatedUserEmail,
             authenticatedWalletAddress,
             activateGovernanceProposal,
+            addCircle,
             addProject,
+            addRole,
             adoptGovernanceProposal,
             advanceGovernanceElection,
             circleMap,
@@ -1378,7 +1527,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             setProjectBoardCircleId,
             snapshot,
             syncAuthenticatedIdentity,
+            syncIndexedCircles,
             syncIndexedMembers,
+            syncIndexedRoles,
             startGovernanceIntegration,
             toggleActionCompletion,
             withdrawGovernanceProposal,
@@ -1392,7 +1543,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             authenticatedUserEmail,
             authenticatedWalletAddress,
             activateGovernanceProposal,
+            addCircle,
             addProject,
+            addRole,
             adoptGovernanceProposal,
             advanceGovernanceElection,
             circleMap,
@@ -1421,7 +1574,9 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             setProjectBoardCircleId,
             snapshot,
             syncAuthenticatedIdentity,
+            syncIndexedCircles,
             syncIndexedMembers,
+            syncIndexedRoles,
             startGovernanceIntegration,
             toggleActionCompletion,
             withdrawGovernanceProposal,

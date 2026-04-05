@@ -43,12 +43,14 @@ type Props = {
     pollForNewGovernanceMeeting?: (
         prevCount: number,
     ) => Promise<import("../hooks/useGovernanceMeetingsFromIndexer").GovernanceMeeting[]>;
+    refetchMeetingComponents?: () => Promise<void>;
 };
 
 export default function GovernanceView({
     governanceMeetingAddress,
     indexedGovernanceMeetings = [],
     pollForNewGovernanceMeeting,
+    refetchMeetingComponents,
 }: Props) {
     const { conveneGovernanceMeeting, authenticatedWalletAddress } =
         useWorkspaceSnapshot();
@@ -56,20 +58,55 @@ export default function GovernanceView({
     const [isConvening, setIsConvening] = useState(false);
     const [conveneError, setConveneError] = useState<string | null>(null);
 
-    // Check for in-progress indexed meetings
-    const indexedInProgress = indexedGovernanceMeetings.filter((m) => !m.completedAt);
+    // Only show on-chain meetings as resumable if they were convened
+    // recently (within the last hour) and not yet completed.
+    // Older uncompleted meetings are stale — likely abandoned.
+    const ONE_HOUR_SECS = 3600;
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const indexedInProgress = indexedGovernanceMeetings.filter(
+        (m) => !m.completedAt && nowSecs - Number(m.createdAt) < ONE_HOUR_SECS,
+    );
 
     const handleConveneNewMeeting = async () => {
-        if (!governanceMeetingAddress || !authenticatedWalletAddress) return;
+        if (!authenticatedWalletAddress) return;
+
+        setIsConvening(true);
+        setConveneError(null);
+
+        // If the governance address isn't available yet, try refetching
+        // the meeting components — the contract may already be deployed.
+        let address = governanceMeetingAddress;
+        if (!address && refetchMeetingComponents) {
+            try {
+                await refetchMeetingComponents();
+            } catch {
+                // indexer unavailable
+            }
+            // Address will be available on next render; bail for now
+            // and let the user click again.
+            setIsConvening(false);
+            if (!governanceMeetingAddress) {
+                setConveneError(
+                    "Governance contracts not deployed yet. Set up huddles on the Tactical tab first.",
+                );
+            }
+            return;
+        }
+
+        if (!address) {
+            setConveneError(
+                "Governance contracts not deployed yet. Set up huddles on the Tactical tab first.",
+            );
+            setIsConvening(false);
+            return;
+        }
 
         // Use the org's anchor circle (circleId 1) by default
         const circleId = 1n;
 
-        setIsConvening(true);
-        setConveneError(null);
         try {
             await conveneMeeting({
-                governanceMeetingAddress,
+                governanceMeetingAddress: address,
                 circleId,
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
             });
@@ -84,6 +121,7 @@ export default function GovernanceView({
                         meetingId: newest.id,
                         circleId: newest.circleId,
                         convenedBy: newest.convenedBy,
+                        onChainMeetingId: newest.meetingId,
                     });
                 }
             }
@@ -102,6 +140,7 @@ export default function GovernanceView({
             meetingId: m.id,
             circleId: m.circleId,
             convenedBy: m.convenedBy,
+            onChainMeetingId: m.meetingId,
         });
     };
 
@@ -179,7 +218,7 @@ export default function GovernanceView({
                         ))}
 
                         {/* Convene new meeting on-chain */}
-                        {governanceMeetingAddress && indexedInProgress.length === 0 && (
+                        {indexedInProgress.length === 0 && (
                             <button
                                 type="button"
                                 disabled={isConvening}

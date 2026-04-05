@@ -26,6 +26,8 @@ export type CircleRecord = {
     purpose: string;
     summary: string;
     accent: string;
+    parentCircleId: string | null;
+    isAnchor: boolean;
 };
 
 export type RoleRecord = {
@@ -36,6 +38,8 @@ export type RoleRecord = {
     cadence: string;
     scope: string[];
     memberIds: string[];
+    isExpandedToCircle: boolean;
+    expandedCircleId: string | null;
 };
 
 export type PolicyRecord = {
@@ -214,6 +218,8 @@ export type GovernanceMeetingRecord = {
     scheduledAt: string;
     startedAt?: string;
     completedAt?: string;
+    /** The real on-chain meetingId (uint256) — used for contract calls. */
+    onChainMeetingId?: string;
 };
 
 export type GovernanceAgendaItemRecord = {
