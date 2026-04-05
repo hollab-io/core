@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 
 import type { AppTabId } from "./config/navigation";
 import DynamicAuthControl from "./components/DynamicAuthControl";
+import { useCirclesFromIndexer } from "./hooks/useCirclesFromIndexer";
 import { useGovernanceMeetingsFromIndexer } from "./hooks/useGovernanceMeetingsFromIndexer";
 import { useOrganizationsFromIndexer } from "./hooks/useOrganizationsFromIndexer";
 import { useOrgMembersFromIndexer } from "./hooks/useOrgMembersFromIndexer";
+import { useRolesFromIndexer } from "./hooks/useRolesFromIndexer";
 import { useTacticalMeetingsFromIndexer } from "./hooks/useTacticalMeetingsFromIndexer";
 import { useWorkspaceSnapshot } from "./hooks/useWorkspaceSnapshot";
 import ActionItemsView from "./views/ActionItemsView";
@@ -36,11 +38,15 @@ function App() {
         activeOrganizationId,
         setActiveOrganizationId,
         authenticatedWalletAddress,
+        syncIndexedCircles,
         syncIndexedMembers,
+        syncIndexedRoles,
     } = useWorkspaceSnapshot();
     const { organizations, pollUntil } = useOrganizationsFromIndexer(authenticatedWalletAddress);
     const activeOrg = organizations.find((o) => o.id === activeOrganizationId) ?? null;
     const { members: indexedMembers } = useOrgMembersFromIndexer(activeOrg?.circleRegistry);
+    const { circles: indexedCircles } = useCirclesFromIndexer(activeOrganizationId);
+    const { roles: indexedRoles } = useRolesFromIndexer(activeOrganizationId);
     const {
         tacticalMeetingAddress,
         governanceMeetingAddress,
@@ -92,13 +98,24 @@ function App() {
         }
     }, [indexedMembers, syncIndexedMembers]);
 
-    // Instead of a standalone onboarding screen, skip to the main app
-    // and auto-open the invite panel on the Structure tab
+    // Sync on-chain circles into the workspace
+    useEffect(() => {
+        if (indexedCircles.length > 0) {
+            syncIndexedCircles(indexedCircles);
+        }
+    }, [indexedCircles, syncIndexedCircles]);
+
+    // Sync on-chain roles into the workspace (after members so partner IDs are available)
+    useEffect(() => {
+        if (indexedRoles.length > 0) {
+            syncIndexedRoles(indexedRoles);
+        }
+    }, [indexedRoles, syncIndexedRoles]);
+
+    // Skip onboarding screen — just mark it complete
     useEffect(() => {
         if (isOnboarding && activeOrg) {
             completeOnboarding();
-            setActiveTab("structure");
-            setAutoOpenInvite(true);
         }
     }, [isOnboarding, activeOrg]); // eslint-disable-line react-hooks/exhaustive-deps
 
