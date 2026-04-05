@@ -1,6 +1,7 @@
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { ZeroDevSmartWalletConnectorsWithConfig } from "@dynamic-labs/ethereum-aa";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -10,12 +11,22 @@ import { WorkspaceProvider } from "./hooks/useWorkspaceSnapshot";
 
 import "./index.css";
 
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 10_000,
+            retry: 1,
+        },
+    },
+});
+
 createRoot(document.getElementById("root")!).render(
     <StrictMode>
         {import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID ? (
             <DynamicContextProvider
                 settings={{
                     environmentId: import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID,
+                    networkValidationMode: "always",
                     walletConnectors: [
                         EthereumWalletConnectors,
                         // ZeroDev smart accounts — enables gas sponsorship and tx batching.
@@ -29,15 +40,19 @@ createRoot(document.getElementById("root")!).render(
                     ],
                 }}
             >
-                <WorkspaceProvider>
-                    <DynamicWorkspaceSync />
-                    <App />
-                </WorkspaceProvider>
+                <QueryClientProvider client={queryClient}>
+                    <WorkspaceProvider>
+                        <DynamicWorkspaceSync />
+                        <App />
+                    </WorkspaceProvider>
+                </QueryClientProvider>
             </DynamicContextProvider>
         ) : (
-            <WorkspaceProvider>
-                <App />
-            </WorkspaceProvider>
+            <QueryClientProvider client={queryClient}>
+                <WorkspaceProvider>
+                    <App />
+                </WorkspaceProvider>
+            </QueryClientProvider>
         )}
     </StrictMode>,
 );
