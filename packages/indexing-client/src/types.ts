@@ -31,6 +31,8 @@ export type Organization = {
     quorumNumerator: BigIntStr;
     circleCount: BigIntStr;
     roleCount: BigIntStr;
+    memberCount: BigIntStr;
+    purpose: string;
     createdAt: BigIntStr;
     updatedAt: BigIntStr;
 };
@@ -272,6 +274,35 @@ export type MeetingComponentSet = {
     governanceMeeting: HexStr;
     actionVoting: HexStr;
     deployedAt: BigIntStr;
+    txHash: HexStr;
+};
+
+// ─── Org members ─────────────────────────────────────────────────────────────
+
+export type OrgMember = {
+    id: string;
+    registryAddress: HexStr;
+    orgId: BigIntStr;
+    memberAddress: HexStr;
+    addedAt: BigIntStr;
+    txHash: HexStr;
+};
+
+// ─── Join requests ────────────────────────────────────────────────────────────
+
+/** 0=Pending 1=Approved 2=Rejected */
+export type JoinRequestStatus = 0 | 1 | 2;
+
+export type JoinRequest = {
+    id: string;
+    requestId: BigIntStr;
+    contractAddress: HexStr;
+    requester: HexStr;
+    orgId: BigIntStr;
+    message: string;
+    status: JoinRequestStatus;
+    submittedAt: BigIntStr;
+    resolvedAt: BigIntStr | null;
     txHash: HexStr;
 };
 

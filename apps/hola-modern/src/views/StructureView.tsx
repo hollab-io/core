@@ -3,22 +3,26 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowRight,
     Check,
+    Clock,
     Loader2,
     Network,
     RotateCcw,
     Trash2,
     TriangleAlert,
+    UserCheck,
     UserPlus,
     Users,
     Wallet,
     X,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPublicClient, http, isAddress } from "viem";
 import { sepolia } from "viem/chains";
 import { normalize } from "viem/ens";
 
+import type { JoinRequestEntry } from "../hooks/useJoinRequest";
 import { useCircleRegistry } from "../hooks/useCircleRegistry";
+import { useJoinRequest } from "../hooks/useJoinRequest";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 import OrganizationChart from "./OrganizationChart";
 
@@ -414,7 +418,8 @@ function shortenWallet(address: string) {
 export default function StructureView({ org, isDarkMode }: Props) {
     const { authenticatedWalletAddress, snapshot, organization } = useWorkspaceSnapshot();
     const { addOrgMembers } = useCircleRegistry();
-    const [tab, setTab] = useState<"members" | "chart">("members");
+    const { getPendingRequests, approveWithTokens, rejectRequest } = useJoinRequest();
+    const [tab, setTab] = useState<"members" | "chart" | "requests">("members");
     const [showAddMembers, setShowAddMembers] = useState(false);
 
     const members = useMemo(() => {
@@ -434,6 +439,61 @@ export default function StructureView({ org, isDarkMode }: Props) {
                 return sa !== sb ? sa - sb : a.name.localeCompare(b.name);
             });
     }, [snapshot.partners, snapshot.roles]);
+
+    // ── Join requests (admin only) ────────────────────────────────────────────
+    const isAdmin = Boolean(
+        authenticatedWalletAddress &&
+            org.creator &&
+            authenticatedWalletAddress.toLowerCase() === org.creator.toLowerCase(),
+    );
+    const [joinRequests, setJoinRequests] = useState<JoinRequestEntry[]>([]);
+    const [approvingId, setApprovingId] = useState<bigint | null>(null);
+    const [rejectingId, setRejectingId] = useState<bigint | null>(null);
+    const [requestActionError, setRequestActionError] = useState<string | null>(null);
+
+    const loadJoinRequests = useCallback(async () => {
+        if (!isAdmin || !org.id) return;
+        try {
+            const requests = await getPendingRequests(BigInt(org.id));
+            setJoinRequests(requests);
+        } catch {
+            // silent — contract may not be deployed yet
+        }
+    }, [isAdmin, org.id, getPendingRequests]);
+
+    useEffect(() => {
+        void loadJoinRequests();
+    }, [loadJoinRequests]);
+
+    const handleApprove = async (req: JoinRequestEntry) => {
+        setApprovingId(req.id);
+        setRequestActionError(null);
+        try {
+            await approveWithTokens({
+                requestId: req.id,
+                requester: req.requester,
+                govTokenAddress: org.token as `0x${string}`,
+            });
+            setJoinRequests((prev) => prev.filter((r) => r.id !== req.id));
+        } catch (err) {
+            setRequestActionError(err instanceof Error ? err.message : "Transaction failed");
+        } finally {
+            setApprovingId(null);
+        }
+    };
+
+    const handleReject = async (req: JoinRequestEntry) => {
+        setRejectingId(req.id);
+        setRequestActionError(null);
+        try {
+            await rejectRequest({ requestId: req.id });
+            setJoinRequests((prev) => prev.filter((r) => r.id !== req.id));
+        } catch (err) {
+            setRequestActionError(err instanceof Error ? err.message : "Transaction failed");
+        } finally {
+            setRejectingId(null);
+        }
+    };
 
     // 56px = app top header. This container fills the rest of the viewport exactly —
     // no min-h, no flex growth — so clicking a bubble can never resize it.
@@ -461,12 +521,18 @@ export default function StructureView({ org, isDarkMode }: Props) {
                         className="flex items-center gap-px rounded-full
                         border border-white/[0.08] bg-white/[0.04] p-[3px]"
                     >
-                        {(["members", "chart"] as const).map((t) => (
+                        {(
+                            ["members", "chart", ...(isAdmin ? ["requests"] : [])] as (
+                                | "members"
+                                | "chart"
+                                | "requests"
+                            )[]
+                        ).map((t) => (
                             <button
                                 key={t}
                                 type="button"
                                 onClick={() => setTab(t)}
-                                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5
+                                className={`relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5
                                     text-[11px] font-semibold capitalize tracking-wide
                                     transition-all duration-300
                                     ${
@@ -477,10 +543,17 @@ export default function StructureView({ org, isDarkMode }: Props) {
                             >
                                 {t === "members" ? (
                                     <Users size={11} strokeWidth={2} />
-                                ) : (
+                                ) : t === "chart" ? (
                                     <Network size={11} strokeWidth={2} />
+                                ) : (
+                                    <UserCheck size={11} strokeWidth={2} />
                                 )}
                                 {t}
+                                {t === "requests" && joinRequests.length > 0 && (
+                                    <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#3481FF] px-1 text-[9px] font-bold text-white">
+                                        {joinRequests.length}
+                                    </span>
+                                )}
                             </button>
                         ))}
                     </div>
@@ -639,7 +712,7 @@ export default function StructureView({ org, isDarkMode }: Props) {
                                 )}
                             </div>
                         </motion.div>
-                    ) : (
+                    ) : tab === "chart" ? (
                         /* Chart — absolute fill, hard overflow:hidden, pill nav clearance via padding */
                         <motion.div
                             key="chart"
@@ -655,6 +728,145 @@ export default function StructureView({ org, isDarkMode }: Props) {
                                 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
                             >
                                 <OrganizationChart isDarkMode={isDarkMode} />
+                            </div>
+                        </motion.div>
+                    ) : (
+                        /* Requests */
+                        <motion.div
+                            key="requests"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.3, ease: EXPO }}
+                            className="absolute inset-0 overflow-y-auto"
+                        >
+                            <div className="mx-auto w-full max-w-[900px] px-5 pb-32 pt-2 sm:px-8">
+                                {requestActionError && (
+                                    <p className="mb-3 rounded-xl border border-red-500/20 bg-red-500/[0.07] px-4 py-2.5 text-[12px] text-red-400">
+                                        {requestActionError}
+                                    </p>
+                                )}
+                                <AnimatePresence initial={false}>
+                                    {joinRequests.length ? (
+                                        <div className="flex flex-col gap-2">
+                                            {joinRequests.map((req) => {
+                                                const isApproving = approvingId === req.id;
+                                                const isRejecting = rejectingId === req.id;
+                                                const isBusy = isApproving || isRejecting;
+                                                return (
+                                                    <motion.article
+                                                        key={req.id.toString()}
+                                                        initial={{ opacity: 0, y: 6 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        exit={{
+                                                            opacity: 0,
+                                                            x: -16,
+                                                            transition: { duration: 0.2 },
+                                                        }}
+                                                        transition={{ duration: 0.25 }}
+                                                        className="flex items-start gap-4 rounded-xl
+                                                        border border-white/[0.06] bg-white/[0.03]
+                                                        px-4 py-3.5"
+                                                    >
+                                                        <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.06] text-slate-500">
+                                                            <UserCheck
+                                                                size={14}
+                                                                strokeWidth={1.75}
+                                                            />
+                                                        </div>
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="font-mono text-[12px] font-semibold text-white">
+                                                                {shortenWallet(req.requester)}
+                                                            </p>
+                                                            {req.message ? (
+                                                                <p className="mt-1 text-[12px] leading-relaxed text-slate-500 line-clamp-2">
+                                                                    {req.message}
+                                                                </p>
+                                                            ) : (
+                                                                <p className="mt-1 text-[12px] italic text-slate-600">
+                                                                    No message
+                                                                </p>
+                                                            )}
+                                                            <div className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-600">
+                                                                <Clock
+                                                                    size={10}
+                                                                    strokeWidth={1.75}
+                                                                />
+                                                                <span>
+                                                                    {new Date(
+                                                                        Number(req.submittedAt) *
+                                                                            1000,
+                                                                    ).toLocaleDateString()}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-shrink-0 items-center gap-2">
+                                                            <button
+                                                                type="button"
+                                                                disabled={isBusy}
+                                                                onClick={() =>
+                                                                    void handleApprove(req)
+                                                                }
+                                                                className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-[12px] font-semibold
+                                                                transition-all duration-300 active:scale-[0.97]
+                                                                ${isBusy ? "cursor-not-allowed opacity-50 bg-emerald-500/[0.08] text-emerald-500" : "bg-emerald-500/[0.12] text-emerald-400 hover:bg-emerald-500/[0.18]"}`}
+                                                            >
+                                                                {isApproving ? (
+                                                                    <Loader2
+                                                                        size={12}
+                                                                        className="animate-spin"
+                                                                    />
+                                                                ) : (
+                                                                    <Check
+                                                                        size={12}
+                                                                        strokeWidth={2.5}
+                                                                    />
+                                                                )}
+                                                                {isApproving
+                                                                    ? "Approving…"
+                                                                    : "Approve"}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={isBusy}
+                                                                onClick={() =>
+                                                                    void handleReject(req)
+                                                                }
+                                                                className={`flex h-8 items-center gap-1.5 rounded-lg px-3 text-[12px] font-semibold
+                                                                transition-all duration-300 active:scale-[0.97]
+                                                                ${isBusy ? "cursor-not-allowed opacity-50 bg-rose-500/[0.08] text-rose-500" : "bg-rose-500/[0.1] text-rose-400 hover:bg-rose-500/[0.15]"}`}
+                                                            >
+                                                                {isRejecting ? (
+                                                                    <Loader2
+                                                                        size={12}
+                                                                        className="animate-spin"
+                                                                    />
+                                                                ) : (
+                                                                    <X
+                                                                        size={12}
+                                                                        strokeWidth={2.5}
+                                                                    />
+                                                                )}
+                                                                {isRejecting
+                                                                    ? "Rejecting…"
+                                                                    : "Reject"}
+                                                            </button>
+                                                        </div>
+                                                    </motion.article>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <motion.div
+                                            key="empty"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            className="rounded-xl border border-dashed border-white/[0.07] bg-white/[0.02] px-4 py-10 text-center text-[12px] text-slate-600"
+                                        >
+                                            No pending join requests.
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
                         </motion.div>
                     )}

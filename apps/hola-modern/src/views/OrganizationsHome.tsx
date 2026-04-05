@@ -1,11 +1,13 @@
 import type { Organization } from "@hollab-io/indexing-client";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Coins, ExternalLink, Plus, X } from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, ExternalLink, LogIn, Plus, Users, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import DynamicAuthControl from "../components/DynamicAuthControl";
 import { useOrganizationFactory } from "../hooks/useOrganizationFactory";
+import { getIndexingClient } from "../hooks/useOrganizationsFromIndexer";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
+import JoinOrganizationPanel from "./JoinOrganizationPanel";
 
 const SPRING = "cubic-bezier(0.32,0.72,0,1)";
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -16,33 +18,19 @@ type Props = {
     onSelect: (id: string) => void;
     /** Select a freshly-created org — goes through member onboarding */
     onSelectNew: (id: string) => void;
+    /** Preview an org from Discover (guest mode — shows join banner inside workspace) */
+    onPreview: (id: string) => void;
     pollUntil: (predicate: (orgs: Organization[]) => boolean) => Promise<Organization[]>;
 };
 
-const DISCOVER_ORGS = [
-    {
-        name: "Protocol Guild",
-        purpose:
-            "Funding Ethereum core protocol contributors through a collective ownership model.",
-        members: 174,
-        accent: "from-violet-500 to-indigo-500",
-        glow: "rgba(139,92,246,0.15)",
-    },
-    {
-        name: "Metagov DAO",
-        purpose: "Researching and building governance infrastructure for the open internet.",
-        members: 89,
-        accent: "from-sky-400 to-blue-600",
-        glow: "rgba(56,189,248,0.12)",
-    },
-    {
-        name: "Commons Stack",
-        purpose: "Advancing token engineering and regenerative economic systems for public goods.",
-        members: 212,
-        accent: "from-emerald-400 to-teal-600",
-        glow: "rgba(52,211,153,0.12)",
-    },
-] as const;
+const ACCENT_PALETTE = [
+    "from-[#3481FF] to-[#1a5fd4]",
+    "from-violet-500 to-indigo-500",
+    "from-emerald-400 to-teal-600",
+    "from-sky-400 to-blue-600",
+    "from-rose-400 to-pink-600",
+    "from-amber-400 to-orange-500",
+];
 
 function OrgCard({
     org,
@@ -120,10 +108,25 @@ function OrgCard({
                                     />
                                 </div>
                             </div>
-                            <div className="mt-1 flex items-center gap-2 text-[12px] text-slate-500">
-                                <span>{org.subname}.hollab.eth</span>
-                                <span className="text-white/[0.08]">·</span>
-                                <span>1 member</span>
+                            {org.purpose ? (
+                                <p className="mt-1 text-[12px] leading-relaxed text-slate-500 line-clamp-2">
+                                    {org.purpose}
+                                </p>
+                            ) : (
+                                <p className="mt-1 font-mono text-[11px] text-slate-600">
+                                    {org.subname}.hollab.eth
+                                </p>
+                            )}
+                            <div className="mt-3 flex items-center gap-3">
+                                <span className="flex items-center gap-1 text-[11px] text-slate-700">
+                                    <Users size={10} strokeWidth={1.75} />
+                                    {org.memberCount} member{org.memberCount !== "1" ? "s" : ""}
+                                </span>
+                                {org.circleCount !== "0" && (
+                                    <span className="text-[11px] text-slate-700">
+                                        {org.circleCount} circle{org.circleCount !== "1" ? "s" : ""}
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -137,12 +140,51 @@ export default function OrganizationsHome({
     organizations,
     onSelect,
     onSelectNew,
+    onPreview,
     pollUntil,
 }: Props) {
     const { authenticatedWalletAddress } = useWorkspaceSnapshot();
     const { deployOrganization } = useOrganizationFactory();
 
+    // ── Discover: all orgs the user is not a member/creator of ───────────────
+    const [discoverOrgs, setDiscoverOrgs] = useState<Organization[]>([]);
+
+    useEffect(() => {
+        const client = getIndexingClient();
+        if (!client) return;
+
+        const myOrgIds = new Set(organizations.map((o) => o.id));
+
+        const load = async () => {
+            // Fetch all orgs + user's memberships in parallel
+            const [allOrgs, memberships] = await Promise.all([
+                client.listOrganizations({ limit: 100 }),
+                authenticatedWalletAddress
+                    ? client.listOrgMembersByAddress(authenticatedWalletAddress, { limit: 500 })
+                    : Promise.resolve({ items: [] }),
+            ]);
+
+            memberships.items.forEach((m) => myOrgIds.add(m.orgId));
+
+            setDiscoverOrgs(
+                allOrgs.items.filter(
+                    (o) =>
+                        !myOrgIds.has(o.id) &&
+                        o.creator.toLowerCase() !== authenticatedWalletAddress?.toLowerCase(),
+                ),
+            );
+        };
+
+        load().catch(() => {
+            /* silent */
+        });
+    }, [organizations, authenticatedWalletAddress]);
+
     const [showCreate, setShowCreate] = useState(false);
+    const [showJoin, setShowJoin] = useState(false);
+    const [joinPrefilled, setJoinPrefilled] = useState<
+        { id: bigint; name: string; subname: string; creator: `0x${string}` } | undefined
+    >(undefined);
     const [orgName, setOrgName] = useState("");
     const [purpose, setPurpose] = useState("");
     const [txState, setTxState] = useState<"idle" | "wallet" | "pending" | "error">("idle");
@@ -224,30 +266,24 @@ export default function OrganizationsHome({
                     {/* Left: brand + title */}
                     <div>
                         {/* Eyebrow */}
-                        <div className="mb-4 flex items-center gap-2.5">
+                        <div className="mb-5 flex items-center gap-2.5">
                             <div
-                                className="flex h-9 w-9 items-center justify-center rounded-[0.625rem]
+                                className="flex h-8 w-8 items-center justify-center rounded-[0.5rem]
                                 bg-gradient-to-br from-[#3481FF] to-[#1a5fd4]
-                                shadow-[0_4px_14px_rgba(52,129,255,0.4)]"
+                                shadow-[0_3px_12px_rgba(52,129,255,0.45)]"
                             >
-                                <span className="text-[14px] font-bold text-white">H</span>
+                                <span className="text-[13px] font-black text-white">H</span>
                             </div>
-                            <span
-                                className="rounded-full border border-white/[0.08]
-                                bg-white/[0.04]
-                                px-3 py-1
-                                text-[10px] font-semibold uppercase tracking-[0.2em]
-                                text-slate-500"
-                            >
-                                hollab
+                            <span className="text-[11px] font-semibold tracking-[0.18em] uppercase text-slate-600">
+                                HolLab
                             </span>
                         </div>
 
-                        <h1 className="text-[36px] font-bold leading-[1.1] tracking-[-0.04em] text-white sm:text-[44px]">
+                        <h1 className="text-[38px] font-bold leading-[1.05] tracking-[-0.045em] text-white sm:text-[48px]">
                             Workspaces
                         </h1>
-                        <p className="mt-2 text-[14px] leading-relaxed text-slate-500">
-                            Onchain organizations, governed by your community.
+                        <p className="mt-2.5 text-[13px] leading-relaxed text-slate-600">
+                            Onchain organizations with circles, governance & roles.
                         </p>
                     </div>
 
@@ -269,34 +305,64 @@ export default function OrganizationsHome({
                             Your workspaces
                         </h2>
 
-                        {/* New workspace — Button-in-Button */}
-                        <button
-                            type="button"
-                            onClick={openCreate}
-                            className="group flex items-center gap-0 rounded-full
-                                bg-[#3481FF]
-                                pl-4 pr-[5px] py-[5px]
-                                text-[12px] font-bold text-white
-                                shadow-[0_4px_20px_rgba(52,129,255,0.35)]
-                                transition-all duration-500
-                                hover:shadow-[0_6px_28px_rgba(52,129,255,0.5)]
-                                hover:bg-[#2570f0]
-                                active:scale-[0.97]"
-                            style={{ transitionTimingFunction: SPRING }}
-                        >
-                            New workspace
-                            <div
-                                className="ml-2.5 flex h-6 w-6 items-center justify-center rounded-full
-                                bg-white/[0.2]
-                                transition-all duration-500
-                                group-hover:bg-white/[0.25]
-                                group-hover:translate-x-px group-hover:-translate-y-px
-                                group-hover:scale-105"
+                        <div className="flex items-center gap-2">
+                            {/* Join an existing org */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowJoin((v) => !v);
+                                    setShowCreate(false);
+                                }}
+                                className="group flex items-center gap-2 rounded-full
+                                    border border-white/[0.1]
+                                    bg-white/[0.04]
+                                    pl-4 pr-[5px] py-[5px]
+                                    text-[12px] font-bold text-slate-300
+                                    transition-all duration-500
+                                    hover:border-white/[0.16] hover:text-white
+                                    active:scale-[0.97]"
                                 style={{ transitionTimingFunction: SPRING }}
                             >
-                                <Plus size={12} strokeWidth={2.5} />
-                            </div>
-                        </button>
+                                Join
+                                <div
+                                    className="flex h-6 w-6 items-center justify-center rounded-full
+                                    bg-white/[0.08]
+                                    transition-all duration-300
+                                    group-hover:bg-white/[0.14]"
+                                >
+                                    <LogIn size={11} strokeWidth={2.5} />
+                                </div>
+                            </button>
+
+                            {/* New workspace — Button-in-Button */}
+                            <button
+                                type="button"
+                                onClick={openCreate}
+                                className="group flex items-center gap-0 rounded-full
+                                    bg-[#3481FF]
+                                    pl-4 pr-[5px] py-[5px]
+                                    text-[12px] font-bold text-white
+                                    shadow-[0_4px_20px_rgba(52,129,255,0.35)]
+                                    transition-all duration-500
+                                    hover:shadow-[0_6px_28px_rgba(52,129,255,0.5)]
+                                    hover:bg-[#2570f0]
+                                    active:scale-[0.97]"
+                                style={{ transitionTimingFunction: SPRING }}
+                            >
+                                New workspace
+                                <div
+                                    className="ml-2.5 flex h-6 w-6 items-center justify-center rounded-full
+                                    bg-white/[0.2]
+                                    transition-all duration-500
+                                    group-hover:bg-white/[0.25]
+                                    group-hover:translate-x-px group-hover:-translate-y-px
+                                    group-hover:scale-105"
+                                    style={{ transitionTimingFunction: SPRING }}
+                                >
+                                    <Plus size={12} strokeWidth={2.5} />
+                                </div>
+                            </button>
+                        </div>
                     </div>
 
                     {organizations.length === 0 ? (
@@ -353,99 +419,141 @@ export default function OrganizationsHome({
                     )}
                 </motion.section>
 
-                {/* ── Discover ── */}
-                <motion.section
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.7, delay: 0.2, ease: EXPO }}
-                >
-                    <div className="mb-5 flex items-center gap-2.5">
-                        <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-                            Discover
-                        </h2>
-                        <span
-                            className="rounded-full border border-amber-500/[0.2]
-                            bg-amber-500/[0.06]
-                            px-2.5 py-0.5 text-[10px] font-semibold text-amber-500/80"
+                {/* ── Join panel ── */}
+                <AnimatePresence>
+                    {showJoin && (
+                        <motion.div
+                            key="join-panel"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                            className="mb-10 overflow-hidden"
                         >
-                            Coming soon
-                        </span>
-                    </div>
+                            <JoinOrganizationPanel
+                                onClose={() => {
+                                    setShowJoin(false);
+                                    setJoinPrefilled(undefined);
+                                }}
+                                prefilled={joinPrefilled}
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
-                    <div className="grid gap-3 sm:grid-cols-3">
-                        {DISCOVER_ORGS.map((org, i) => (
-                            <motion.div
-                                key={org.name}
-                                initial={{ opacity: 0, y: 16, filter: "blur(6px)" }}
-                                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                                transition={{ duration: 0.65, delay: 0.26 + i * 0.07, ease: EXPO }}
-                                className="rounded-[1.75rem] border border-white/[0.06] bg-white/[0.02] p-[5px]"
-                            >
-                                <div
-                                    className="flex h-full flex-col rounded-[calc(1.75rem-5px)]
-                                    bg-[#0c0c10]
-                                    shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]
-                                    p-5 gap-4"
-                                >
-                                    {/* Header */}
-                                    <div className="flex items-center gap-3">
-                                        <div
-                                            className={`flex h-10 w-10 flex-shrink-0 items-center
-                                            justify-center rounded-[0.75rem]
-                                            bg-gradient-to-br ${org.accent}
-                                            text-[14px] font-bold text-white
-                                            shadow-[0_4px_12px_var(--glow)]`}
-                                            style={{ "--glow": org.glow } as React.CSSProperties}
-                                        >
-                                            {org.name.charAt(0)}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="truncate text-[13px] font-bold tracking-[-0.01em] text-white">
-                                                {org.name}
-                                            </p>
-                                            <p className="text-[11px] text-slate-600">
-                                                {org.members} members
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <p className="flex-1 text-[11px] leading-relaxed text-slate-500 line-clamp-3">
-                                        {org.purpose}
-                                    </p>
-
-                                    {/* Token-gate pill */}
-                                    <div
-                                        className="flex items-center gap-1.5 rounded-xl
-                                        border border-amber-500/[0.12]
-                                        bg-amber-500/[0.05]
-                                        px-3 py-2"
-                                    >
-                                        <Coins
-                                            size={11}
-                                            strokeWidth={1.75}
-                                            className="flex-shrink-0 text-amber-500/70"
-                                        />
-                                        <span className="text-[10px] font-semibold text-amber-500/70">
-                                            Token-gated access
-                                        </span>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        ))}
-                    </div>
-
-                    <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.6, delay: 0.55, ease: EXPO }}
-                        className="mt-8 text-center text-[11px] leading-relaxed text-slate-700"
+                {/* ── Discover ── */}
+                {discoverOrgs.length > 0 && (
+                    <motion.section
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.7, delay: 0.2, ease: EXPO }}
                     >
-                        Community membership is determined by holding an organization's governance
-                        token.
-                        <br />
-                        Token integration ships in the next release.
-                    </motion.p>
-                </motion.section>
+                        <div className="mb-5 flex items-center justify-between">
+                            <div>
+                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
+                                    Discover
+                                </h2>
+                                <p className="mt-0.5 text-[12px] text-slate-700">
+                                    Open organizations on the network
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="rounded-[1.75rem] border border-white/[0.06] bg-white/[0.02] p-[5px]">
+                            <div className="rounded-[calc(1.75rem-5px)] bg-[#0c0c10] shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] divide-y divide-white/[0.04]">
+                                {discoverOrgs.map((org, i) => {
+                                    const accent = ACCENT_PALETTE[i % ACCENT_PALETTE.length];
+                                    return (
+                                        <motion.div
+                                            key={org.id}
+                                            initial={{ opacity: 0, y: 6 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{
+                                                duration: 0.4,
+                                                delay: 0.08 + i * 0.04,
+                                                ease: EXPO,
+                                            }}
+                                            className="group flex items-center gap-4 px-5 py-4"
+                                        >
+                                            {/* Clickable area — navigates into the org as guest */}
+                                            <button
+                                                type="button"
+                                                onClick={() => onPreview(org.id)}
+                                                className="flex min-w-0 flex-1 items-center gap-4 text-left"
+                                            >
+                                                <div
+                                                    className={`flex h-10 w-10 flex-shrink-0 items-center justify-center
+                                                    rounded-[0.75rem] bg-gradient-to-br ${accent}
+                                                    text-[15px] font-bold text-white shadow-sm`}
+                                                >
+                                                    {org.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-[13px] font-bold tracking-[-0.01em] text-white group-hover:text-[#3481FF] transition-colors duration-200">
+                                                            {org.name}
+                                                        </p>
+                                                    </div>
+                                                    {org.purpose ? (
+                                                        <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500 line-clamp-1">
+                                                            {org.purpose}
+                                                        </p>
+                                                    ) : (
+                                                        <p className="mt-0.5 font-mono text-[11px] text-slate-700">
+                                                            {org.subname}.hollab.eth
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                {/* Member count */}
+                                                <div className="hidden sm:flex flex-shrink-0 items-center gap-1.5 text-[11px] text-slate-600">
+                                                    <Users size={11} strokeWidth={1.75} />
+                                                    <span>{org.memberCount}</span>
+                                                </div>
+                                            </button>
+
+                                            {/* Action buttons */}
+                                            <div className="flex flex-shrink-0 items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onPreview(org.id)}
+                                                    className="flex items-center gap-1.5 rounded-full
+                                                    border border-white/[0.07] bg-white/[0.03]
+                                                    px-3 py-1.5 text-[11px] font-medium text-slate-500
+                                                    transition-all duration-300
+                                                    hover:border-white/[0.14] hover:text-slate-300"
+                                                >
+                                                    <ExternalLink size={10} strokeWidth={2} />
+                                                    Browse
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setJoinPrefilled({
+                                                            id: BigInt(org.id),
+                                                            name: org.name,
+                                                            subname: org.subname,
+                                                            creator: org.creator as `0x${string}`,
+                                                        });
+                                                        setShowJoin(true);
+                                                        setShowCreate(false);
+                                                    }}
+                                                    className="flex items-center gap-1.5 rounded-full
+                                                    bg-[#3481FF]/[0.12] border border-[#3481FF]/20
+                                                    px-3 py-1.5 text-[11px] font-semibold text-[#3481FF]
+                                                    transition-all duration-300
+                                                    hover:bg-[#3481FF]/[0.2] hover:border-[#3481FF]/40"
+                                                >
+                                                    <LogIn size={10} strokeWidth={2.5} />
+                                                    Join
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </motion.section>
+                )}
             </div>
 
             {/* ── Create workspace modal ── */}

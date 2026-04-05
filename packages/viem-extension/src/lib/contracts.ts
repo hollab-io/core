@@ -16,12 +16,31 @@ import {
     govTokenAbi,
     holGovernorAbi,
     holGovernorFactoryAbi,
+    meetingComponentsFactoryAbi,
     organizationFactoryAbi,
     roleRegistryAbi,
     tacticalMeetingAbi,
     treasuryDeployerAbi,
 } from "@hollab-io/contracts/actions";
 import { simulateContract, writeContract } from "viem/actions";
+
+// Re-export ABIs so consumers of viem-extension don't need to depend on
+// @hollab-io/contracts directly.
+export {
+    circleRegistryAbi,
+    circleTreasuryAbi,
+    govComponentDeployerAbi,
+    governanceMeetingAbi,
+    governanceProcessAbi,
+    govTokenAbi,
+    holGovernorAbi,
+    holGovernorFactoryAbi,
+    meetingComponentsFactoryAbi,
+    organizationFactoryAbi,
+    roleRegistryAbi,
+    tacticalMeetingAbi,
+    treasuryDeployerAbi,
+};
 
 type WriteMutability = "nonpayable" | "payable";
 

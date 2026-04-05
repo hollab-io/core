@@ -8,7 +8,7 @@ export const ORGANIZATION_FIELDS = `
     circleRegistry roleRegistry governanceProcess
     anchorCircleId tokenName tokenSymbol tokenTotalSupply
     governorName votingDelay votingPeriod proposalThreshold quorumNumerator
-    circleCount roleCount createdAt updatedAt
+    circleCount roleCount memberCount purpose createdAt updatedAt
 `;
 
 export const CIRCLE_FIELDS = `
@@ -318,6 +318,45 @@ export const LIST_ACTION_VOTES_BY_CIRCLE = `
     query ListActionVotesByCircle($contractAddress: String!, $circleId: String!, $limit: Int, $after: String, $before: String) {
         actionVotes(where: { contractAddress: $contractAddress, circleId: $circleId }, limit: $limit, after: $after, before: $before, orderBy: "createdAt", orderDirection: "desc") {
             items { ${ACTION_VOTE_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+// ─── Org members ─────────────────────────────────────────────────────────────
+
+export const ORG_MEMBER_FIELDS = `
+    id registryAddress orgId memberAddress addedAt txHash
+`;
+
+export const LIST_ORG_MEMBERS = `
+    query ListOrgMembers($registryAddress: String!, $limit: Int, $after: String, $before: String) {
+        orgMembers(where: { registryAddress: $registryAddress }, limit: $limit, after: $after, before: $before, orderBy: "addedAt", orderDirection: "asc") {
+            items { ${ORG_MEMBER_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+export const LIST_ORG_MEMBERS_BY_ADDRESS = `
+    query ListOrgMembersByAddress($memberAddress: String!, $limit: Int, $after: String, $before: String) {
+        orgMembers(where: { memberAddress: $memberAddress }, limit: $limit, after: $after, before: $before) {
+            items { ${ORG_MEMBER_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+// ─── Join requests ────────────────────────────────────────────────────────────
+
+export const JOIN_REQUEST_FIELDS = `
+    id requestId contractAddress requester orgId message status submittedAt resolvedAt txHash
+`;
+
+export const LIST_PENDING_JOIN_REQUESTS_BY_ORG = `
+    query ListPendingJoinRequestsByOrg($orgId: BigInt!, $limit: Int, $after: String, $before: String) {
+        joinRequests(where: { orgId: $orgId, status: 0 }, limit: $limit, after: $after, before: $before, orderBy: "submittedAt", orderDirection: "asc") {
+            items { ${JOIN_REQUEST_FIELDS} }
             ${PAGE_INFO}
         }
     }

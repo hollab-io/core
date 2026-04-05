@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { BookOpen, CheckSquare, Network, Scale, Users } from "lucide-react";
+import { BookOpen, CheckSquare, LogIn, Network, Scale, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { AppTabId } from "./config/navigation";
@@ -12,6 +12,7 @@ import ActionItemsView from "./views/ActionItemsView";
 import ConstitutionView from "./views/ConstitutionView";
 import GovernanceMeetingRoom from "./views/GovernanceMeetingRoom";
 import GovernanceView from "./views/GovernanceView";
+import JoinOrganizationPanel from "./views/JoinOrganizationPanel";
 import MemberOnboarding from "./views/MemberOnboarding";
 import OrganizationsHome from "./views/OrganizationsHome";
 import StructureView from "./views/StructureView";
@@ -49,14 +50,28 @@ function App() {
     const [activeTab, setActiveTab] = useState<AppTabId>("tactical");
     // Org IDs that have completed (or skipped) member onboarding this session
     const [onboardedOrgIds, setOnboardedOrgIds] = useState<Set<string>>(() => new Set());
+    // Org IDs selected from Discover (user is not yet a member)
+    const [guestOrgIds, setGuestOrgIds] = useState<Set<string>>(() => new Set());
+
+    // Skip invite onboarding if the org already has more than 1 member (creator + others)
     const isOnboarding = Boolean(
-        activeOrganizationId && !onboardedOrgIds.has(activeOrganizationId),
+        activeOrganizationId &&
+            !onboardedOrgIds.has(activeOrganizationId) &&
+            !guestOrgIds.has(activeOrganizationId) &&
+            (activeOrg ? Number(activeOrg.memberCount) <= 1 : true),
     );
     const completeOnboarding = () => {
         if (activeOrganizationId) {
             setOnboardedOrgIds((prev) => new Set([...prev, activeOrganizationId]));
         }
     };
+    // Navigate to an org from Discover — bypasses onboarding, shows join banner
+    const handlePreview = (id: string) => {
+        setActiveOrganizationId(id);
+        setGuestOrgIds((prev) => new Set([...prev, id]));
+    };
+    const isGuest = Boolean(activeOrganizationId && guestOrgIds.has(activeOrganizationId));
+    const [showGuestJoin, setShowGuestJoin] = useState(false);
     const isDarkMode = true;
 
     useEffect(() => {
@@ -76,6 +91,7 @@ function App() {
                         organizations={organizations}
                         onSelect={setActiveOrganizationId}
                         onSelectNew={setActiveOrganizationId}
+                        onPreview={handlePreview}
                         pollUntil={pollUntil}
                     />
                 </main>
@@ -176,6 +192,60 @@ function App() {
                 {/* Right: auth */}
                 <DynamicAuthControl />
             </header>
+
+            {/* ── Guest join banner ── */}
+            <AnimatePresence>
+                {isGuest && !showGuestJoin && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                        className="relative z-10 flex items-center justify-between gap-4
+                            border-b border-[#3481FF]/15 bg-[#3481FF]/[0.06]
+                            px-5 py-2.5"
+                    >
+                        <p className="text-[12px] text-slate-400">You're browsing as a guest.</p>
+                        <button
+                            type="button"
+                            onClick={() => setShowGuestJoin(true)}
+                            className="flex items-center gap-1.5 rounded-full
+                                border border-[#3481FF]/30 bg-[#3481FF]/[0.12]
+                                px-3.5 py-1.5 text-[11px] font-semibold text-[#3481FF]
+                                transition-all duration-300
+                                hover:bg-[#3481FF]/[0.2] hover:border-[#3481FF]/50"
+                        >
+                            <LogIn size={11} strokeWidth={2} />
+                            Request to join
+                        </button>
+                    </motion.div>
+                )}
+                {isGuest && showGuestJoin && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                        className="relative z-10 overflow-hidden border-b border-white/[0.06]"
+                    >
+                        <div className="px-4 py-4">
+                            <JoinOrganizationPanel
+                                onClose={() => setShowGuestJoin(false)}
+                                prefilled={
+                                    activeOrg
+                                        ? {
+                                              id: BigInt(activeOrg.id),
+                                              name: activeOrg.name,
+                                              subname: activeOrg.subname,
+                                              creator: activeOrg.creator as `0x${string}`,
+                                          }
+                                        : undefined
+                                }
+                            />
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* ── Content ── */}
             <main className="custom-scrollbar relative z-10 min-w-0 flex-1 overflow-auto">
