@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowRight, Clock3, Loader2, Scale } from "lucide-react";
+import { ArrowRight, Clock3, Loader2, Scale, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 
 import { useGovernanceMeeting } from "../hooks/useGovernanceMeeting";
