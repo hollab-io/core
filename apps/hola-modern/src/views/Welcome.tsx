@@ -112,7 +112,7 @@ export default function WelcomeScreen() {
                     transition={{ duration: 0.9, delay: 0.14, ease: EXPO }}
                     className="mt-6 text-balance text-[50px] font-bold leading-[1.08] tracking-[-0.04em] text-white sm:text-[58px]"
                 >
-                    Hollab
+                    hollab.eth
                 </motion.h1>
 
                 {/* Subtitle */}

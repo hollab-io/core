@@ -22,20 +22,16 @@ export default function ConstitutionView() {
     return (
         <div className="min-h-[calc(100dvh-60px)] pb-36 pt-10">
             <div className="mx-auto max-w-[740px] px-5 sm:px-8">
-
                 {/* ── Hero ── */}
                 <motion.div {...fade(0)} className="mb-16">
-                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.26em] text-slate-600">
-                        Holacracy Constitution · v5.0
-                    </p>
                     <h1 className="text-[2.6rem] font-bold leading-[1.05] tracking-[-0.035em] text-white">
                         DAO-aligned overview
                     </h1>
                     <div className="mt-6 border-l border-white/[0.08] pl-5">
                         <p className="text-[15px] leading-[1.7] text-slate-400">
                             A rule-based operating system for organizations — authority distributed,
-                            roles explicit, governance defined. No managers, no politics,
-                            no unwritten norms.
+                            roles explicit, governance defined. No managers, no politics, no
+                            unwritten norms.
                         </p>
                     </div>
                 </motion.div>
@@ -45,12 +41,16 @@ export default function ConstitutionView() {
                     <Cap n="01">What it is</Cap>
                     <p className="text-[17px] font-semibold leading-[1.5] tracking-[-0.02em] text-slate-200">
                         The Holacracy Constitution defines how authority is distributed, how roles
-                        are structured, how decisions are made, and how governance changes over time.
+                        are structured, how decisions are made, and how governance changes over
+                        time.
                     </p>
                     <blockquote className="mt-6 border-l-2 border-[#3481FF]/40 pl-5">
                         <p className="text-[15px] italic leading-snug text-slate-400">
                             "Instead of managers and unwritten norms —{" "}
-                            <span className="font-semibold not-italic text-slate-200">explicit rules.</span>"
+                            <span className="font-semibold not-italic text-slate-200">
+                                explicit rules.
+                            </span>
+                            "
                         </p>
                     </blockquote>
                 </motion.section>
@@ -76,7 +76,10 @@ export default function ConstitutionView() {
                                 "Unstructured meetings",
                                 "Hidden expectations",
                             ].map((item) => (
-                                <p key={item} className="text-[13px] text-slate-600 line-through decoration-slate-700/60">
+                                <p
+                                    key={item}
+                                    className="text-[13px] text-slate-600 line-through decoration-slate-700/60"
+                                >
                                     {item}
                                 </p>
                             ))}
@@ -110,12 +113,18 @@ export default function ConstitutionView() {
                         Not flat structure — explicit power design
                     </h2>
                     <p className="mb-7 text-[14px] leading-[1.7] text-slate-400">
-                        Holacracy turns an organization from a hierarchy of people into a system
-                        of interconnected building blocks.
+                        Holacracy turns an organization from a hierarchy of people into a system of
+                        interconnected building blocks.
                     </p>
 
                     <div className="space-y-1">
-                        {["Roles", "Circles", "Policies", "Governance processes", "Operational routines"].map((term, i) => (
+                        {[
+                            "Roles",
+                            "Circles",
+                            "Policies",
+                            "Governance processes",
+                            "Operational routines",
+                        ].map((term, i) => (
                             <div
                                 key={term}
                                 className="flex items-center gap-4 border-b border-white/[0.04] py-2.5"
@@ -131,7 +140,10 @@ export default function ConstitutionView() {
                     <div className="mt-6 rounded-2xl border border-[#3481FF]/15 bg-[#3481FF]/[0.07] px-4 py-3.5">
                         <p className="text-[13px] text-slate-300">
                             Its core innovation is not "flat structure". It is{" "}
-                            <span className="font-semibold text-[#7aabff]">explicit power design</span>.
+                            <span className="font-semibold text-[#7aabff]">
+                                explicit power design
+                            </span>
+                            .
                         </p>
                     </div>
                 </motion.section>
@@ -146,7 +158,8 @@ export default function ConstitutionView() {
                     </h2>
                     <p className="mb-7 text-[14px] leading-[1.7] text-slate-400">
                         DAOs already aim to distribute power, coordinate contributors, and reduce
-                        dependence on centralized operators. Holacracy gives that ambition more structure.
+                        dependence on centralized operators. Holacracy gives that ambition more
+                        structure.
                     </p>
 
                     <div className="overflow-hidden rounded-2xl border border-white/[0.06]">
@@ -154,8 +167,14 @@ export default function ConstitutionView() {
                             ["Roles", "contributors, stewards, working group operators"],
                             ["Circles", "pods, guilds, subDAOs, working groups"],
                             ["Policies", "governance rules, mandates, treasury constraints"],
-                            ["Governance meetings", "proposal formation and internal decision processes"],
-                            ["Distributed authority", "execution rights without routing through token votes"],
+                            [
+                                "Governance meetings",
+                                "proposal formation and internal decision processes",
+                            ],
+                            [
+                                "Distributed authority",
+                                "execution rights without routing through token votes",
+                            ],
                         ].map(([left, right], i, arr) => (
                             <div
                                 key={left}
@@ -244,8 +263,8 @@ export default function ConstitutionView() {
                     </p>
                     <p className="mt-5 text-[14px] leading-[1.75] text-slate-400">
                         It does not replace onchain governance. It makes DAO management more
-                        structured, transparent, modular, and scalable — a coordination layer
-                        that sits beneath the token vote.
+                        structured, transparent, modular, and scalable — a coordination layer that
+                        sits beneath the token vote.
                     </p>
 
                     <div className="mt-8 flex flex-wrap gap-x-8 gap-y-2">
@@ -254,12 +273,13 @@ export default function ConstitutionView() {
                                 <span className="font-mono text-[10px] text-slate-700">
                                     {String(i + 1).padStart(2, "0")}
                                 </span>
-                                <span className="text-[13px] font-medium text-slate-400">{tag}</span>
+                                <span className="text-[13px] font-medium text-slate-400">
+                                    {tag}
+                                </span>
                             </div>
                         ))}
                     </div>
                 </motion.section>
-
             </div>
         </div>
     );
