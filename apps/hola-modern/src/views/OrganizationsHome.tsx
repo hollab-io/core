@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, ExternalLink, LogIn, Plus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import logoSvg from "../assets/logo.svg";
 import DynamicAuthControl from "../components/DynamicAuthControl";
 import { useOrganizationFactory } from "../hooks/useOrganizationFactory";
 import { getIndexingClient } from "../hooks/useOrganizationsFromIndexer";
@@ -272,7 +273,7 @@ export default function OrganizationsHome({
                                 bg-gradient-to-br from-[#3481FF] to-[#1a5fd4]
                                 shadow-[0_3px_12px_rgba(52,129,255,0.45)]"
                             >
-                                <span className="text-[13px] font-black text-white">H</span>
+                                <img src={logoSvg} alt="Hollab" className="h-[22px] w-[22px]" />
                             </div>
                             <span className="text-[11px] font-semibold tracking-[0.18em] uppercase text-slate-600">
                                 HolLab
