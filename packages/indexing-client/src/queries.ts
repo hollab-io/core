@@ -158,6 +158,15 @@ export const LIST_ROLES_BY_CIRCLE = `
     }
 `;
 
+export const LIST_ROLES_BY_ORG = `
+    query ListRolesByOrg($orgId: String!, $limit: Int, $after: String, $before: String) {
+        roles(where: { orgId: $orgId }, limit: $limit, after: $after, before: $before) {
+            items { ${ROLE_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
 export const LIST_POLICIES_BY_CIRCLE = `
     query ListPoliciesByCircle($registryAddress: String!, $circleId: String!, $limit: Int, $after: String, $before: String) {
         policies(where: { registryAddress: $registryAddress, circleId: $circleId }, limit: $limit, after: $after, before: $before) {

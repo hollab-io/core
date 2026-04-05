@@ -158,6 +158,7 @@ function App() {
                         governanceMeetingAddress={governanceMeetingAddress}
                         indexedGovernanceMeetings={indexedGovernanceMeetings}
                         pollForNewGovernanceMeeting={pollForNewGovernanceMeeting}
+                        refetchMeetingComponents={refetchMeetings}
                     />
                 );
             case "actions":

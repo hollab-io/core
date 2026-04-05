@@ -8,6 +8,7 @@
  */
 import type { Abi, Address } from "viem";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useCallback } from "react";
 import { isAddress } from "viem";
 
 import { getIndexingClient } from "./useOrganizationsFromIndexer";
@@ -232,7 +233,7 @@ export function useJoinRequest() {
 
     // ── Read (via indexer) ────────────────────────────────────────────────────
 
-    const getPendingRequests = async (orgId: bigint): Promise<JoinRequestEntry[]> => {
+    const getPendingRequests = useCallback(async (orgId: bigint): Promise<JoinRequestEntry[]> => {
         const client = getIndexingClient();
         if (!client) return [];
         const result = await client.listPendingJoinRequestsByOrg(orgId.toString(), { limit: 100 });
@@ -245,17 +246,22 @@ export function useJoinRequest() {
             submittedAt: BigInt(r.submittedAt),
             resolvedAt: BigInt(r.resolvedAt ?? 0),
         }));
-    };
+    }, []);
 
-    const hasPendingRequest = async (orgId: bigint): Promise<boolean> => {
-        if (!primaryWallet?.address) return false;
-        const client = getIndexingClient();
-        if (!client) return false;
-        const result = await client.listPendingJoinRequestsByOrg(orgId.toString(), { limit: 1 });
-        return result.items.some(
-            (r) => r.requester.toLowerCase() === primaryWallet.address?.toLowerCase(),
-        );
-    };
+    const hasPendingRequest = useCallback(
+        async (orgId: bigint): Promise<boolean> => {
+            if (!primaryWallet?.address) return false;
+            const client = getIndexingClient();
+            if (!client) return false;
+            const result = await client.listPendingJoinRequestsByOrg(orgId.toString(), {
+                limit: 1,
+            });
+            return result.items.some(
+                (r) => r.requester.toLowerCase() === primaryWallet.address?.toLowerCase(),
+            );
+        },
+        [primaryWallet?.address],
+    );
 
     return {
         requestToJoin,

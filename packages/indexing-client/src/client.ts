@@ -55,6 +55,7 @@ import {
     LIST_POLICIES_BY_CIRCLE,
     LIST_PROPOSALS_BY_CIRCLE,
     LIST_ROLES_BY_CIRCLE,
+    LIST_ROLES_BY_ORG,
     LIST_TACTICAL_MEETINGS_BY_CIRCLE,
     LIST_TACTICAL_MEETINGS_BY_CONTRACT,
     LIST_TENSIONS_BY_ORG,
@@ -126,6 +127,17 @@ export function createIndexingClient(url: string) {
             const data = await gql.request<{ roles: PaginatedResult<Role> }>(LIST_ROLES_BY_CIRCLE, {
                 registryAddress,
                 circleId,
+                ...opts,
+            });
+            return data.roles;
+        },
+
+        async listRolesByOrg(
+            orgId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<Role>> {
+            const data = await gql.request<{ roles: PaginatedResult<Role> }>(LIST_ROLES_BY_ORG, {
+                orgId,
                 ...opts,
             });
             return data.roles;

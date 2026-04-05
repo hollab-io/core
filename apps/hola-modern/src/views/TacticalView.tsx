@@ -177,6 +177,16 @@ export default function TacticalView({
                                         setIsDeploying(true);
                                         setConveneError(null);
                                         try {
+                                            // Re-check the indexer first — the contract may
+                                            // already be deployed but the cache is stale.
+                                            await refetchMeetings();
+                                        } catch {
+                                            // indexer unavailable — fall through to deploy
+                                        }
+                                        // After refetch the parent will re-render with the
+                                        // updated tacticalMeetingAddress if it exists.
+                                        // We must re-check the prop via a fresh indexer call.
+                                        try {
                                             await deployMeetingComponents({
                                                 orgId: BigInt(activeOrg.id),
                                                 circleRegistry:
@@ -189,16 +199,25 @@ export default function TacticalView({
                                                 walletAddress:
                                                     authenticatedWalletAddress as `0x${string}`,
                                             });
-                                            await refetchMeetings();
                                         } catch (err) {
-                                            setConveneError(
-                                                err instanceof Error
-                                                    ? err.message
-                                                    : "Failed to deploy huddle contracts",
-                                            );
-                                        } finally {
-                                            setIsDeploying(false);
+                                            // If the factory reverts because already deployed,
+                                            // that's fine — just refetch.
+                                            const msg =
+                                                err instanceof Error ? err.message : String(err);
+                                            if (
+                                                !msg.includes("already") &&
+                                                !msg.includes("revert")
+                                            ) {
+                                                setConveneError(msg);
+                                            }
                                         }
+                                        // Poll until the indexer picks up the components
+                                        try {
+                                            await refetchMeetings();
+                                        } catch {
+                                            // best effort
+                                        }
+                                        setIsDeploying(false);
                                         return;
                                     }
 
