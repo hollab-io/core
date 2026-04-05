@@ -22,7 +22,7 @@ import {
     Vote,
     X,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { encodeFunctionData } from "viem";
 
 import type { GovernanceMeeting } from "../hooks/useGovernanceMeetingsFromIndexer";
@@ -1490,9 +1490,9 @@ export default function GovernanceMeetingRoom({
     }, []);
 
     // Reset phase when meeting changes
-    const [prevMeetingId, setPrevMeetingId] = useState<string | null>(null);
-    if (activeGovernanceMeeting && activeGovernanceMeeting.id !== prevMeetingId) {
-        setPrevMeetingId(activeGovernanceMeeting.id);
+    const meetingId = activeGovernanceMeeting?.id ?? null;
+    useEffect(() => {
+        if (!meetingId || !activeGovernanceMeeting) return;
         const phaseMap: Record<string, number> = {
             "check-in": 0,
             "agenda-processing": 1,
@@ -1503,7 +1503,7 @@ export default function GovernanceMeetingRoom({
         setSelectedAgendaItemId(null);
         setShowWizard(false);
         setPendingActions([]);
-    }
+    }, [meetingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const activePhase = GOVERNANCE_PHASES[activePhaseIndex];
     const isFirstPhase = activePhaseIndex === 0;
