@@ -107,7 +107,7 @@ function App() {
                     />
                 );
             case "governance":
-                return <GovernanceView />;
+                return <GovernanceView governanceMeetingAddress={governanceMeetingAddress} />;
             case "actions":
                 return <ActionItemsView outputs={indexedOutputs} meetings={indexedMeetings} />;
             case "structure":

@@ -65,7 +65,8 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
     const recentMeetings = gMeetings.slice(0, 3);
 
     const handleStartMeeting = async (meetingId: string, circleId: string) => {
-        if (!governanceMeetingAddress || !authenticatedWalletAddress) {
+        // If no contract address, no wallet, or non-numeric circleId (mock data), open locally
+        if (!governanceMeetingAddress || !authenticatedWalletAddress || !/^\d+$/.test(circleId)) {
             openGovernanceMeeting(meetingId);
             return;
         }
