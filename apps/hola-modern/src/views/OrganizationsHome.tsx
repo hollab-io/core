@@ -18,6 +18,8 @@ type Props = {
     onSelect: (id: string) => void;
     /** Select a freshly-created org — goes through member onboarding */
     onSelectNew: (id: string) => void;
+    /** Preview an org from Discover (guest mode — shows join banner inside workspace) */
+    onPreview: (id: string) => void;
     pollUntil: (predicate: (orgs: Organization[]) => boolean) => Promise<Organization[]>;
 };
 
@@ -106,9 +108,26 @@ function OrgCard({
                                     />
                                 </div>
                             </div>
-                            <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
-                                {org.subname}.hollab.eth
-                            </p>
+                            {org.purpose ? (
+                                <p className="mt-1 text-[12px] leading-relaxed text-slate-500 line-clamp-2">
+                                    {org.purpose}
+                                </p>
+                            ) : (
+                                <p className="mt-1 font-mono text-[11px] text-slate-600">
+                                    {org.subname}.hollab.eth
+                                </p>
+                            )}
+                            <div className="mt-3 flex items-center gap-3">
+                                <span className="flex items-center gap-1 text-[11px] text-slate-700">
+                                    <Users size={10} strokeWidth={1.75} />
+                                    {org.memberCount} member{org.memberCount !== "1" ? "s" : ""}
+                                </span>
+                                {org.circleCount !== "0" && (
+                                    <span className="text-[11px] text-slate-700">
+                                        {org.circleCount} circle{org.circleCount !== "1" ? "s" : ""}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -121,6 +140,7 @@ export default function OrganizationsHome({
     organizations,
     onSelect,
     onSelectNew,
+    onPreview,
     pollUntil,
 }: Props) {
     const { authenticatedWalletAddress } = useWorkspaceSnapshot();
@@ -246,30 +266,24 @@ export default function OrganizationsHome({
                     {/* Left: brand + title */}
                     <div>
                         {/* Eyebrow */}
-                        <div className="mb-4 flex items-center gap-2.5">
+                        <div className="mb-5 flex items-center gap-2.5">
                             <div
-                                className="flex h-9 w-9 items-center justify-center rounded-[0.625rem]
+                                className="flex h-8 w-8 items-center justify-center rounded-[0.5rem]
                                 bg-gradient-to-br from-[#3481FF] to-[#1a5fd4]
-                                shadow-[0_4px_14px_rgba(52,129,255,0.4)]"
+                                shadow-[0_3px_12px_rgba(52,129,255,0.45)]"
                             >
-                                <span className="text-[14px] font-bold text-white">H</span>
+                                <span className="text-[13px] font-black text-white">H</span>
                             </div>
-                            <span
-                                className="rounded-full border border-white/[0.08]
-                                bg-white/[0.04]
-                                px-3 py-1
-                                text-[10px] font-semibold uppercase tracking-[0.2em]
-                                text-slate-500"
-                            >
-                                hollab
+                            <span className="text-[11px] font-semibold tracking-[0.18em] uppercase text-slate-600">
+                                HolLab
                             </span>
                         </div>
 
-                        <h1 className="text-[36px] font-bold leading-[1.1] tracking-[-0.04em] text-white sm:text-[44px]">
+                        <h1 className="text-[38px] font-bold leading-[1.05] tracking-[-0.045em] text-white sm:text-[48px]">
                             Workspaces
                         </h1>
-                        <p className="mt-2 text-[14px] leading-relaxed text-slate-500">
-                            Onchain organizations, governed by your community.
+                        <p className="mt-2.5 text-[13px] leading-relaxed text-slate-600">
+                            Onchain organizations with circles, governance & roles.
                         </p>
                     </div>
 
@@ -435,98 +449,104 @@ export default function OrganizationsHome({
                         transition={{ duration: 0.7, delay: 0.2, ease: EXPO }}
                     >
                         <div className="mb-5 flex items-center justify-between">
-                            <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-                                Discover
-                            </h2>
-                            <span
-                                className="rounded-full border border-white/[0.07]
-                                bg-white/[0.03]
-                                px-2.5 py-0.5 text-[10px] font-medium text-slate-600"
-                            >
-                                {discoverOrgs.length} org{discoverOrgs.length !== 1 ? "s" : ""}
-                            </span>
+                            <div>
+                                <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
+                                    Discover
+                                </h2>
+                                <p className="mt-0.5 text-[12px] text-slate-700">
+                                    Open organizations on the network
+                                </p>
+                            </div>
                         </div>
 
-                        <div
-                            className="rounded-[1.75rem] border border-white/[0.06]
-                            bg-white/[0.02] p-[5px]"
-                        >
-                            <div
-                                className="rounded-[calc(1.75rem-5px)] bg-[#0c0c10]
-                                shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]
-                                divide-y divide-white/[0.05]"
-                            >
+                        <div className="rounded-[1.75rem] border border-white/[0.06] bg-white/[0.02] p-[5px]">
+                            <div className="rounded-[calc(1.75rem-5px)] bg-[#0c0c10] shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] divide-y divide-white/[0.04]">
                                 {discoverOrgs.map((org, i) => {
                                     const accent = ACCENT_PALETTE[i % ACCENT_PALETTE.length];
                                     return (
                                         <motion.div
                                             key={org.id}
-                                            initial={{ opacity: 0, x: -8 }}
-                                            animate={{ opacity: 1, x: 0 }}
+                                            initial={{ opacity: 0, y: 6 }}
+                                            animate={{ opacity: 1, y: 0 }}
                                             transition={{
                                                 duration: 0.4,
-                                                delay: 0.1 + i * 0.05,
+                                                delay: 0.08 + i * 0.04,
                                                 ease: EXPO,
                                             }}
-                                            className="flex items-center gap-4 px-5 py-4"
+                                            className="group flex items-center gap-4 px-5 py-4"
                                         >
-                                            {/* Avatar */}
-                                            <div
-                                                className={`flex h-10 w-10 flex-shrink-0 items-center
-                                                justify-center rounded-[0.75rem]
-                                                bg-gradient-to-br ${accent}
-                                                text-[14px] font-bold text-white`}
-                                            >
-                                                {org.name.charAt(0).toUpperCase()}
-                                            </div>
-
-                                            {/* Info */}
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-[13px] font-bold tracking-[-0.01em] text-white">
-                                                    {org.name}
-                                                </p>
-                                                {org.purpose ? (
-                                                    <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500 line-clamp-1">
-                                                        {org.purpose}
-                                                    </p>
-                                                ) : (
-                                                    <p className="mt-0.5 font-mono text-[11px] text-slate-700">
-                                                        {org.subname}.hollab.eth
-                                                    </p>
-                                                )}
-                                            </div>
-
-                                            {/* Members */}
-                                            <div className="hidden sm:flex flex-shrink-0 items-center gap-1.5 text-[11px] text-slate-600 w-20">
-                                                <Users size={11} strokeWidth={1.75} />
-                                                <span>
-                                                    {org.memberCount} member
-                                                    {org.memberCount !== "1" ? "s" : ""}
-                                                </span>
-                                            </div>
-
-                                            {/* CTA */}
+                                            {/* Clickable area — navigates into the org as guest */}
                                             <button
                                                 type="button"
-                                                onClick={() => {
-                                                    setJoinPrefilled({
-                                                        id: BigInt(org.id),
-                                                        name: org.name,
-                                                        subname: org.subname,
-                                                        creator: org.creator as `0x${string}`,
-                                                    });
-                                                    setShowJoin(true);
-                                                    setShowCreate(false);
-                                                }}
-                                                className="flex-shrink-0 rounded-full border border-white/[0.08]
-                                                bg-white/[0.04] px-3 py-1.5
-                                                text-[11px] font-semibold text-slate-400
-                                                transition-all duration-300
-                                                hover:border-[#3481FF]/30 hover:text-[#3481FF]
-                                                hover:bg-[#3481FF]/[0.06]"
+                                                onClick={() => onPreview(org.id)}
+                                                className="flex min-w-0 flex-1 items-center gap-4 text-left"
                                             >
-                                                Join
+                                                <div
+                                                    className={`flex h-10 w-10 flex-shrink-0 items-center justify-center
+                                                    rounded-[0.75rem] bg-gradient-to-br ${accent}
+                                                    text-[15px] font-bold text-white shadow-sm`}
+                                                >
+                                                    {org.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-[13px] font-bold tracking-[-0.01em] text-white group-hover:text-[#3481FF] transition-colors duration-200">
+                                                            {org.name}
+                                                        </p>
+                                                    </div>
+                                                    {org.purpose ? (
+                                                        <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500 line-clamp-1">
+                                                            {org.purpose}
+                                                        </p>
+                                                    ) : (
+                                                        <p className="mt-0.5 font-mono text-[11px] text-slate-700">
+                                                            {org.subname}.hollab.eth
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                {/* Member count */}
+                                                <div className="hidden sm:flex flex-shrink-0 items-center gap-1.5 text-[11px] text-slate-600">
+                                                    <Users size={11} strokeWidth={1.75} />
+                                                    <span>{org.memberCount}</span>
+                                                </div>
                                             </button>
+
+                                            {/* Action buttons */}
+                                            <div className="flex flex-shrink-0 items-center gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onPreview(org.id)}
+                                                    className="flex items-center gap-1.5 rounded-full
+                                                    border border-white/[0.07] bg-white/[0.03]
+                                                    px-3 py-1.5 text-[11px] font-medium text-slate-500
+                                                    transition-all duration-300
+                                                    hover:border-white/[0.14] hover:text-slate-300"
+                                                >
+                                                    <ExternalLink size={10} strokeWidth={2} />
+                                                    Browse
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setJoinPrefilled({
+                                                            id: BigInt(org.id),
+                                                            name: org.name,
+                                                            subname: org.subname,
+                                                            creator: org.creator as `0x${string}`,
+                                                        });
+                                                        setShowJoin(true);
+                                                        setShowCreate(false);
+                                                    }}
+                                                    className="flex items-center gap-1.5 rounded-full
+                                                    bg-[#3481FF]/[0.12] border border-[#3481FF]/20
+                                                    px-3 py-1.5 text-[11px] font-semibold text-[#3481FF]
+                                                    transition-all duration-300
+                                                    hover:bg-[#3481FF]/[0.2] hover:border-[#3481FF]/40"
+                                                >
+                                                    <LogIn size={10} strokeWidth={2.5} />
+                                                    Join
+                                                </button>
+                                            </div>
                                         </motion.div>
                                     );
                                 })}
