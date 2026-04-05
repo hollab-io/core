@@ -17,7 +17,7 @@ import { TacticalMeetingAbi } from "./abis/TacticalMeetingAbi";
 import { TensionBoardAbi } from "./abis/TensionBoardAbi";
 
 const addr = (key: string) =>
-    (process.env[key] ?? "0x0000000000000000000000000000000000000001") as `0x${string}`;
+    (process.env[key] || "0x0000000000000000000000000000000000000001") as `0x${string}`;
 
 const orgFactoryAddr = addr("ORGANIZATION_FACTORY_ADDRESS");
 const govFactoryAddr = addr("HOL_GOVERNOR_FACTORY_ADDRESS");
@@ -163,7 +163,7 @@ export default createConfig({
 
         // ── TensionBoard: single deployment, anyone can submit tensions ──────────
         TensionBoard: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: TensionBoardAbi,
             address: tensionBoardAddr,
             startBlock,

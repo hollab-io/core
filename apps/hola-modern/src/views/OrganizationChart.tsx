@@ -4,8 +4,6 @@ import { useMemo, useState } from "react";
 
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
-const SPRING = { type: "spring", stiffness: 160, damping: 22, mass: 0.6 } as const;
-
 function polarXY(cx: number, cy: number, r: number, i: number, total: number) {
     const angle = -Math.PI / 2 + (i * Math.PI * 2) / Math.max(total, 1);
     return { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };

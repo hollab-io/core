@@ -88,7 +88,6 @@ export default function TacticalMeetingRoom({
     fetchOutputs,
     refetchMeetings,
     tacticalMeetingAddress,
-    onNavigateToTab,
 }: {
     indexedMeetings: TacticalMeeting[];
     allOutputs: MeetingOutput[];

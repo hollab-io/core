@@ -1463,7 +1463,6 @@ export default function GovernanceMeetingRoom({
         closeGovernanceMeeting,
         createGovernanceProposal,
         partnerMap,
-        roleMap,
         setGovernanceMeetingPhase,
         snapshot,
     } = useWorkspaceSnapshot();
@@ -1556,10 +1555,9 @@ export default function GovernanceMeetingRoom({
         try {
             const walletAddr = authenticatedWalletAddress as `0x${string}`;
             // Use the real on-chain meetingId for contract calls, not the offset local ID
-            const onChainId = activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id;
-            const meetingIdBigInt = /^\d+$/.test(onChainId)
-                ? BigInt(onChainId)
-                : BigInt(0);
+            const onChainId =
+                activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id;
+            const meetingIdBigInt = /^\d+$/.test(onChainId) ? BigInt(onChainId) : BigInt(0);
 
             // Build calls array: governance actions + completeMeeting
             const calls: { to: `0x${string}`; data: `0x${string}` }[] = [];
@@ -1780,7 +1778,9 @@ export default function GovernanceMeetingRoom({
             try {
                 await linkProposal({
                     governanceMeetingAddress,
-                    meetingId: BigInt(activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id),
+                    meetingId: BigInt(
+                        activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id,
+                    ),
                     proposalId: BigInt(proposalId),
                     walletAddress: authenticatedWalletAddress as `0x${string}`,
                 });

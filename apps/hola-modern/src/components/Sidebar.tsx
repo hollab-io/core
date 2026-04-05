@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 
 import type { AppTabId } from "../config/navigation";
+import logoSvg from "../assets/logo.svg";
 import { NAV_ITEMS } from "../config/navigation";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
@@ -42,7 +43,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                         style={{ transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)" }}
                         aria-label="Workspace home"
                     >
-                        <span className="text-[17px] font-bold text-white">H</span>
+                        <img src={logoSvg} alt="Hollab" className="h-[26px] w-[26px]" />
                     </button>
                     {organization && (
                         <button
@@ -65,7 +66,10 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                 <div className="mb-3 h-px w-8 rounded-full bg-slate-200 dark:bg-white/[0.08]" />
 
                 {/* Nav items */}
-                <nav className="flex w-full flex-1 flex-col items-center gap-0.5" aria-label="Main sections">
+                <nav
+                    className="flex w-full flex-1 flex-col items-center gap-0.5"
+                    aria-label="Main sections"
+                >
                     {NAV_ITEMS.map((item) => {
                         const isActive = activeTab === item.id;
                         const Icon = item.icon;
@@ -80,9 +84,10 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                                 className={`group relative flex h-[42px] w-[44px] items-center justify-center
                                     rounded-[0.875rem]
                                     transition-all duration-500
-                                    ${isActive
-                                        ? "text-[#3481FF]"
-                                        : "text-slate-400 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-300"
+                                    ${
+                                        isActive
+                                            ? "text-[#3481FF]"
+                                            : "text-slate-400 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-300"
                                     }`}
                                 style={{ transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)" }}
                             >
@@ -98,7 +103,8 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                                 )}
 
                                 {/* Hover background */}
-                                <span className={`absolute inset-0 rounded-[0.875rem] transition-opacity duration-300
+                                <span
+                                    className={`absolute inset-0 rounded-[0.875rem] transition-opacity duration-300
                                     bg-slate-100 dark:bg-white/[0.05] opacity-0 group-hover:opacity-100
                                     ${isActive ? "opacity-0 group-hover:opacity-0" : ""}`}
                                 />
@@ -107,7 +113,9 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                                     size={19}
                                     strokeWidth={isActive ? 2.1 : 1.5}
                                     className="relative z-10 transition-transform duration-500 group-hover:scale-[1.1]"
-                                    style={{ transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)" }}
+                                    style={{
+                                        transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)",
+                                    }}
                                     aria-hidden="true"
                                 />
 

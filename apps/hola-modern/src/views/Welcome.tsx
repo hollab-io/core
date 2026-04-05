@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 
+import logoSvg from "../assets/logo.svg";
 import DynamicAuthControl from "../components/DynamicAuthControl";
 
 const EXPO = [0.16, 1, 0.3, 1] as const;
@@ -80,7 +81,7 @@ export default function WelcomeScreen() {
                             bg-gradient-to-br from-[#3481FF] to-[#1a5fd4]
                             shadow-[0_0_0_1px_rgba(52,129,255,0.3),0_8px_32px_rgba(52,129,255,0.45)]"
                     >
-                        <span className="text-[26px] font-bold text-white">H</span>
+                        <img src={logoSvg} alt="Hollab" className="h-[34px] w-[34px]" />
                     </div>
                 </motion.div>
 

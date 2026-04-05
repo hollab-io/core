@@ -1,3 +1,4 @@
+import type { Circle, Role } from "@hollab-io/indexing-client";
 import type {
     CircleRecord,
     DeclaredByRole,
@@ -10,7 +11,6 @@ import type {
     TacticalMeetingRecord,
     WorkspaceSnapshot,
 } from "@hollab-io/viem-extension";
-import type { Circle, Role } from "@hollab-io/indexing-client";
 import type { PropsWithChildren } from "react";
 import {
     createCircleMap,
@@ -80,7 +80,6 @@ const CUSTOM_PARTNERS_STORAGE_KEY = "hola-modern:workspace:custom-partners";
 const ORGANIZATION_STORAGE_KEY = "hola-modern:workspace:organization";
 const ORGANIZATIONS_STORAGE_KEY = "hola-modern:workspace:organizations";
 const ACTIVE_MEETING_ID_STORAGE_KEY = "hola-modern:workspace:active-meeting-id";
-const MEETINGS_STORAGE_KEY = "hola-modern:workspace:meetings";
 const ACTIVE_ORG_ID_STORAGE_KEY = "hola-modern:workspace:active-org-id";
 const CURRENT_PARTNER_STORAGE_KEY = "hola-modern:workspace:current-partner-id";
 
@@ -268,20 +267,6 @@ function persistCurrentPartnerId(partnerId: string) {
     }
 
     window.localStorage.setItem(CURRENT_PARTNER_STORAGE_KEY, partnerId);
-}
-
-function readPersistedMeetings(): TacticalMeetingRecord[] {
-    if (typeof window === "undefined") return [];
-    try {
-        const raw = window.localStorage.getItem(MEETINGS_STORAGE_KEY);
-        if (raw) return JSON.parse(raw) as TacticalMeetingRecord[];
-    } catch {}
-    return [];
-}
-
-function persistMeetings(meetings: TacticalMeetingRecord[]) {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(MEETINGS_STORAGE_KEY, JSON.stringify(meetings));
 }
 
 function readPersistedActiveMeetingId(): string | null {
@@ -508,7 +493,12 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     }, []);
 
     const conveneGovernanceMeeting = useCallback(
-        (params: { meetingId: string; circleId: string; convenedBy: string; onChainMeetingId?: string }) => {
+        (params: {
+            meetingId: string;
+            circleId: string;
+            convenedBy: string;
+            onChainMeetingId?: string;
+        }) => {
             const circle = circleMap[params.circleId];
             // Offset governance meeting IDs by 10_000_000 to prevent collisions
             // with tactical meeting IDs in the workspace snapshot.
@@ -566,25 +556,19 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         }));
     }, []);
 
-    const addCircle = useCallback(
-        (circle: WorkspaceSnapshot["circles"][number]) => {
-            setSnapshot((currentSnapshot) => ({
-                ...currentSnapshot,
-                circles: [...currentSnapshot.circles, circle],
-            }));
-        },
-        [],
-    );
+    const addCircle = useCallback((circle: WorkspaceSnapshot["circles"][number]) => {
+        setSnapshot((currentSnapshot) => ({
+            ...currentSnapshot,
+            circles: [...currentSnapshot.circles, circle],
+        }));
+    }, []);
 
-    const addRole = useCallback(
-        (role: WorkspaceSnapshot["roles"][number]) => {
-            setSnapshot((currentSnapshot) => ({
-                ...currentSnapshot,
-                roles: [...currentSnapshot.roles, role],
-            }));
-        },
-        [],
-    );
+    const addRole = useCallback((role: WorkspaceSnapshot["roles"][number]) => {
+        setSnapshot((currentSnapshot) => ({
+            ...currentSnapshot,
+            roles: [...currentSnapshot.roles, role],
+        }));
+    }, []);
 
     const addProject = useCallback((project: ProjectRecord) => {
         const persistedProjects = readPersistedProjects();
@@ -830,7 +814,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             parentCircleId:
                 c.isAnchor || c.parentCircleId === "0"
                     ? null
-                    : circleIdToId.get(c.parentCircleId) ?? null,
+                    : (circleIdToId.get(c.parentCircleId) ?? null),
             isAnchor: c.isAnchor,
         }));
 
