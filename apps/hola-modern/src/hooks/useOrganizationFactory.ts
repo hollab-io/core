@@ -1,6 +1,7 @@
-import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { holLabContractActions } from "@hollab-io/viem-extension";
+import { organizationFactoryAbi } from "@hollab-io/viem-extension";
+
+import { useSendTransaction } from "./useSendTransaction";
 
 const ORGANIZATION_FACTORY_ADDRESS = "0xB0dEAE30f9Df19Db5066a889044B66b4fcB95553" as const;
 
@@ -26,23 +27,13 @@ function deriveTokenSymbol(orgName: string): string {
 
 export function useOrganizationFactory() {
     const { primaryWallet } = useDynamicContext();
+    const { send } = useSendTransaction();
 
     const deployOrganization = async (params: {
         name: string;
         purpose: string;
         walletAddress: `0x${string}`;
     }): Promise<`0x${string}`> => {
-        if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
-            throw new Error("No Ethereum wallet connected");
-        }
-
-        const walletClient = await primaryWallet.getWalletClient();
-        if (!walletClient) throw new Error("Could not get wallet client");
-
-        // viem-extension was built against an older viem version; cast at the boundary
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const contractActions = holLabContractActions()(walletClient as any);
-
         const subname = deriveSubname(params.name);
         if (subname.length < 3) {
             throw new Error(
@@ -50,30 +41,35 @@ export function useOrganizationFactory() {
             );
         }
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const txHash = await (contractActions.organizationFactory.write as any)({
-            address: ORGANIZATION_FACTORY_ADDRESS,
-            functionName: "createOrganization",
-            account: params.walletAddress,
-            args: [
-                subname,
-                params.purpose,
+        const account = (primaryWallet?.address ?? params.walletAddress) as `0x${string}`;
+
+        return send(
+            [
                 {
-                    tokenName: `${params.name} Token`,
-                    tokenSymbol: deriveTokenSymbol(params.name),
-                    initialHolders: [params.walletAddress],
-                    initialAmounts: [1_000_000n * 10n ** 18n],
-                    timelockDelay: 0n,
-                    votingDelay: 1,
-                    votingPeriod: 50400,
-                    proposalThreshold: 0n,
-                    quorumNumerator: 4n,
-                    treasuryTimelockDelay: 0n,
+                    to: ORGANIZATION_FACTORY_ADDRESS,
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    abi: organizationFactoryAbi as any,
+                    functionName: "createOrganization",
+                    args: [
+                        subname,
+                        params.purpose,
+                        {
+                            tokenName: `${params.name} Token`,
+                            tokenSymbol: deriveTokenSymbol(params.name),
+                            initialHolders: [params.walletAddress],
+                            initialAmounts: [1_000_000n * 10n ** 18n],
+                            timelockDelay: 0n,
+                            votingDelay: 1,
+                            votingPeriod: 50400,
+                            proposalThreshold: 0n,
+                            quorumNumerator: 4n,
+                            treasuryTimelockDelay: 0n,
+                        },
+                    ],
                 },
             ],
-        });
-
-        return txHash;
+            account,
+        );
     };
 
     return { deployOrganization };
