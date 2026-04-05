@@ -1,4 +1,5 @@
 import type { Organization } from "@hollab-io/indexing-client";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowRight,
@@ -15,6 +16,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPublicClient, http, isAddress } from "viem";
 import { sepolia } from "viem/chains";
 import { normalize } from "viem/ens";
+
+import { useCircleRegistry } from "../hooks/useCircleRegistry";
 
 // ─── viem client ─────────────────────────────────────────────────────────────
 // ENS names (including hollab.eth) are registered on Sepolia
@@ -164,10 +167,41 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
     const [input, setInput] = useState("");
     const [inputState, setInputState] = useState<InputState>({ kind: "idle" });
     const [entries, setEntries] = useState<MemberEntry[]>([]);
+    const [submitState, setSubmitState] = useState<"idle" | "submitting" | "error">("idle");
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
+    const { primaryWallet } = useDynamicContext();
+    const { addOrgMembers } = useCircleRegistry();
+
     const resolvedCount = entries.filter((e) => e.status === "resolved").length;
+
+    const handleLaunch = async () => {
+        const resolvedAddresses = entries
+            .filter((e) => e.status === "resolved" && e.address)
+            .map((e) => e.address as `0x${string}`);
+
+        if (resolvedAddresses.length === 0 || !primaryWallet) {
+            onComplete();
+            return;
+        }
+
+        setSubmitState("submitting");
+        setSubmitError(null);
+
+        try {
+            await addOrgMembers({
+                circleRegistryAddress: org.circleRegistry as `0x${string}`,
+                memberAddresses: resolvedAddresses,
+                walletAddress: primaryWallet.address as `0x${string}`,
+            });
+            onComplete();
+        } catch (err) {
+            setSubmitState("error");
+            setSubmitError(err instanceof Error ? err.message : "Transaction failed");
+        }
+    };
 
     // ── Resolve a single entry by id ──────────────────────────────────────────
     const resolveEntry = useCallback(async (id: string, raw: string) => {
@@ -449,15 +483,29 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                         <div className="mt-10 hidden flex-col gap-3 lg:flex">
                             <button
                                 type="button"
-                                onClick={onComplete}
-                                className="group flex w-full items-center justify-between rounded-full bg-[#3481FF] py-[5px] pl-6 pr-[5px] text-[13px] font-bold text-white shadow-[0_6px_24px_rgba(52,129,255,0.35)] transition-all duration-500 hover:bg-[#2570f0] hover:shadow-[0_8px_32px_rgba(52,129,255,0.5)] active:scale-[0.98]"
+                                onClick={handleLaunch}
+                                disabled={submitState === "submitting"}
+                                className="group flex w-full items-center justify-between rounded-full bg-[#3481FF] py-[5px] pl-6 pr-[5px] text-[13px] font-bold text-white shadow-[0_6px_24px_rgba(52,129,255,0.35)] transition-all duration-500 hover:bg-[#2570f0] hover:shadow-[0_8px_32px_rgba(52,129,255,0.5)] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
                                 style={{ transitionTimingFunction: "cubic-bezier(0.32,0.72,0,1)" }}
                             >
-                                {ctaLabel}
+                                {submitState === "submitting" ? "Confirm in wallet…" : ctaLabel}
                                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.2] transition-all duration-500 group-hover:translate-x-0.5 group-hover:-translate-y-px group-hover:scale-105">
-                                    <ArrowRight size={14} strokeWidth={2} />
+                                    {submitState === "submitting" ? (
+                                        <Loader2
+                                            size={14}
+                                            strokeWidth={2}
+                                            className="animate-spin"
+                                        />
+                                    ) : (
+                                        <ArrowRight size={14} strokeWidth={2} />
+                                    )}
                                 </div>
                             </button>
+                            {submitState === "error" && submitError && (
+                                <p className="px-1 text-center text-[12px] text-red-400">
+                                    {submitError}
+                                </p>
+                            )}
                             <button
                                 type="button"
                                 onClick={onComplete}
@@ -623,14 +671,28 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                         <div className="mt-4 flex flex-col gap-3 lg:hidden">
                             <button
                                 type="button"
-                                onClick={onComplete}
-                                className="group flex w-full items-center justify-between rounded-full bg-[#3481FF] py-[5px] pl-6 pr-[5px] text-[13px] font-bold text-white shadow-[0_6px_24px_rgba(52,129,255,0.35)] transition-all duration-500 hover:bg-[#2570f0] active:scale-[0.98]"
+                                onClick={handleLaunch}
+                                disabled={submitState === "submitting"}
+                                className="group flex w-full items-center justify-between rounded-full bg-[#3481FF] py-[5px] pl-6 pr-[5px] text-[13px] font-bold text-white shadow-[0_6px_24px_rgba(52,129,255,0.35)] transition-all duration-500 hover:bg-[#2570f0] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                                {ctaLabel}
+                                {submitState === "submitting" ? "Confirm in wallet…" : ctaLabel}
                                 <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.2] transition-all duration-300 group-hover:scale-105">
-                                    <ArrowRight size={14} strokeWidth={2} />
+                                    {submitState === "submitting" ? (
+                                        <Loader2
+                                            size={14}
+                                            strokeWidth={2}
+                                            className="animate-spin"
+                                        />
+                                    ) : (
+                                        <ArrowRight size={14} strokeWidth={2} />
+                                    )}
                                 </div>
                             </button>
+                            {submitState === "error" && submitError && (
+                                <p className="px-1 text-center text-[12px] text-red-400">
+                                    {submitError}
+                                </p>
+                            )}
                             <button
                                 type="button"
                                 onClick={onComplete}
