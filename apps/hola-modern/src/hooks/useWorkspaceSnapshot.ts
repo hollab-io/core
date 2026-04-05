@@ -76,6 +76,8 @@ const CUSTOM_PARTNERS_STORAGE_KEY = "hola-modern:workspace:custom-partners";
 /** @deprecated migrated to ORGANIZATIONS_STORAGE_KEY */
 const ORGANIZATION_STORAGE_KEY = "hola-modern:workspace:organization";
 const ORGANIZATIONS_STORAGE_KEY = "hola-modern:workspace:organizations";
+const ACTIVE_MEETING_ID_STORAGE_KEY = "hola-modern:workspace:active-meeting-id";
+const MEETINGS_STORAGE_KEY = "hola-modern:workspace:meetings";
 const ACTIVE_ORG_ID_STORAGE_KEY = "hola-modern:workspace:active-org-id";
 const CURRENT_PARTNER_STORAGE_KEY = "hola-modern:workspace:current-partner-id";
 
@@ -268,6 +270,34 @@ function persistCurrentPartnerId(partnerId: string) {
     window.localStorage.setItem(CURRENT_PARTNER_STORAGE_KEY, partnerId);
 }
 
+function readPersistedMeetings(): TacticalMeetingRecord[] {
+    if (typeof window === "undefined") return [];
+    try {
+        const raw = window.localStorage.getItem(MEETINGS_STORAGE_KEY);
+        if (raw) return JSON.parse(raw) as TacticalMeetingRecord[];
+    } catch {}
+    return [];
+}
+
+function persistMeetings(meetings: TacticalMeetingRecord[]) {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(MEETINGS_STORAGE_KEY, JSON.stringify(meetings));
+}
+
+function readPersistedActiveMeetingId(): string | null {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(ACTIVE_MEETING_ID_STORAGE_KEY) ?? null;
+}
+
+function persistActiveMeetingId(id: string | null) {
+    if (typeof window === "undefined") return;
+    if (id) {
+        window.localStorage.setItem(ACTIVE_MEETING_ID_STORAGE_KEY, id);
+    } else {
+        window.localStorage.removeItem(ACTIVE_MEETING_ID_STORAGE_KEY);
+    }
+}
+
 function normalizeWalletAddress(address: string) {
     return address.trim().toLowerCase();
 }
@@ -400,7 +430,6 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         const activeOrg = resolvedId ? orgs.find((o) => o.id === resolvedId) : undefined;
         const persistedPartners = readPersistedPartners();
         const persistedCurrentPartnerId = readPersistedCurrentPartnerId();
-
         return {
             ...baseSnapshot,
             currentPartnerId:
@@ -410,9 +439,15 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             organization: activeOrg,
             partners: mergePartners(baseSnapshot.partners, persistedPartners),
             projects: mergeProjects(baseSnapshot.projects, readPersistedProjects()),
+            // Clear mock meetings — real data comes from the indexer
+            meetings: [],
+            meetingOutputs: [],
+            actions: [],
         };
     });
-    const [activeMeetingId, setActiveMeetingId] = useState<string | null>(null);
+    const [activeMeetingId, setActiveMeetingId] = useState<string | null>(() =>
+        readPersistedActiveMeetingId(),
+    );
     const [activeGovernanceMeetingId, setActiveGovernanceMeetingId] = useState<string | null>(null);
     const [projectBoardCircleId, setProjectBoardCircleId] = useState(
         DEFAULT_PROJECT_BOARD_CIRCLE_ID,
@@ -445,10 +480,12 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
 
     const openMeeting = useCallback((meetingId: string) => {
         setActiveMeetingId(meetingId);
+        persistActiveMeetingId(meetingId);
     }, []);
 
     const closeMeeting = useCallback(() => {
         setActiveMeetingId(null);
+        persistActiveMeetingId(null);
     }, []);
 
     const openGovernanceMeeting = useCallback((meetingId: string) => {

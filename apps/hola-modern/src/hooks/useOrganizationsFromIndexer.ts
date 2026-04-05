@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 
 const indexerUrl = import.meta.env.VITE_INDEXER_URL as string;
 const client = indexerUrl ? createIndexingClient(indexerUrl) : null;
+console.log("indexerUrl", indexerUrl);
 
 export type { Organization };
 

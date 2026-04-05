@@ -10,13 +10,15 @@ import {
     TriangleAlert,
     UserPlus,
     Users,
+    Wallet,
     X,
 } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { createPublicClient, http, isAddress } from "viem";
 import { sepolia } from "viem/chains";
 import { normalize } from "viem/ens";
 
+import { useCircleRegistry } from "../hooks/useCircleRegistry";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 import OrganizationChart from "./OrganizationChart";
 
@@ -139,8 +141,20 @@ function EntryRow({
 }
 
 // ─── Add-members panel ────────────────────────────────────────────────────────
-function AddMembersPanel({ onClose }: { onClose: () => void }) {
-    const { inviteMember } = useWorkspaceSnapshot();
+function AddMembersPanel({
+    org,
+    addOrgMembers,
+    onClose,
+}: {
+    org: Organization;
+    addOrgMembers: (params: {
+        circleRegistryAddress: `0x${string}`;
+        memberAddresses: `0x${string}`[];
+        walletAddress: `0x${string}`;
+    }) => Promise<`0x${string}`>;
+    onClose: () => void;
+}) {
+    const { authenticatedWalletAddress, inviteMember } = useWorkspaceSnapshot();
     const [inputValue, setInputValue] = useState("");
     const [entries, setEntries] = useState<MemberEntry[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -248,19 +262,42 @@ function AddMembersPanel({ onClose }: { onClose: () => void }) {
     const canSubmit = entries.length > 0 && entries.every((e) => e.status === "resolved");
 
     const handleSubmit = useCallback(async () => {
-        if (!canSubmit) return;
+        if (!canSubmit || !authenticatedWalletAddress) return;
         setIsSubmitting(true);
-        for (const entry of entries) {
-            if (entry.address) {
-                inviteMember({
-                    name: entry.ens ?? entry.address,
-                    walletAddress: entry.address,
-                });
+        try {
+            const addresses = entries
+                .filter((e) => e.address)
+                .map((e) => e.address as `0x${string}`);
+
+            await addOrgMembers({
+                circleRegistryAddress: org.circleRegistry as `0x${string}`,
+                memberAddresses: addresses,
+                walletAddress: authenticatedWalletAddress as `0x${string}`,
+            });
+
+            for (const entry of entries) {
+                if (entry.address) {
+                    inviteMember({
+                        name: entry.ens ?? entry.address,
+                        walletAddress: entry.address,
+                    });
+                }
             }
+            onClose();
+        } catch {
+            // keep panel open on failure so user can retry
+        } finally {
+            setIsSubmitting(false);
         }
-        setIsSubmitting(false);
-        onClose();
-    }, [canSubmit, entries, inviteMember, onClose]);
+    }, [
+        canSubmit,
+        authenticatedWalletAddress,
+        entries,
+        addOrgMembers,
+        org.circleRegistry,
+        inviteMember,
+        onClose,
+    ]);
 
     return (
         <motion.div
@@ -368,13 +405,35 @@ function AddMembersPanel({ onClose }: { onClose: () => void }) {
     );
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function shortenWallet(address: string) {
+    return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
 // ─── Main view ───────────────────────────────────────────────────────────────
-export default function StructureView({ org: _org, isDarkMode }: Props) {
-    const { snapshot } = useWorkspaceSnapshot();
+export default function StructureView({ org, isDarkMode }: Props) {
+    const { authenticatedWalletAddress, snapshot, organization } = useWorkspaceSnapshot();
+    const { addOrgMembers } = useCircleRegistry();
     const [tab, setTab] = useState<"members" | "chart">("members");
     const [showAddMembers, setShowAddMembers] = useState(false);
 
-    const partners = snapshot.partners;
+    const members = useMemo(() => {
+        const rolesByPartnerId = new Map<string, string[]>();
+        snapshot.roles.forEach((role) => {
+            role.memberIds.forEach((id) => {
+                const list = rolesByPartnerId.get(id) ?? [];
+                list.push(role.title);
+                rolesByPartnerId.set(id, list);
+            });
+        });
+        return snapshot.partners
+            .map((p) => ({ ...p, roles: rolesByPartnerId.get(p.id) ?? [] }))
+            .sort((a, b) => {
+                const sa = a.status === "invited" ? 1 : 0;
+                const sb = b.status === "invited" ? 1 : 0;
+                return sa !== sb ? sa - sb : a.name.localeCompare(b.name);
+            });
+    }, [snapshot.partners, snapshot.roles]);
 
     // 56px = app top header. This container fills the rest of the viewport exactly —
     // no min-h, no flex growth — so clicking a bubble can never resize it.
@@ -456,83 +515,128 @@ export default function StructureView({ org: _org, isDarkMode }: Props) {
                                     <ArrowRight size={13} className="ml-auto" />
                                 </button>
 
-                                {/* Member list */}
-                                <div className="space-y-1.5">
-                                    {partners.length > 0 ? (
-                                        partners.map((partner, i) => (
-                                            <motion.div
-                                                key={partner.id}
-                                                initial={{ opacity: 0, y: 8 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{
-                                                    duration: 0.4,
-                                                    delay: i * 0.04,
-                                                    ease: EXPO,
-                                                }}
-                                                className="flex items-center gap-3.5 rounded-xl
-                                                    border border-white/[0.05] bg-white/[0.02]
-                                                    px-4 py-3"
-                                            >
-                                                <div
-                                                    className="flex h-8 w-8 shrink-0 items-center justify-center
-                                                        rounded-full text-[11px] font-bold text-white"
-                                                    style={{
-                                                        background: `hsl(${
-                                                            parseInt(
-                                                                (
-                                                                    partner.walletAddress ??
-                                                                    partner.id
-                                                                ).slice(2, 4),
-                                                                16,
-                                                            ) *
-                                                            (360 / 255)
-                                                        }, 45%, 35%)`,
+                                {/* Member grid */}
+                                {members.length > 0 ? (
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        {members.map((member, i) => {
+                                            const isOwner =
+                                                organization &&
+                                                member.id === organization.ownerPartnerId;
+                                            const isYou =
+                                                authenticatedWalletAddress &&
+                                                member.walletAddress?.toLowerCase() ===
+                                                    authenticatedWalletAddress.toLowerCase();
+                                            return (
+                                                <motion.article
+                                                    key={member.id}
+                                                    initial={{ opacity: 0, y: 8 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    transition={{
+                                                        duration: 0.4,
+                                                        delay: i * 0.04,
+                                                        ease: EXPO,
                                                     }}
+                                                    className="rounded-xl
+                                                        border border-white/[0.06]
+                                                        bg-white/[0.03]
+                                                        p-4"
                                                 >
-                                                    {partner.name.slice(0, 2).toUpperCase()}
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="text-[13px] font-medium text-slate-200">
-                                                        {partner.name}
-                                                    </p>
-                                                    {partner.walletAddress && (
-                                                        <p className="font-mono text-[11px] text-slate-600">
-                                                            {partner.walletAddress.slice(0, 6)}…
-                                                            {partner.walletAddress.slice(-4)}
-                                                        </p>
+                                                    <div className="mb-3 flex items-start justify-between gap-2">
+                                                        <div className="flex items-center gap-3">
+                                                            <div
+                                                                className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-full
+                                                                    border border-white/[0.1]
+                                                                    bg-white/[0.06]"
+                                                            >
+                                                                <img
+                                                                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.avatarSeed ?? member.name}`}
+                                                                    alt={`Avatar for ${member.name}`}
+                                                                    loading="lazy"
+                                                                />
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-[13px] font-bold text-white leading-tight">
+                                                                    {member.name}
+                                                                </p>
+                                                                <p className="text-[11px] text-slate-500 truncate">
+                                                                    {member.walletAddress
+                                                                        ? shortenWallet(
+                                                                              member.walletAddress,
+                                                                          )
+                                                                        : "Starter member"}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex gap-1.5">
+                                                            {isOwner && (
+                                                                <span className="rounded-full bg-[#3481FF]/[0.15] px-2 py-0.5 text-[10px] font-semibold text-[#3481FF]">
+                                                                    Owner
+                                                                </span>
+                                                            )}
+                                                            {isYou && (
+                                                                <span className="rounded-full bg-emerald-500/[0.12] px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                                                                    You
+                                                                </span>
+                                                            )}
+                                                            {member.status === "invited" && (
+                                                                <span className="rounded-full bg-amber-500/[0.12] px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                                                                    Invited
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {(member.roles.length
+                                                            ? member.roles
+                                                            : ["Unassigned"]
+                                                        ).map((role) => (
+                                                            <span
+                                                                key={`${member.id}-${role}`}
+                                                                className="rounded-full border border-white/[0.07]
+                                                                    bg-white/[0.04]
+                                                                    px-2.5 py-0.5 text-[10px] font-medium text-slate-400"
+                                                            >
+                                                                {role}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+
+                                                    {member.walletAddress && (
+                                                        <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-600">
+                                                            <Wallet
+                                                                size={10}
+                                                                strokeWidth={1.75}
+                                                                aria-hidden="true"
+                                                            />
+                                                            <span className="font-mono">
+                                                                {shortenWallet(
+                                                                    member.walletAddress,
+                                                                )}
+                                                            </span>
+                                                        </div>
                                                     )}
-                                                </div>
-                                                <span
-                                                    className={`shrink-0 rounded-full border px-2 py-0.5
-                                                    text-[10px] font-semibold
-                                                    ${
-                                                        partner.status === "active"
-                                                            ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-400"
-                                                            : "border-amber-400/20 bg-amber-500/10 text-amber-400"
-                                                    }`}
-                                                >
-                                                    {partner.status ?? "active"}
-                                                </span>
-                                            </motion.div>
-                                        ))
-                                    ) : (
-                                        <div
-                                            className="flex flex-col items-center gap-3 rounded-2xl
-                                            border border-dashed border-white/[0.06] bg-white/[0.015]
-                                            px-4 py-12 text-center"
-                                        >
-                                            <Users
-                                                size={20}
-                                                className="text-slate-700"
-                                                strokeWidth={1.5}
-                                            />
-                                            <p className="text-xs leading-relaxed text-slate-600">
-                                                No members yet. Add partners by wallet address or
-                                                ENS name.
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
+                                                </motion.article>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div
+                                        className="flex flex-col items-center gap-3 rounded-2xl
+                                        border border-dashed border-white/[0.06] bg-white/[0.015]
+                                        px-4 py-12 text-center"
+                                    >
+                                        <Users
+                                            size={20}
+                                            className="text-slate-700"
+                                            strokeWidth={1.5}
+                                        />
+                                        <p className="text-xs leading-relaxed text-slate-600">
+                                            No members yet. Add partners by wallet address or ENS
+                                            name.
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     ) : (
@@ -558,7 +662,13 @@ export default function StructureView({ org: _org, isDarkMode }: Props) {
             </div>
 
             <AnimatePresence>
-                {showAddMembers && <AddMembersPanel onClose={() => setShowAddMembers(false)} />}
+                {showAddMembers && (
+                    <AddMembersPanel
+                        org={org}
+                        addOrgMembers={addOrgMembers}
+                        onClose={() => setShowAddMembers(false)}
+                    />
+                )}
             </AnimatePresence>
         </div>
     );

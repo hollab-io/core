@@ -1,21 +1,13 @@
+import type { Organization, TacticalMeeting } from "@hollab-io/indexing-client";
 import { motion } from "framer-motion";
-import {
-    ArrowRight,
-    CheckSquare,
-    Clock3,
-    FileText,
-    ListChecks,
-    Loader2,
-    TrendingUp,
-    Users,
-} from "lucide-react";
-import { useState } from "react";
+import { ArrowRight, FileText, Loader2, Play, Users } from "lucide-react";
+import { useMemo, useState } from "react";
 
+import { useMeetingComponentsFactory } from "../hooks/useMeetingComponentsFactory";
 import { useTacticalMeeting } from "../hooks/useTacticalMeeting";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
-const SPRING = { type: "spring", stiffness: 340, damping: 28 } as const;
 
 const PHASES = [
     { label: "Check-in", desc: "Each partner shares current state" },
@@ -29,35 +21,58 @@ const PHASES = [
 
 type Props = {
     tacticalMeetingAddress?: `0x${string}`;
+    indexedMeetings: TacticalMeeting[];
+    pollForNewMeeting: (prevCount: number) => Promise<TacticalMeeting[]>;
+    refetchMeetings: () => Promise<void>;
+    activeOrg: Organization | null;
 };
 
-export default function TacticalView({ tacticalMeetingAddress }: Props) {
-    const { snapshot, openMeeting, circleMap, authenticatedWalletAddress } = useWorkspaceSnapshot();
+export default function TacticalView({
+    tacticalMeetingAddress,
+    indexedMeetings,
+    pollForNewMeeting,
+    refetchMeetings,
+    activeOrg,
+}: Props) {
+    const { openMeeting, authenticatedWalletAddress } = useWorkspaceSnapshot();
     const { conveneMeeting } = useTacticalMeeting();
+    const { deployMeetingComponents, factoryConfigured } = useMeetingComponentsFactory();
     const [isConvening, setIsConvening] = useState(false);
+    const [isDeploying, setIsDeploying] = useState(false);
     const [conveneError, setConveneError] = useState<string | null>(null);
-    const meetings = snapshot.meetings.filter((m) => m.meetingType === "tactical");
-    const upcoming = meetings.filter((m) => m.status === "scheduled").slice(0, 3);
-    const recent = meetings.filter((m) => m.status === "completed").slice(0, 2);
 
-    const handleStartHuddle = async (meetingId: string, circleId: string) => {
-        if (!tacticalMeetingAddress || !authenticatedWalletAddress) {
-            // No contract address configured — fall back to local-only open
-            openMeeting(meetingId);
-            return;
-        }
+    const inProgress = useMemo(
+        () => indexedMeetings.filter((m) => !m.completedAt),
+        [indexedMeetings],
+    );
+    const completed = useMemo(
+        () => indexedMeetings.filter((m) => m.completedAt),
+        [indexedMeetings],
+    );
+
+    const hasActiveHuddle = inProgress.length > 0;
+
+    const handleStartHuddle = async () => {
+        if (!tacticalMeetingAddress || !authenticatedWalletAddress || hasActiveHuddle) return;
 
         setIsConvening(true);
         setConveneError(null);
         try {
             await conveneMeeting({
                 tacticalMeetingAddress,
-                circleId: BigInt(circleId),
+                circleId: 1n,
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
             });
-            openMeeting(meetingId);
+
+            const prevCount = indexedMeetings.length;
+            const updated = await pollForNewMeeting(prevCount);
+
+            const newest = updated[0];
+            if (newest) {
+                openMeeting(newest.id);
+            }
         } catch (err) {
-            setConveneError(err instanceof Error ? err.message : "Failed to convene meeting");
+            setConveneError(err instanceof Error ? err.message : "Failed to start huddle");
         } finally {
             setIsConvening(false);
         }
@@ -85,38 +100,127 @@ export default function TacticalView({ tacticalMeetingAddress }: Props) {
                     </p>
                 </motion.div>
 
-                {/* Start CTA */}
-                <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.65, delay: 0.08, ease: EXPO }}
-                    className="mb-8"
-                >
-                    {meetings.length > 0 ? (
+                {/* In-progress huddle banner */}
+                {hasActiveHuddle && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.65, delay: 0.06, ease: EXPO }}
+                        className="mb-4"
+                    >
+                        {inProgress.map((m) => (
+                            <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => openMeeting(m.id)}
+                                className="group mb-2 flex w-full items-center justify-between gap-4
+                                    rounded-[1.5rem]
+                                    border border-[#3481FF]/30
+                                    bg-[linear-gradient(135deg,rgba(52,129,255,0.14),rgba(52,129,255,0.06))]
+                                    p-5
+                                    transition-all duration-500
+                                    hover:border-[#3481FF]/50
+                                    hover:shadow-[0_0_40px_rgba(52,129,255,0.15)]
+                                    active:scale-[0.99]"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div
+                                        className="flex h-11 w-11 items-center justify-center rounded-2xl
+                                            border border-[#3481FF]/30 bg-[#3481FF]/20"
+                                    >
+                                        <Play
+                                            size={16}
+                                            className="text-[#3481FF]"
+                                            fill="currentColor"
+                                        />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-[15px] font-semibold text-white">
+                                            Huddle in progress
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-slate-400">
+                                            Started{" "}
+                                            {new Date(Number(m.createdAt) * 1000).toLocaleString()}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div
+                                    className="flex items-center gap-2 rounded-full
+                                        border border-[#3481FF]/25 bg-[#3481FF]/10
+                                        px-4 py-2 text-[12px] font-semibold text-[#6aabff]"
+                                >
+                                    Resume
+                                    <ArrowRight size={13} />
+                                </div>
+                            </button>
+                        ))}
+                    </motion.div>
+                )}
+
+                {/* Start huddle CTA — hidden when one is already running */}
+                {!hasActiveHuddle && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.65, delay: 0.08, ease: EXPO }}
+                        className="mb-8"
+                    >
                         <div className="flex flex-col gap-2">
                             <button
                                 type="button"
-                                disabled={isConvening}
-                                onClick={() =>
-                                    handleStartHuddle(meetings[0].id, meetings[0].circleId)
-                                }
+                                disabled={isConvening || isDeploying}
+                                onClick={async () => {
+                                    if (!authenticatedWalletAddress) return;
+
+                                    if (!tacticalMeetingAddress) {
+                                        if (!activeOrg || !factoryConfigured) return;
+                                        setIsDeploying(true);
+                                        setConveneError(null);
+                                        try {
+                                            await deployMeetingComponents({
+                                                orgId: BigInt(activeOrg.id),
+                                                circleRegistry:
+                                                    activeOrg.circleRegistry as `0x${string}`,
+                                                roleRegistry:
+                                                    activeOrg.roleRegistry as `0x${string}`,
+                                                governanceProcess:
+                                                    activeOrg.governanceProcess as `0x${string}`,
+                                                govToken: activeOrg.token as `0x${string}`,
+                                                walletAddress:
+                                                    authenticatedWalletAddress as `0x${string}`,
+                                            });
+                                            await refetchMeetings();
+                                        } catch (err) {
+                                            setConveneError(
+                                                err instanceof Error
+                                                    ? err.message
+                                                    : "Failed to deploy huddle contracts",
+                                            );
+                                        } finally {
+                                            setIsDeploying(false);
+                                        }
+                                        return;
+                                    }
+
+                                    await handleStartHuddle();
+                                }}
                                 className="group flex w-full items-center justify-between gap-4
                                     rounded-[1.5rem]
-                                    border border-[#3481FF]/25
-                                    bg-[linear-gradient(135deg,rgba(52,129,255,0.12),rgba(52,129,255,0.06))]
+                                    border border-white/[0.08]
+                                    bg-white/[0.03]
                                     p-5
                                     transition-all duration-500
-                                    hover:border-[#3481FF]/40
-                                    hover:shadow-[0_0_40px_rgba(52,129,255,0.12)]
+                                    hover:border-white/[0.14]
+                                    hover:bg-white/[0.05]
                                     active:scale-[0.99]
                                     disabled:opacity-60 disabled:pointer-events-none"
                             >
                                 <div className="flex items-center gap-4">
                                     <div
                                         className="flex h-11 w-11 items-center justify-center rounded-2xl
-                                        border border-[#3481FF]/30 bg-[#3481FF]/15"
+                                            border border-white/[0.08] bg-white/[0.05]"
                                     >
-                                        {isConvening ? (
+                                        {isConvening || isDeploying ? (
                                             <Loader2
                                                 size={18}
                                                 className="text-[#3481FF] animate-spin"
@@ -125,26 +229,32 @@ export default function TacticalView({ tacticalMeetingAddress }: Props) {
                                         ) : (
                                             <Users
                                                 size={18}
-                                                className="text-[#3481FF]"
+                                                className="text-slate-400"
                                                 strokeWidth={1.75}
                                             />
                                         )}
                                     </div>
                                     <div className="text-left">
                                         <p className="text-[15px] font-semibold text-white">
-                                            {isConvening ? "Convening meeting…" : "Start a huddle"}
+                                            {isDeploying
+                                                ? "Deploying huddle contracts..."
+                                                : isConvening
+                                                  ? "Starting huddle..."
+                                                  : !tacticalMeetingAddress
+                                                    ? "Set up huddles"
+                                                    : "Start a new huddle"}
                                         </p>
-                                        <p className="mt-0.5 text-xs text-slate-400">
-                                            {circleMap[meetings[0].circleId]?.title ?? "Circle"} · 7
-                                            phases
+                                        <p className="mt-0.5 text-xs text-slate-500">
+                                            {!tacticalMeetingAddress
+                                                ? "Deploy huddle contracts for this workspace"
+                                                : "7-phase tactical ceremony"}
                                         </p>
                                     </div>
                                 </div>
                                 <motion.div
                                     className="flex h-8 w-8 items-center justify-center rounded-full
-                                        border border-[#3481FF]/30 bg-[#3481FF]/10 text-[#3481FF]"
+                                        border border-white/[0.08] bg-white/[0.05] text-slate-400"
                                     whileHover={{ x: 3 }}
-                                    transition={SPRING}
                                 >
                                     <ArrowRight size={15} strokeWidth={2} />
                                 </motion.div>
@@ -152,22 +262,16 @@ export default function TacticalView({ tacticalMeetingAddress }: Props) {
                             {conveneError && (
                                 <div
                                     className="rounded-xl border border-rose-500/20 bg-rose-500/[0.08]
-                                    px-4 py-2.5 text-[12px] text-rose-400"
+                                        px-4 py-2.5 text-[12px] text-rose-400"
                                 >
                                     {conveneError}
                                 </div>
                             )}
                         </div>
-                    ) : (
-                        <div className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5">
-                            <p className="text-sm text-slate-500">
-                                No tactical meetings scheduled yet.
-                            </p>
-                        </div>
-                    )}
-                </motion.div>
+                    </motion.div>
+                )}
 
-                {/* Meeting phases reference */}
+                {/* Huddle phases reference */}
                 <motion.div
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -175,11 +279,11 @@ export default function TacticalView({ tacticalMeetingAddress }: Props) {
                     className="mb-8"
                 >
                     <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-                        Meeting phases
+                        Huddle phases
                     </p>
                     <div
                         className="grid grid-cols-1 gap-px rounded-[1.5rem] overflow-hidden
-                        border border-white/[0.06] bg-white/[0.04]"
+                            border border-white/[0.06] bg-white/[0.04]"
                     >
                         {PHASES.map((phase, i) => (
                             <div
@@ -190,7 +294,7 @@ export default function TacticalView({ tacticalMeetingAddress }: Props) {
                             >
                                 <span
                                     className="flex h-6 w-6 shrink-0 items-center justify-center
-                                    rounded-full bg-white/[0.05] text-[11px] font-semibold text-slate-500"
+                                        rounded-full bg-white/[0.05] text-[11px] font-semibold text-slate-500"
                                 >
                                     {i + 1}
                                 </span>
@@ -203,67 +307,25 @@ export default function TacticalView({ tacticalMeetingAddress }: Props) {
                     </div>
                 </motion.div>
 
-                {/* Upcoming + Recent split */}
-                <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.65, delay: 0.2, ease: EXPO }}
-                    className="grid gap-4 sm:grid-cols-2"
-                >
-                    {/* Upcoming */}
-                    <div className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5">
-                        <div className="mb-4 flex items-center gap-2">
-                            <Clock3 size={14} className="text-slate-500" strokeWidth={1.75} />
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                Upcoming
-                            </p>
-                        </div>
-                        {upcoming.length > 0 ? (
+                {/* Past huddles */}
+                {completed.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.65, delay: 0.2, ease: EXPO }}
+                    >
+                        <div className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5">
+                            <div className="mb-4 flex items-center gap-2">
+                                <FileText size={14} className="text-slate-500" strokeWidth={1.75} />
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                                    Past huddles
+                                </p>
+                                <span className="ml-auto text-[11px] text-slate-700">
+                                    {completed.length}
+                                </span>
+                            </div>
                             <ul className="space-y-2">
-                                {upcoming.map((m) => (
-                                    <li key={m.id}>
-                                        <button
-                                            type="button"
-                                            disabled={isConvening}
-                                            onClick={() => handleStartHuddle(m.id, m.circleId)}
-                                            className="group flex w-full items-center justify-between rounded-xl
-                                                border border-white/[0.05] bg-white/[0.02]
-                                                px-3.5 py-2.5 text-left
-                                                transition-colors hover:border-white/[0.1] hover:bg-white/[0.05]
-                                                disabled:opacity-60 disabled:pointer-events-none"
-                                        >
-                                            <div>
-                                                <p className="text-[13px] font-medium text-slate-200">
-                                                    {m.title}
-                                                </p>
-                                                <p className="mt-0.5 text-[11px] text-slate-600">
-                                                    {circleMap[m.circleId]?.title ?? "Circle"}
-                                                </p>
-                                            </div>
-                                            <ArrowRight
-                                                size={13}
-                                                className="text-slate-600 transition-transform group-hover:translate-x-0.5"
-                                            />
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-xs text-slate-600">No scheduled huddles.</p>
-                        )}
-                    </div>
-
-                    {/* Recent */}
-                    <div className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5">
-                        <div className="mb-4 flex items-center gap-2">
-                            <FileText size={14} className="text-slate-500" strokeWidth={1.75} />
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                Recent
-                            </p>
-                        </div>
-                        {recent.length > 0 ? (
-                            <ul className="space-y-2">
-                                {recent.map((m) => (
+                                {completed.slice(0, 5).map((m) => (
                                     <li key={m.id}>
                                         <button
                                             type="button"
@@ -275,64 +337,27 @@ export default function TacticalView({ tacticalMeetingAddress }: Props) {
                                         >
                                             <div>
                                                 <p className="text-[13px] font-medium text-slate-200">
-                                                    {m.title}
+                                                    Huddle #{m.meetingId}
                                                 </p>
                                                 <p className="mt-0.5 text-[11px] text-slate-600">
-                                                    {circleMap[m.circleId]?.title ?? "Circle"}
+                                                    {new Date(
+                                                        Number(m.createdAt) * 1000,
+                                                    ).toLocaleDateString()}
                                                 </p>
                                             </div>
                                             <span
                                                 className="rounded-full border border-emerald-400/20
-                                                bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400"
+                                                    bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400"
                                             >
-                                                Done
+                                                Completed
                                             </span>
                                         </button>
                                     </li>
                                 ))}
                             </ul>
-                        ) : (
-                            <p className="text-xs text-slate-600">No completed huddles yet.</p>
-                        )}
-                    </div>
-                </motion.div>
-
-                {/* Stat strip */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
-                    className="mt-6 grid grid-cols-3 gap-px rounded-[1.25rem] overflow-hidden
-                        border border-white/[0.05]"
-                >
-                    {[
-                        { icon: ListChecks, label: "Total huddles", value: meetings.length },
-                        {
-                            icon: CheckSquare,
-                            label: "Actions captured",
-                            value: snapshot.actions.length,
-                        },
-                        {
-                            icon: TrendingUp,
-                            label: "Projects active",
-                            value: snapshot.projects.filter((p) => p.stage !== "done").length,
-                        },
-                    ].map(({ icon: Icon, label, value }) => (
-                        <div
-                            key={label}
-                            className="flex flex-col items-center justify-center
-                            gap-1 bg-[#0a0a0f] px-4 py-4"
-                        >
-                            <Icon size={14} className="text-slate-600" strokeWidth={1.75} />
-                            <p className="font-mono text-xl font-semibold tracking-tight text-white">
-                                {value}
-                            </p>
-                            <p className="text-center text-[10px] uppercase tracking-wider text-slate-600">
-                                {label}
-                            </p>
                         </div>
-                    ))}
-                </motion.div>
+                    </motion.div>
+                )}
             </div>
         </div>
     );

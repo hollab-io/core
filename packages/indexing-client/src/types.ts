@@ -265,6 +265,16 @@ export type ActionVoteCast = {
     txHash: HexStr;
 };
 
+export type MeetingComponentSet = {
+    id: string;
+    orgId: BigIntStr;
+    tacticalMeeting: HexStr;
+    governanceMeeting: HexStr;
+    actionVoting: HexStr;
+    deployedAt: BigIntStr;
+    txHash: HexStr;
+};
+
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
 export type PageInfo = {

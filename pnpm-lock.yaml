@@ -88,6 +88,9 @@ importers:
             "@fullcalendar/timegrid":
                 specifier: ^6.1.20
                 version: 6.1.20(@fullcalendar/core@6.1.20)
+            "@hollab-io/contracts":
+                specifier: workspace:*
+                version: link:../../packages/contracts
             "@hollab-io/indexing-client":
                 specifier: workspace:*
                 version: link:../../packages/indexing-client

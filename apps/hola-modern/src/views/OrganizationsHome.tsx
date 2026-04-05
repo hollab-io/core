@@ -120,9 +120,11 @@ function OrgCard({
                                     />
                                 </div>
                             </div>
-                            <p className="mt-1 text-[12px] leading-relaxed text-slate-500">
-                                {org.subname}.hollab.eth
-                            </p>
+                            <div className="mt-1 flex items-center gap-2 text-[12px] text-slate-500">
+                                <span>{org.subname}.hollab.eth</span>
+                                <span className="text-white/[0.08]">·</span>
+                                <span>1 member</span>
+                            </div>
                         </div>
                     </div>
                 </div>
