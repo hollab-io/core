@@ -14,6 +14,7 @@ import { ActionVotingAbi } from "./abis/ActionVotingAbi";
 import { GovernanceMeetingAbi } from "./abis/GovernanceMeetingAbi";
 import { JoinRequestAbi } from "./abis/JoinRequestAbi";
 import { TacticalMeetingAbi } from "./abis/TacticalMeetingAbi";
+import { TensionBoardAbi } from "./abis/TensionBoardAbi";
 
 const addr = (key: string) =>
     (process.env[key] ?? "0x0000000000000000000000000000000000000001") as `0x${string}`;
@@ -22,6 +23,7 @@ const orgFactoryAddr = addr("ORGANIZATION_FACTORY_ADDRESS");
 const govFactoryAddr = addr("HOL_GOVERNOR_FACTORY_ADDRESS");
 const meetingFactoryAddr = addr("MEETING_COMPONENTS_FACTORY_ADDRESS");
 const joinRequestAddr = addr("JOIN_REQUEST_ADDRESS");
+const tensionBoardAddr = addr("TENSION_BOARD_ADDRESS");
 const startBlock = Number(process.env.START_BLOCK ?? 0);
 
 const orgComponentsDeployedEvent = organizationFactoryAbi.find(
@@ -156,6 +158,14 @@ export default createConfig({
             chain: "mainnet",
             abi: JoinRequestAbi,
             address: joinRequestAddr,
+            startBlock,
+        },
+
+        // ── TensionBoard: single deployment, anyone can submit tensions ──────────
+        TensionBoard: {
+            chain: "sepolia",
+            abi: TensionBoardAbi,
+            address: tensionBoardAddr,
             startBlock,
         },
     },

@@ -11,3 +11,15 @@ export function createCircleMap(snapshot: WorkspaceSnapshot) {
 export function createRoleMap(snapshot: WorkspaceSnapshot) {
     return Object.fromEntries(snapshot.roles.map((role) => [role.id, role]));
 }
+
+export function getAnchorCircle(snapshot: WorkspaceSnapshot) {
+    return snapshot.circles.find((c) => c.isAnchor) ?? null;
+}
+
+export function getSubCircles(snapshot: WorkspaceSnapshot, circleId: string) {
+    return snapshot.circles.filter((c) => c.parentCircleId === circleId);
+}
+
+export function getRolesForCircle(snapshot: WorkspaceSnapshot, circleId: string) {
+    return snapshot.roles.filter((r) => r.circleId === circleId);
+}

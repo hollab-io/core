@@ -80,11 +80,22 @@ const PARTNERS: PartnerRecord[] = [
 
 const CIRCLES: CircleRecord[] = [
     {
+        id: "anchor",
+        title: "General Company Circle",
+        purpose: "Hold the organization's overall purpose and coordinate all sub-circles.",
+        summary: "The anchor circle containing all top-level roles and sub-circles.",
+        accent: "#3481FF",
+        parentCircleId: null,
+        isAnchor: true,
+    },
+    {
         id: "leadership",
         title: "Leadership & governance",
         purpose: "Align company priorities and hold the constitutional operating model together.",
         summary: "Strategic direction, governance design, and executive coordination.",
         accent: "#4B8DFF",
+        parentCircleId: "anchor",
+        isAnchor: false,
     },
     {
         id: "product",
@@ -92,6 +103,8 @@ const CIRCLES: CircleRecord[] = [
         purpose: "Ship coherent product value with technical quality and sustainable delivery.",
         summary: "Product strategy, design, engineering delivery, and platform quality.",
         accent: "#6AA7FF",
+        parentCircleId: "anchor",
+        isAnchor: false,
     },
     {
         id: "people",
@@ -99,6 +112,8 @@ const CIRCLES: CircleRecord[] = [
         purpose: "Support people systems, onboarding, and learning across the organization.",
         summary: "People operations, onboarding, learning, and employee support.",
         accent: "#7BBAFF",
+        parentCircleId: "anchor",
+        isAnchor: false,
     },
     {
         id: "growth",
@@ -106,10 +121,92 @@ const CIRCLES: CircleRecord[] = [
         purpose: "Grow revenue, strengthen customer relationships, and keep the market close.",
         summary: "Marketing, sales, support, and customer-facing operations.",
         accent: "#90C2FF",
+        parentCircleId: "anchor",
+        isAnchor: false,
     },
 ];
 
 const ROLES: RoleRecord[] = [
+    // ── Anchor circle structural roles ──────────────────────────────────────
+    {
+        id: "lead-link-anchor",
+        circleId: "anchor",
+        title: "Lead Link",
+        summary: "Holds overall purpose alignment and assigns people to roles.",
+        cadence: "Continuous",
+        scope: ["Assign people to roles", "Allocate resources", "Define priorities"],
+        memberIds: ["elena"],
+        isExpandedToCircle: false,
+        expandedCircleId: null,
+    },
+    {
+        id: "facilitator-anchor",
+        circleId: "anchor",
+        title: "Facilitator",
+        summary: "Facilitates governance and tactical meetings for the anchor circle.",
+        cadence: "Per meeting",
+        scope: ["Run governance meetings", "Ensure process integrity"],
+        memberIds: ["marcus"],
+        isExpandedToCircle: false,
+        expandedCircleId: null,
+    },
+    {
+        id: "secretary-anchor",
+        circleId: "anchor",
+        title: "Secretary",
+        summary: "Records governance outputs and interprets the constitution.",
+        cadence: "Per meeting",
+        scope: ["Record governance decisions", "Interpret governance records"],
+        memberIds: ["marta"],
+        isExpandedToCircle: false,
+        expandedCircleId: null,
+    },
+    // Roles in anchor that expanded into sub-circles
+    {
+        id: "leadership-role",
+        circleId: "anchor",
+        title: "Leadership & governance",
+        summary: "Strategic direction, governance design, and executive coordination.",
+        cadence: "Weekly exec sync",
+        scope: ["Align company priorities", "Hold constitutional model"],
+        memberIds: ["elena", "marcus"],
+        isExpandedToCircle: true,
+        expandedCircleId: "leadership",
+    },
+    {
+        id: "product-role",
+        circleId: "anchor",
+        title: "Product & engineering",
+        summary: "Product strategy, design, engineering delivery, and platform quality.",
+        cadence: "Weekly roadmap review",
+        scope: ["Ship product value", "Maintain technical quality"],
+        memberIds: ["felix", "ava"],
+        isExpandedToCircle: true,
+        expandedCircleId: "product",
+    },
+    {
+        id: "people-role",
+        circleId: "anchor",
+        title: "Employee experience",
+        summary: "People operations, onboarding, learning, and employee support.",
+        cadence: "Weekly people ops",
+        scope: ["Support people systems", "Run onboarding"],
+        memberIds: ["john", "maria"],
+        isExpandedToCircle: true,
+        expandedCircleId: "people",
+    },
+    {
+        id: "growth-role-anchor",
+        circleId: "anchor",
+        title: "Growth & support",
+        summary: "Marketing, sales, support, and customer-facing operations.",
+        cadence: "Weekly pipeline sync",
+        scope: ["Grow revenue", "Strengthen customer relationships"],
+        memberIds: ["paul", "sarah"],
+        isExpandedToCircle: true,
+        expandedCircleId: "growth",
+    },
+    // ── Leadership circle roles ─────────────────────────────────────────────
     {
         id: "ceo",
         circleId: "leadership",
@@ -122,6 +219,8 @@ const ROLES: RoleRecord[] = [
             "Sequence organizational priorities",
         ],
         memberIds: ["elena", "marcus"],
+        isExpandedToCircle: false,
+        expandedCircleId: null,
     },
     {
         id: "cto",
@@ -131,6 +230,8 @@ const ROLES: RoleRecord[] = [
         cadence: "Weekly architecture review",
         scope: ["Guide engineering investments", "Set technical standards", "Reduce delivery risk"],
         memberIds: ["felix", "marta"],
+        isExpandedToCircle: false,
+        expandedCircleId: null,
     },
     {
         id: "vision",
@@ -144,7 +245,10 @@ const ROLES: RoleRecord[] = [
             "Frame leadership priorities",
         ],
         memberIds: ["elena"],
+        isExpandedToCircle: false,
+        expandedCircleId: null,
     },
+    // ── Product circle roles ────────────────────────────────────────────────
     {
         id: "product-circle",
         circleId: "product",
@@ -157,7 +261,10 @@ const ROLES: RoleRecord[] = [
             "Sequence product work",
         ],
         memberIds: ["ava", "jon", "clara"],
+        isExpandedToCircle: false,
+        expandedCircleId: null,
     },
+    // ── People circle roles ─────────────────────────────────────────────────
     {
         id: "employee-experience",
         circleId: "people",
@@ -170,7 +277,10 @@ const ROLES: RoleRecord[] = [
             "Coordinate people operations",
         ],
         memberIds: ["john", "maria", "anna"],
+        isExpandedToCircle: false,
+        expandedCircleId: null,
     },
+    // ── Growth circle roles ─────────────────────────────────────────────────
     {
         id: "growth-role",
         circleId: "growth",
@@ -183,6 +293,8 @@ const ROLES: RoleRecord[] = [
             "Bring customer insight back to product",
         ],
         memberIds: ["paul", "sarah", "alice"],
+        isExpandedToCircle: false,
+        expandedCircleId: null,
     },
     {
         id: "customer-services",
@@ -196,6 +308,8 @@ const ROLES: RoleRecord[] = [
             "Escalate recurring friction",
         ],
         memberIds: ["bob", "mila"],
+        isExpandedToCircle: false,
+        expandedCircleId: null,
     },
 ];
 

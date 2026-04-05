@@ -22,7 +22,7 @@ import {
     Vote,
     X,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { encodeFunctionData } from "viem";
 
 import type { GovernanceMeeting } from "../hooks/useGovernanceMeetingsFromIndexer";
@@ -426,7 +426,7 @@ function ProposalWizard({
     const canAdvance = (() => {
         switch (wizardStep) {
             case "action":
-                return Boolean(draft.changeType && draft.circleId && draft.proposerRoleId);
+                return Boolean(draft.changeType && draft.circleId);
             case "details":
                 if (isCreate && isRoleAction) return Boolean(draft.roleName.trim());
                 if (isCreate && isPolicyAction)
@@ -506,6 +506,7 @@ function ProposalWizard({
                                     }
                                     className={selectCls}
                                 >
+                                    {!draft.circleId && <option value="">Select a circle</option>}
                                     {circles.map((c) => (
                                         <option key={c.id} value={c.id}>
                                             {c.title}
@@ -522,6 +523,7 @@ function ProposalWizard({
                                     }
                                     className={selectCls}
                                 >
+                                    <option value="">— optional —</option>
                                     {circleRoles.map((r) => (
                                         <option key={r.id} value={r.id}>
                                             {r.title}
@@ -1490,9 +1492,9 @@ export default function GovernanceMeetingRoom({
     }, []);
 
     // Reset phase when meeting changes
-    const [prevMeetingId, setPrevMeetingId] = useState<string | null>(null);
-    if (activeGovernanceMeeting && activeGovernanceMeeting.id !== prevMeetingId) {
-        setPrevMeetingId(activeGovernanceMeeting.id);
+    const meetingId = activeGovernanceMeeting?.id ?? null;
+    useEffect(() => {
+        if (!meetingId || !activeGovernanceMeeting) return;
         const phaseMap: Record<string, number> = {
             "check-in": 0,
             "agenda-processing": 1,
@@ -1503,7 +1505,7 @@ export default function GovernanceMeetingRoom({
         setSelectedAgendaItemId(null);
         setShowWizard(false);
         setPendingActions([]);
-    }
+    }, [meetingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const activePhase = GOVERNANCE_PHASES[activePhaseIndex];
     const isFirstPhase = activePhaseIndex === 0;
@@ -1553,8 +1555,10 @@ export default function GovernanceMeetingRoom({
 
         try {
             const walletAddr = authenticatedWalletAddress as `0x${string}`;
-            const meetingIdBigInt = /^\d+$/.test(activeGovernanceMeeting.id)
-                ? BigInt(activeGovernanceMeeting.id)
+            // Use the real on-chain meetingId for contract calls, not the offset local ID
+            const onChainId = activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id;
+            const meetingIdBigInt = /^\d+$/.test(onChainId)
+                ? BigInt(onChainId)
                 : BigInt(0);
 
             // Build calls array: governance actions + completeMeeting
@@ -1776,7 +1780,7 @@ export default function GovernanceMeetingRoom({
             try {
                 await linkProposal({
                     governanceMeetingAddress,
-                    meetingId: BigInt(activeGovernanceMeeting.id),
+                    meetingId: BigInt(activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id),
                     proposalId: BigInt(proposalId),
                     walletAddress: authenticatedWalletAddress as `0x${string}`,
                 });

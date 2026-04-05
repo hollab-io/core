@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ArrowRight, Clock3, FileText, Loader2, Scale, ShieldAlert, Vote } from "lucide-react";
+import { ArrowRight, Clock3, Loader2, Scale, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 
 import { useGovernanceMeeting } from "../hooks/useGovernanceMeeting";
@@ -7,16 +7,6 @@ import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const SPRING = { type: "spring", stiffness: 340, damping: 28 } as const;
-
-const STATUS_PILL: Record<string, string> = {
-    active: "border-blue-400/25 bg-blue-500/10 text-blue-300",
-    integrating: "border-amber-400/25 bg-amber-500/10 text-amber-300",
-    adopted: "border-emerald-400/25 bg-emerald-500/10 text-emerald-300",
-    discarded: "border-red-400/20 bg-red-500/10 text-red-400",
-    withdrawn: "border-slate-400/20 bg-slate-500/10 text-slate-400",
-    draft: "border-slate-400/20 bg-white/[0.04] text-slate-400",
-    objected: "border-amber-400/25 bg-amber-500/10 text-amber-300",
-};
 
 const IDM_STEPS = [
     {
@@ -49,42 +39,109 @@ const IDM_STEPS = [
 
 type Props = {
     governanceMeetingAddress?: `0x${string}`;
+    indexedGovernanceMeetings?: import("../hooks/useGovernanceMeetingsFromIndexer").GovernanceMeeting[];
+    pollForNewGovernanceMeeting?: (
+        prevCount: number,
+    ) => Promise<import("../hooks/useGovernanceMeetingsFromIndexer").GovernanceMeeting[]>;
+    refetchMeetingComponents?: () => Promise<void>;
 };
 
-export default function GovernanceView({ governanceMeetingAddress }: Props) {
-    const { snapshot, openGovernanceMeeting, circleMap, partnerMap, authenticatedWalletAddress } =
+export default function GovernanceView({
+    governanceMeetingAddress,
+    indexedGovernanceMeetings = [],
+    pollForNewGovernanceMeeting,
+    refetchMeetingComponents,
+}: Props) {
+    const { conveneGovernanceMeeting, authenticatedWalletAddress } =
         useWorkspaceSnapshot();
     const { conveneMeeting } = useGovernanceMeeting();
     const [isConvening, setIsConvening] = useState(false);
     const [conveneError, setConveneError] = useState<string | null>(null);
-    const proposals = snapshot.governanceProposals ?? [];
-    const gMeetings = snapshot.governanceMeetings ?? [];
-    const activeProposals = proposals.filter((p) =>
-        ["active", "integrating", "objected"].includes(p.status),
-    );
-    const recentMeetings = gMeetings.slice(0, 3);
 
-    const handleStartMeeting = async (meetingId: string, circleId: string) => {
-        // If no contract address, no wallet, or non-numeric circleId (mock data), open locally
-        if (!governanceMeetingAddress || !authenticatedWalletAddress || !/^\d+$/.test(circleId)) {
-            openGovernanceMeeting(meetingId);
-            return;
-        }
+    // Only show on-chain meetings as resumable if they were convened
+    // recently (within the last hour) and not yet completed.
+    // Older uncompleted meetings are stale — likely abandoned.
+    const ONE_HOUR_SECS = 3600;
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const indexedInProgress = indexedGovernanceMeetings.filter(
+        (m) => !m.completedAt && nowSecs - Number(m.createdAt) < ONE_HOUR_SECS,
+    );
+
+    const handleConveneNewMeeting = async () => {
+        if (!authenticatedWalletAddress) return;
 
         setIsConvening(true);
         setConveneError(null);
+
+        // If the governance address isn't available yet, try refetching
+        // the meeting components — the contract may already be deployed.
+        let address = governanceMeetingAddress;
+        if (!address && refetchMeetingComponents) {
+            try {
+                await refetchMeetingComponents();
+            } catch {
+                // indexer unavailable
+            }
+            // Address will be available on next render; bail for now
+            // and let the user click again.
+            setIsConvening(false);
+            if (!governanceMeetingAddress) {
+                setConveneError(
+                    "Governance contracts not deployed yet. Set up huddles on the Tactical tab first.",
+                );
+            }
+            return;
+        }
+
+        if (!address) {
+            setConveneError(
+                "Governance contracts not deployed yet. Set up huddles on the Tactical tab first.",
+            );
+            setIsConvening(false);
+            return;
+        }
+
+        // Use the org's anchor circle (circleId 1) by default
+        const circleId = 1n;
+
         try {
             await conveneMeeting({
-                governanceMeetingAddress,
-                circleId: BigInt(circleId),
+                governanceMeetingAddress: address,
+                circleId,
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
             });
-            openGovernanceMeeting(meetingId);
+
+            // Poll indexer for the new meeting
+            if (pollForNewGovernanceMeeting) {
+                const prevCount = indexedGovernanceMeetings.length;
+                const updated = await pollForNewGovernanceMeeting(prevCount);
+                const newest = updated[0];
+                if (newest) {
+                    conveneGovernanceMeeting({
+                        meetingId: newest.id,
+                        circleId: newest.circleId,
+                        convenedBy: newest.convenedBy,
+                        onChainMeetingId: newest.meetingId,
+                    });
+                }
+            }
         } catch (err) {
             setConveneError(err instanceof Error ? err.message : "Failed to convene meeting");
         } finally {
             setIsConvening(false);
         }
+    };
+
+    const handleResumeIndexedMeeting = (
+        m: import("../hooks/useGovernanceMeetingsFromIndexer").GovernanceMeeting,
+    ) => {
+        // Create a local record and open the drawer
+        conveneGovernanceMeeting({
+            meetingId: m.id,
+            circleId: m.circleId,
+            convenedBy: m.convenedBy,
+            onChainMeetingId: m.meetingId,
+        });
     };
 
     return (
@@ -109,47 +166,86 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
                     </p>
                 </motion.div>
 
-                {/* Start governance meeting CTA */}
+                {/* Governance meeting CTA */}
                 <motion.div
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.65, delay: 0.08, ease: EXPO }}
                     className="mb-8"
                 >
-                    {gMeetings.length > 0 ? (
-                        <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2">
+                        {/* Resume indexed in-progress meeting */}
+                        {indexedInProgress.map((m) => (
+                            <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => handleResumeIndexedMeeting(m)}
+                                className="group flex w-full items-center justify-between gap-4
+                                    rounded-[1.5rem]
+                                    border border-[#3481FF]/20
+                                    bg-[linear-gradient(135deg,rgba(52,129,255,0.1),rgba(52,129,255,0.05))]
+                                    p-5
+                                    transition-all duration-500
+                                    hover:border-[#3481FF]/35
+                                    hover:shadow-[0_0_40px_rgba(52,129,255,0.1)]
+                                    active:scale-[0.99]"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#3481FF]/25 bg-[#3481FF]/12">
+                                        <Scale
+                                            size={18}
+                                            className="text-[#6aabff]"
+                                            strokeWidth={1.75}
+                                        />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-[15px] font-semibold text-white">
+                                            Resume governance meeting
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-slate-400">
+                                            Meeting #{m.meetingId} · In progress
+                                        </p>
+                                    </div>
+                                </div>
+                                <motion.div
+                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[#3481FF]/25 bg-[#3481FF]/10 text-[#6aabff]"
+                                    whileHover={{ x: 3 }}
+                                    transition={SPRING}
+                                >
+                                    <ArrowRight size={15} strokeWidth={2} />
+                                </motion.div>
+                            </button>
+                        ))}
+
+                        {/* Convene new meeting on-chain */}
+                        {indexedInProgress.length === 0 && (
                             <button
                                 type="button"
                                 disabled={isConvening}
-                                onClick={() =>
-                                    handleStartMeeting(gMeetings[0].id, gMeetings[0].circleId)
-                                }
+                                onClick={handleConveneNewMeeting}
                                 className="group flex w-full items-center justify-between gap-4
                                     rounded-[1.5rem]
-                                    border border-violet-500/20
-                                    bg-[linear-gradient(135deg,rgba(139,92,246,0.1),rgba(139,92,246,0.05))]
+                                    border border-emerald-500/20
+                                    bg-[linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.03))]
                                     p-5
                                     transition-all duration-500
-                                    hover:border-violet-500/35
-                                    hover:shadow-[0_0_40px_rgba(139,92,246,0.1)]
+                                    hover:border-emerald-500/35
+                                    hover:shadow-[0_0_40px_rgba(16,185,129,0.08)]
                                     active:scale-[0.99]
                                     disabled:opacity-60 disabled:pointer-events-none"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div
-                                        className="flex h-11 w-11 items-center justify-center rounded-2xl
-                                        border border-violet-500/25 bg-violet-500/12"
-                                    >
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-500/25 bg-emerald-500/12">
                                         {isConvening ? (
                                             <Loader2
                                                 size={18}
-                                                className="text-violet-400 animate-spin"
+                                                className="text-emerald-400 animate-spin"
                                                 strokeWidth={1.75}
                                             />
                                         ) : (
                                             <Scale
                                                 size={18}
-                                                className="text-violet-400"
+                                                className="text-emerald-400"
                                                 strokeWidth={1.75}
                                             />
                                         )}
@@ -157,40 +253,30 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
                                     <div className="text-left">
                                         <p className="text-[15px] font-semibold text-white">
                                             {isConvening
-                                                ? "Convening meeting…"
-                                                : "Start governance meeting"}
+                                                ? "Convening meeting on-chain..."
+                                                : "Convene governance meeting"}
                                         </p>
                                         <p className="mt-0.5 text-xs text-slate-400">
-                                            {circleMap[gMeetings[0].circleId]?.title ?? "Circle"} ·
-                                            IDM process
+                                            Start a new on-chain governance session
                                         </p>
                                     </div>
                                 </div>
                                 <motion.div
-                                    className="flex h-8 w-8 items-center justify-center rounded-full
-                                        border border-violet-500/25 bg-violet-500/10 text-violet-400"
+                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
                                     whileHover={{ x: 3 }}
                                     transition={SPRING}
                                 >
                                     <ArrowRight size={15} strokeWidth={2} />
                                 </motion.div>
                             </button>
-                            {conveneError && (
-                                <div
-                                    className="rounded-xl border border-rose-500/20 bg-rose-500/[0.08]
-                                    px-4 py-2.5 text-[12px] text-rose-400"
-                                >
-                                    {conveneError}
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5">
-                            <p className="text-sm text-slate-500">
-                                No governance meetings scheduled yet.
-                            </p>
-                        </div>
-                    )}
+                        )}
+
+                        {conveneError && (
+                            <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.08] px-4 py-2.5 text-[12px] text-rose-400">
+                                {conveneError}
+                            </div>
+                        )}
+                    </div>
                 </motion.div>
 
                 {/* Two-column: active proposals + recent meetings */}
@@ -200,70 +286,57 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
                     transition={{ duration: 0.65, delay: 0.14, ease: EXPO }}
                     className="mb-8 grid gap-4 sm:grid-cols-[1.1fr_1fr]"
                 >
-                    {/* Active proposals */}
+                    {/* Stats */}
                     <div className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5">
                         <div className="mb-4 flex items-center gap-2">
-                            <Vote size={14} className="text-slate-500" strokeWidth={1.75} />
+                            <Scale size={14} className="text-slate-500" strokeWidth={1.75} />
                             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                Active proposals
+                                On-chain governance
                             </p>
-                            {activeProposals.length > 0 && (
-                                <span
-                                    className="ml-auto rounded-full bg-violet-500/15
-                                    px-2 py-0.5 text-[10px] font-semibold text-violet-400"
-                                >
-                                    {activeProposals.length}
-                                </span>
-                            )}
                         </div>
-                        {activeProposals.length > 0 ? (
-                            <ul className="space-y-2">
-                                {activeProposals.map((p) => (
-                                    <li
-                                        key={p.id}
-                                        className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-3.5"
-                                    >
-                                        <div className="flex items-start justify-between gap-2">
-                                            <p className="text-[13px] font-medium leading-snug text-slate-200">
-                                                {p.tension.slice(0, 72)}
-                                                {p.tension.length > 72 && "…"}
-                                            </p>
-                                            <span
-                                                className={`shrink-0 rounded-full border px-2 py-0.5
-                                                text-[10px] font-semibold ${STATUS_PILL[p.status] ?? STATUS_PILL.draft}`}
-                                            >
-                                                {p.status.charAt(0).toUpperCase() +
-                                                    p.status.slice(1)}
-                                            </span>
-                                        </div>
-                                        <p className="mt-1 text-[11px] text-slate-600">
-                                            {partnerMap[p.proposerId]?.name ?? p.proposerId}
-                                            {" · "}
-                                            {circleMap[p.circleId]?.title ?? "Circle"}
-                                        </p>
-                                    </li>
-                                ))}
-                            </ul>
-                        ) : (
-                            <p className="text-xs text-slate-600">No active proposals right now.</p>
-                        )}
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3 text-center">
+                                <p className="text-[22px] font-bold tabular-nums text-white">
+                                    {indexedGovernanceMeetings.length}
+                                </p>
+                                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+                                    Meetings
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3 text-center">
+                                <p className="text-[22px] font-bold tabular-nums text-emerald-400">
+                                    {indexedGovernanceMeetings.filter((m) => m.completedAt).length}
+                                </p>
+                                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+                                    Completed
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3 text-center">
+                                <p className="text-[22px] font-bold tabular-nums text-[#6aabff]">
+                                    {indexedInProgress.length}
+                                </p>
+                                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+                                    In progress
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Recent meetings */}
+                    {/* Recent indexed meetings */}
                     <div className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5">
                         <div className="mb-4 flex items-center gap-2">
                             <Clock3 size={14} className="text-slate-500" strokeWidth={1.75} />
                             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                Recent meetings
+                                Meeting history
                             </p>
                         </div>
-                        {recentMeetings.length > 0 ? (
+                        {indexedGovernanceMeetings.length > 0 ? (
                             <ul className="space-y-2">
-                                {recentMeetings.map((m) => (
+                                {indexedGovernanceMeetings.slice(0, 5).map((m) => (
                                     <li key={m.id}>
                                         <button
                                             type="button"
-                                            onClick={() => openGovernanceMeeting(m.id)}
+                                            onClick={() => handleResumeIndexedMeeting(m)}
                                             className="group flex w-full items-center justify-between
                                                 rounded-xl border border-white/[0.05] bg-white/[0.02]
                                                 px-3.5 py-2.5 text-left
@@ -271,11 +344,11 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
                                         >
                                             <div>
                                                 <p className="text-[13px] font-medium text-slate-200">
-                                                    {m.intention?.slice(0, 48) ||
-                                                        "Governance meeting"}
+                                                    Meeting #{m.meetingId}
                                                 </p>
                                                 <p className="mt-0.5 text-[11px] text-slate-600">
-                                                    {circleMap[m.circleId]?.title ?? "Circle"}
+                                                    Circle {m.circleId} ·{" "}
+                                                    {m.completedAt ? "Completed" : "In progress"}
                                                 </p>
                                             </div>
                                             <ArrowRight
@@ -287,7 +360,9 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
                                 ))}
                             </ul>
                         ) : (
-                            <p className="text-xs text-slate-600">No meetings recorded yet.</p>
+                            <p className="text-xs text-slate-600">
+                                No governance meetings recorded on-chain yet.
+                            </p>
                         )}
                     </div>
                 </motion.div>
@@ -351,41 +426,6 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
                     </div>
                 </motion.div>
 
-                {/* Stats */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
-                    className="mt-6 grid grid-cols-3 gap-px rounded-[1.25rem] overflow-hidden border border-white/[0.05]"
-                >
-                    {[
-                        { icon: FileText, label: "Total proposals", value: proposals.length },
-                        {
-                            icon: Vote,
-                            label: "Adopted",
-                            value: proposals.filter((p) => p.status === "adopted").length,
-                        },
-                        {
-                            icon: ShieldAlert,
-                            label: "Objections raised",
-                            value: (snapshot.governanceObjections ?? []).length,
-                        },
-                    ].map(({ icon: Icon, label, value }) => (
-                        <div
-                            key={label}
-                            className="flex flex-col items-center justify-center
-                            gap-1 bg-[#0a0a0f] px-4 py-4"
-                        >
-                            <Icon size={14} className="text-slate-600" strokeWidth={1.75} />
-                            <p className="font-mono text-xl font-semibold tracking-tight text-white">
-                                {value}
-                            </p>
-                            <p className="text-center text-[10px] uppercase tracking-wider text-slate-600">
-                                {label}
-                            </p>
-                        </div>
-                    ))}
-                </motion.div>
             </div>
         </div>
     );
