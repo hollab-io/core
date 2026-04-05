@@ -9,12 +9,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Building2, Check, Loader2, Search, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPublicClient, http } from "viem";
-import { sepolia } from "viem/chains";
+import { mainnet } from "viem/chains";
 
 import { useJoinRequest } from "../hooks/useJoinRequest";
 import { ORGANIZATION_FACTORY_ADDRESS } from "./organizationFactoryAddress";
 
-const publicClient = createPublicClient({ chain: sepolia, transport: http() });
+const publicClient = createPublicClient({ chain: mainnet, transport: http() });
 
 type OrgPreview = {
     id: bigint;

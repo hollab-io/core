@@ -6,7 +6,7 @@ const INTEGRATIONS = [
     {
         id: "trello",
         name: "Trello",
-        desc: "Visual task management with Kanban boards. Sync cards with Holaspirit actions and projects.",
+        desc: "Visual task management with Kanban boards. Sync cards with Hollab actions and projects.",
         color: "from-blue-500 to-blue-600",
         icon: "T",
     },
@@ -20,7 +20,7 @@ const INTEGRATIONS = [
     {
         id: "jira",
         name: "Jira",
-        desc: "Agile project tracking. Scrum, kanban, sprints — linked to circles and roles inside Holaspirit.",
+        desc: "Agile project tracking. Scrum, kanban, sprints — linked to circles and roles inside Hollab.",
         color: "from-blue-600 to-indigo-600",
         icon: "J",
     },
@@ -63,11 +63,13 @@ export default function IntegrationsSettings() {
     return (
         <div className="mx-auto max-w-2xl">
             {/* Section tabs */}
-            <div className="mb-6 flex items-center gap-px rounded-full
+            <div
+                className="mb-6 flex items-center gap-px rounded-full
                 bg-slate-100/80 dark:bg-white/[0.05]
                 ring-1 ring-slate-200/80 dark:ring-white/[0.06]
                 p-[3px] w-fit"
-                role="tablist">
+                role="tablist"
+            >
                 {sectionTabs.map((tab) => {
                     const isActive = activeSection === tab.id;
                     return (
@@ -78,9 +80,10 @@ export default function IntegrationsSettings() {
                             aria-selected={isActive}
                             onClick={() => setActiveSection(tab.id)}
                             className={`rounded-full px-5 py-2 text-[13px] font-semibold transition-all duration-300
-                                ${isActive
-                                    ? "bg-white dark:bg-white/[0.1] text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/60 dark:ring-white/[0.1]"
-                                    : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                                ${
+                                    isActive
+                                        ? "bg-white dark:bg-white/[0.1] text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/60 dark:ring-white/[0.1]"
+                                        : "text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                                 }`}
                             style={{ transitionTimingFunction: SPRING }}
                         >
@@ -91,8 +94,10 @@ export default function IntegrationsSettings() {
             </div>
 
             {activeSection !== "integrations" ? (
-                <div className="rounded-2xl border border-slate-200/70 dark:border-white/[0.07]
-                    bg-white dark:bg-[#0e0e12] p-6">
+                <div
+                    className="rounded-2xl border border-slate-200/70 dark:border-white/[0.07]
+                    bg-white dark:bg-[#0e0e12] p-6"
+                >
                     <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#3481FF] mb-1.5">
                         {activeSection}
                     </p>
@@ -120,10 +125,12 @@ export default function IntegrationsSettings() {
                                 style={{ transitionTimingFunction: SPRING }}
                             >
                                 {/* Icon */}
-                                <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl
+                                <div
+                                    className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl
                                     bg-gradient-to-br ${item.color}
                                     text-[17px] font-bold text-white
-                                    shadow-sm`}>
+                                    shadow-sm`}
+                                >
                                     {item.icon}
                                 </div>
 
@@ -140,7 +147,10 @@ export default function IntegrationsSettings() {
                                             aria-checked={isEnabled}
                                             aria-label={`${isEnabled ? "Disable" : "Enable"} ${item.name}`}
                                             onClick={() =>
-                                                setEnabledIntegrations((s) => ({ ...s, [item.id]: !s[item.id] }))
+                                                setEnabledIntegrations((s) => ({
+                                                    ...s,
+                                                    [item.id]: !s[item.id],
+                                                }))
                                             }
                                             className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full
                                                 transition-colors duration-300
@@ -159,11 +169,13 @@ export default function IntegrationsSettings() {
                                         {item.desc}
                                     </p>
                                     {isEnabled && (
-                                        <span className="mt-2 inline-flex rounded-full
+                                        <span
+                                            className="mt-2 inline-flex rounded-full
                                             border border-emerald-200/70 dark:border-emerald-500/20
                                             bg-emerald-50 dark:bg-emerald-500/[0.08]
                                             px-2.5 py-0.5 text-[10px] font-semibold
-                                            text-emerald-700 dark:text-emerald-400">
+                                            text-emerald-700 dark:text-emerald-400"
+                                        >
                                             Connected
                                         </span>
                                     )}

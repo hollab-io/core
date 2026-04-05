@@ -51,7 +51,7 @@ services:
             dockerfile: Dockerfile
             target: hola-modern
             args:
-                VITE_DYNAMIC_ENVIRONMENT_ID: "0b12312c-6584-4e59-bb4f-ba10b5bc0a5b"
+                VITE_DYNAMIC_ENVIRONMENT_ID: "aac79627-b466-4c2a-94e7-dad80d4746e7"
                 VITE_INDEXER_URL: "https://indexer.hollab.io"
                 VITE_JOIN_REQUEST_ADDRESS: ${VITE_JOIN_REQUEST_ADDRESS}
         restart: unless-stopped

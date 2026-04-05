@@ -733,11 +733,9 @@ export default function OrganizationsHome({
                                                         d="M4 12a8 8 0 018-8v8z"
                                                     />
                                                 </svg>
-                                                <span className="flex-1">
-                                                    Deploying on Sepolia…
-                                                </span>
+                                                <span className="flex-1">Deploying…</span>
                                                 <a
-                                                    href={`https://sepolia.etherscan.io/tx/${txHash}`}
+                                                    href={`https://etherscan.io/tx/${txHash}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="flex items-center gap-1 opacity-70 hover:opacity-100"

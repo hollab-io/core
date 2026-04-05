@@ -41,15 +41,15 @@ const meetingComponentsDeployedEvent = meetingComponentsFactoryAbi.find(
 
 export default createConfig({
     chains: {
-        sepolia: {
-            id: 11155111,
-            rpc: process.env.PONDER_RPC_URL_11155111,
+        mainnet: {
+            id: 1,
+            rpc: process.env.PONDER_RPC_URL_1,
         },
     },
     contracts: {
         // ── Fixed factory contracts ───────────────────────────────────────────────
         OrganizationFactory: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: organizationFactoryAbi,
             address: orgFactoryAddr,
             startBlock,
@@ -57,7 +57,7 @@ export default createConfig({
 
         // ── Per-org clones: auto-discovered from OrgComponentsDeployed ────────────
         CircleRegistry: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: circleRegistryAbi,
             address: {
                 address: orgFactoryAddr,
@@ -67,7 +67,7 @@ export default createConfig({
             startBlock,
         },
         RoleRegistry: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: roleRegistryAbi,
             address: {
                 address: orgFactoryAddr,
@@ -77,7 +77,7 @@ export default createConfig({
             startBlock,
         },
         GovernanceProcess: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: governanceProcessAbi,
             address: {
                 address: orgFactoryAddr,
@@ -89,7 +89,7 @@ export default createConfig({
 
         // ── Per-org governor: auto-discovered from GovernorDeployed ──────────────
         HolGovernor: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: holGovernorAbi,
             address: {
                 address: govFactoryAddr,
@@ -101,7 +101,7 @@ export default createConfig({
 
         // ── Per-org treasury: auto-discovered from OrgComponentsDeployed ─────────
         CircleTreasury: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: circleTreasuryAbi,
             address: {
                 address: orgFactoryAddr,
@@ -113,7 +113,7 @@ export default createConfig({
 
         // ── MeetingComponentsFactory: indexed directly for MeetingComponentsDeployed ─────────
         MeetingComponentsFactory: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: meetingComponentsFactoryAbi,
             address: meetingFactoryAddr,
             startBlock,
@@ -121,7 +121,7 @@ export default createConfig({
 
         // ── Per-org meeting & voting clones: auto-discovered from MeetingComponentsDeployed ─
         TacticalMeeting: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: TacticalMeetingAbi,
             address: {
                 address: meetingFactoryAddr,
@@ -131,7 +131,7 @@ export default createConfig({
             startBlock,
         },
         GovernanceMeeting: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: GovernanceMeetingAbi,
             address: {
                 address: meetingFactoryAddr,
@@ -141,7 +141,7 @@ export default createConfig({
             startBlock,
         },
         ActionVoting: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: ActionVotingAbi,
             address: {
                 address: meetingFactoryAddr,
@@ -153,7 +153,7 @@ export default createConfig({
 
         // ── JoinRequest: single deployment, indexes all join requests ────────────
         JoinRequest: {
-            chain: "sepolia",
+            chain: "mainnet",
             abi: JoinRequestAbi,
             address: joinRequestAddr,
             startBlock,

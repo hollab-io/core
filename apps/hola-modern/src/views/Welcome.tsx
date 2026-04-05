@@ -112,7 +112,7 @@ export default function WelcomeScreen() {
                     transition={{ duration: 0.9, delay: 0.14, ease: EXPO }}
                     className="mt-6 text-balance text-[50px] font-bold leading-[1.08] tracking-[-0.04em] text-white sm:text-[58px]"
                 >
-                    Holaspirit
+                    Hollab
                 </motion.h1>
 
                 {/* Subtitle */}
@@ -168,9 +168,7 @@ export default function WelcomeScreen() {
                             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/20">
                                 Connect to get started
                             </p>
-                            <p className="mb-6 text-[13px] text-white/35">
-                                Use your wallet or social login to enter the workspace.
-                            </p>
+
                             <div className="flex w-full justify-center">
                                 <DynamicAuthControl />
                             </div>
@@ -179,14 +177,6 @@ export default function WelcomeScreen() {
                 </motion.div>
 
                 {/* Footer */}
-                <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 1, delay: 0.6, ease: EXPO }}
-                    className="mt-7 text-[11px] text-white/15"
-                >
-                    Non-custodial · ERC-4337 · Gas sponsored
-                </motion.p>
             </div>
         </section>
     );

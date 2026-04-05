@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPublicClient, http, isAddress } from "viem";
-import { sepolia } from "viem/chains";
+import { mainnet } from "viem/chains";
 import { normalize } from "viem/ens";
 
 import type { JoinRequestEntry } from "../hooks/useJoinRequest";
@@ -26,8 +26,8 @@ import { useJoinRequest } from "../hooks/useJoinRequest";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 import OrganizationChart from "./OrganizationChart";
 
-// ─── viem ENS client (Sepolia) ────────────────────────────────────────────────
-const ensClient = createPublicClient({ chain: sepolia, transport: http() });
+// ─── viem ENS client ──────────────────────────────────────────────────────────
+const ensClient = createPublicClient({ chain: mainnet, transport: http() });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EntryStatus = "resolving" | "resolved" | "invalid" | "failed";

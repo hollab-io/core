@@ -14,16 +14,14 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPublicClient, http, isAddress } from "viem";
-import { sepolia } from "viem/chains";
+import { mainnet } from "viem/chains";
 import { normalize } from "viem/ens";
 
 import { useCircleRegistry } from "../hooks/useCircleRegistry";
 
 // ─── viem client ─────────────────────────────────────────────────────────────
-// ENS names (including hollab.eth) are registered on Sepolia
-
 const ensClient = createPublicClient({
-    chain: sepolia,
+    chain: mainnet,
     transport: http(),
 });
 

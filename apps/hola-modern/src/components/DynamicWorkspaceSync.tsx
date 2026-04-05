@@ -1,18 +1,18 @@
 import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { useDynamicContext, useSwitchNetwork } from "@dynamic-labs/sdk-react-core";
 import { useEffect } from "react";
-import { sepolia } from "viem/chains";
+import { mainnet } from "viem/chains";
 
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
-const TARGET_CHAIN_ID = sepolia.id;
+const TARGET_CHAIN_ID = mainnet.id;
 
 export default function DynamicWorkspaceSync() {
     const { primaryWallet, user } = useDynamicContext();
     const { syncAuthenticatedIdentity } = useWorkspaceSnapshot();
     const switchNetwork = useSwitchNetwork();
 
-    // Auto-switch to Sepolia when wallet connects on the wrong network.
+    // Auto-switch to mainnet when wallet connects on the wrong network.
     useEffect(() => {
         if (!primaryWallet || !isEthereumWallet(primaryWallet)) return;
 
