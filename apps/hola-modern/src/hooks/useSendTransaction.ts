@@ -21,29 +21,9 @@ export type ContractCall = {
     value?: bigint;
 };
 
-async function sendEoa(
-    primaryWallet: NonNullable<ReturnType<typeof useDynamicContext>["primaryWallet"]>,
-    encoded: { to: Address; data: `0x${string}`; value?: bigint }[],
-    account: Address,
-): Promise<`0x${string}`> {
-    const walletClient = await primaryWallet.getWalletClient();
-    if (!walletClient) throw new Error("Could not get wallet client");
-    let hash: `0x${string}` = "0x";
-    for (const call of encoded) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        hash = await (walletClient as any).sendTransaction({
-            to: call.to,
-            data: call.data,
-            value: call.value,
-            account,
-            chain: walletClient.chain,
-        });
-    }
-    return hash;
-}
-
 export function useSendTransaction() {
     const { primaryWallet } = useDynamicContext();
+
     const send = async (calls: ContractCall[], account: Address): Promise<`0x${string}`> => {
         const encoded = calls.map(({ to, abi, functionName, args, value }) => ({
             to,
@@ -51,12 +31,27 @@ export function useSendTransaction() {
             value,
         }));
 
-        // ── EOA path ─────────────────────────────────────────────────────────────
         // ZeroDev / gas sponsorship is disabled until AA is properly configured.
         if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
             throw new Error("No Ethereum wallet connected");
         }
-        return sendEoa(primaryWallet, encoded, account);
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const walletClient = await (primaryWallet as any).getWalletClient();
+        if (!walletClient) throw new Error("Could not get wallet client");
+
+        let hash: `0x${string}` = "0x";
+        for (const call of encoded) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            hash = await (walletClient as any).sendTransaction({
+                to: call.to,
+                data: call.data,
+                value: call.value,
+                account,
+                chain: walletClient.chain,
+            });
+        }
+        return hash;
     };
 
     return { send };

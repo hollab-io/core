@@ -466,13 +466,18 @@ export default function StructureView({ org, isDarkMode }: Props) {
                         className="flex items-center gap-px rounded-full
                         border border-white/[0.08] bg-white/[0.04] p-[3px]"
                     >
-                        {(["members", "chart", ...(isAdmin ? ["requests"] : [])] as const).map(
-                            (t) => (
-                                <button
-                                    key={t}
-                                    type="button"
-                                    onClick={() => setTab(t)}
-                                    className={`relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5
+                        {(
+                            ["members", "chart", ...(isAdmin ? ["requests"] : [])] as (
+                                | "members"
+                                | "chart"
+                                | "requests"
+                            )[]
+                        ).map((t) => (
+                            <button
+                                key={t}
+                                type="button"
+                                onClick={() => setTab(t)}
+                                className={`relative flex items-center gap-1.5 rounded-full px-3.5 py-1.5
                                     text-[11px] font-semibold capitalize tracking-wide
                                     transition-all duration-300
                                     ${
@@ -480,23 +485,22 @@ export default function StructureView({ org, isDarkMode }: Props) {
                                             ? "bg-white/[0.08] text-white shadow-sm"
                                             : "text-slate-500 hover:text-slate-300"
                                     }`}
-                                >
-                                    {t === "members" ? (
-                                        <Users size={11} strokeWidth={2} />
-                                    ) : t === "chart" ? (
-                                        <Network size={11} strokeWidth={2} />
-                                    ) : (
-                                        <UserCheck size={11} strokeWidth={2} />
-                                    )}
-                                    {t}
-                                    {t === "requests" && joinRequests.length > 0 && (
-                                        <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#3481FF] px-1 text-[9px] font-bold text-white">
-                                            {joinRequests.length}
-                                        </span>
-                                    )}
-                                </button>
-                            ),
-                        )}
+                            >
+                                {t === "members" ? (
+                                    <Users size={11} strokeWidth={2} />
+                                ) : t === "chart" ? (
+                                    <Network size={11} strokeWidth={2} />
+                                ) : (
+                                    <UserCheck size={11} strokeWidth={2} />
+                                )}
+                                {t}
+                                {t === "requests" && joinRequests.length > 0 && (
+                                    <span className="ml-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#3481FF] px-1 text-[9px] font-bold text-white">
+                                        {joinRequests.length}
+                                    </span>
+                                )}
+                            </button>
+                        ))}
                     </div>
                 </motion.div>
             </div>

@@ -1,7 +1,7 @@
 import type { Organization } from "@hollab-io/indexing-client";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, BadgeCheck, Check, Loader2, Mail, Plus, Users, Wallet, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowRight, BadgeCheck, Loader2, Mail, Plus, Users, Wallet } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { isAddress } from "viem";
 
 import { useCircleRegistry } from "../hooks/useCircleRegistry";

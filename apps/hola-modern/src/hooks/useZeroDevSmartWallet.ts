@@ -36,11 +36,11 @@ export function useZeroDevSmartWallet() {
             );
         }
 
-        await zeroDevConnector.getNetwork();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const c = zeroDevConnector as any;
+        await c.getNetwork();
 
-        const kernelClient = zeroDevConnector.getAccountAbstractionProvider({
-            withSponsorship: true,
-        });
+        const kernelClient = c.getAccountAbstractionProvider({ withSponsorship: true });
 
         if (!kernelClient?.account) {
             throw new GasSponsorshipUnavailableError(
@@ -56,9 +56,11 @@ export function useZeroDevSmartWallet() {
             return false;
         }
 
-        await zeroDevConnector.getNetwork();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const c = zeroDevConnector as any;
+        await c.getNetwork();
 
-        return zeroDevConnector.canSponsorTransactionGas({
+        return c.canSponsorTransactionGas({
             data: call.data ?? ZERO_DATA,
             from: zeroDevWallet.address,
             to: call.to,

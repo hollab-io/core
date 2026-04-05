@@ -104,6 +104,7 @@ export default function JoinOrganizationPanel({ onClose, prefilled }: Props) {
     };
 
     const orgFound = lookupState.kind === "found";
+    const isPending = isPending;
     const canSubmit = orgFound && submitState === "idle";
 
     return (
@@ -270,7 +271,7 @@ export default function JoinOrganizationPanel({ onClose, prefilled }: Props) {
                 <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={!canSubmit || submitState === "pending"}
+                    disabled={!canSubmit || isPending}
                     className={`group flex w-full items-center justify-between rounded-xl px-5 py-3 text-[13px] font-bold transition-all duration-500 active:scale-[0.98] ${
                         canSubmit
                             ? "bg-[#3481FF] text-white shadow-[0_8px_28px_rgba(52,129,255,0.3)] hover:bg-[#2570f0]"
@@ -278,10 +279,10 @@ export default function JoinOrganizationPanel({ onClose, prefilled }: Props) {
                     }`}
                 >
                     <div className="flex items-center gap-2">
-                        {submitState === "pending" ? (
+                        {isPending ? (
                             <Loader2 size={14} strokeWidth={2} className="animate-spin" />
                         ) : null}
-                        {submitState === "pending" ? "Confirm in wallet…" : "Send join request"}
+                        {isPending ? "Confirm in wallet…" : "Send join request"}
                     </div>
                     {submitState !== "pending" && (
                         <div
