@@ -6,6 +6,7 @@ import type { AppTabId } from "./config/navigation";
 import DynamicAuthControl from "./components/DynamicAuthControl";
 import { useGovernanceMeetingsFromIndexer } from "./hooks/useGovernanceMeetingsFromIndexer";
 import { useOrganizationsFromIndexer } from "./hooks/useOrganizationsFromIndexer";
+import { useOrgMembersFromIndexer } from "./hooks/useOrgMembersFromIndexer";
 import { useTacticalMeetingsFromIndexer } from "./hooks/useTacticalMeetingsFromIndexer";
 import { useWorkspaceSnapshot } from "./hooks/useWorkspaceSnapshot";
 import ActionItemsView from "./views/ActionItemsView";
@@ -13,7 +14,6 @@ import ConstitutionView from "./views/ConstitutionView";
 import GovernanceMeetingRoom from "./views/GovernanceMeetingRoom";
 import GovernanceView from "./views/GovernanceView";
 import JoinOrganizationPanel from "./views/JoinOrganizationPanel";
-import MemberOnboarding from "./views/MemberOnboarding";
 import OrganizationsHome from "./views/OrganizationsHome";
 import StructureView from "./views/StructureView";
 import TacticalMeetingRoom from "./views/TacticalMeetingRoom";
@@ -32,10 +32,15 @@ const NAV = [
 ] as const;
 
 function App() {
-    const { activeOrganizationId, setActiveOrganizationId, authenticatedWalletAddress } =
-        useWorkspaceSnapshot();
+    const {
+        activeOrganizationId,
+        setActiveOrganizationId,
+        authenticatedWalletAddress,
+        syncIndexedMembers,
+    } = useWorkspaceSnapshot();
     const { organizations, pollUntil } = useOrganizationsFromIndexer(authenticatedWalletAddress);
     const activeOrg = organizations.find((o) => o.id === activeOrganizationId) ?? null;
+    const { members: indexedMembers } = useOrgMembersFromIndexer(activeOrg?.circleRegistry);
     const {
         tacticalMeetingAddress,
         governanceMeetingAddress,
@@ -47,7 +52,9 @@ function App() {
     } = useTacticalMeetingsFromIndexer(activeOrganizationId);
     const { meetings: indexedGovernanceMeetings } =
         useGovernanceMeetingsFromIndexer(governanceMeetingAddress);
-    const [activeTab, setActiveTab] = useState<AppTabId>("tactical");
+    const [activeTab, setActiveTab] = useState<AppTabId>("constitution");
+    // When true, StructureView should auto-open the add-members panel
+    const [autoOpenInvite, setAutoOpenInvite] = useState(false);
     // Org IDs that have completed (or skipped) member onboarding this session
     const [onboardedOrgIds, setOnboardedOrgIds] = useState<Set<string>>(() => new Set());
     // Org IDs selected from Discover (user is not yet a member)
@@ -78,6 +85,23 @@ function App() {
         document.documentElement.classList.add("dark");
     }, []);
 
+    // Sync on-chain org members into the workspace partner list
+    useEffect(() => {
+        if (indexedMembers.length > 0) {
+            syncIndexedMembers(indexedMembers);
+        }
+    }, [indexedMembers, syncIndexedMembers]);
+
+    // Instead of a standalone onboarding screen, skip to the main app
+    // and auto-open the invite panel on the Structure tab
+    useEffect(() => {
+        if (isOnboarding && activeOrg) {
+            completeOnboarding();
+            setActiveTab("structure");
+            setAutoOpenInvite(true);
+        }
+    }, [isOnboarding, activeOrg]); // eslint-disable-line react-hooks/exhaustive-deps
+
     if (!authenticatedWalletAddress) {
         return <Welcome />;
     }
@@ -94,17 +118,6 @@ function App() {
                         onPreview={handlePreview}
                         pollUntil={pollUntil}
                     />
-                </main>
-            </div>
-        );
-    }
-
-    if (isOnboarding && activeOrg) {
-        return (
-            <div className="relative flex h-screen w-full overflow-hidden bg-[#050505]">
-                <div className="grain-overlay" aria-hidden="true" />
-                <main className="custom-scrollbar relative z-10 min-w-0 flex-1 overflow-auto">
-                    <MemberOnboarding org={activeOrg} onComplete={completeOnboarding} />
                 </main>
             </div>
         );
@@ -127,7 +140,14 @@ function App() {
             case "actions":
                 return <ActionItemsView outputs={indexedOutputs} meetings={indexedMeetings} />;
             case "structure":
-                return <StructureView org={activeOrg!} isDarkMode={isDarkMode} />;
+                return (
+                    <StructureView
+                        org={activeOrg!}
+                        isDarkMode={isDarkMode}
+                        autoOpenInvite={autoOpenInvite}
+                        onInviteOpened={() => setAutoOpenInvite(false)}
+                    />
+                );
             case "constitution":
                 return <ConstitutionView />;
         }
@@ -311,11 +331,13 @@ function App() {
                 onNavigateToTab={setActiveTab}
                 tacticalMeetingAddress={tacticalMeetingAddress}
                 indexedMeetings={indexedMeetings}
+                allOutputs={indexedOutputs}
                 fetchOutputs={fetchOutputs}
                 refetchMeetings={refetchMeetings}
             />
             <GovernanceMeetingRoom
                 governanceMeetingAddress={governanceMeetingAddress}
+                circleRegistryAddress={activeOrg?.circleRegistry as `0x${string}` | undefined}
                 indexedGovernanceMeetings={indexedGovernanceMeetings}
             />
         </div>

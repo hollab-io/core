@@ -1,5 +1,6 @@
 import type { GovernanceMeeting, GovernanceMeetingLink } from "@hollab-io/indexing-client";
-import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 
 import { getIndexingClient } from "./useOrganizationsFromIndexer";
 
@@ -8,30 +9,24 @@ export type { GovernanceMeeting, GovernanceMeetingLink };
 export function useGovernanceMeetingsFromIndexer(
     governanceMeetingAddress: `0x${string}` | undefined,
 ) {
-    const [meetings, setMeetings] = useState<GovernanceMeeting[]>([]);
-    const [loading, setLoading] = useState(false);
+    const queryClient = useQueryClient();
 
-    const fetch = useCallback(async () => {
-        const client = getIndexingClient();
-        if (!client || !governanceMeetingAddress) {
-            setMeetings([]);
-            return;
-        }
-
-        setLoading(true);
-        try {
+    const { data: meetings = [], isLoading: loading } = useQuery({
+        queryKey: ["governanceMeetings", governanceMeetingAddress],
+        queryFn: async () => {
+            const client = getIndexingClient();
+            if (!client || !governanceMeetingAddress) return [];
             const result = await client.listGovernanceMeetingsByContract(governanceMeetingAddress);
-            setMeetings(result.items);
-        } catch {
-            // indexer unreachable
-        } finally {
-            setLoading(false);
-        }
-    }, [governanceMeetingAddress]);
+            return result.items;
+        },
+        enabled: Boolean(governanceMeetingAddress),
+    });
 
-    useEffect(() => {
-        void fetch();
-    }, [fetch]);
+    const refetch = useCallback(() => {
+        return queryClient.invalidateQueries({
+            queryKey: ["governanceMeetings", governanceMeetingAddress],
+        });
+    }, [queryClient, governanceMeetingAddress]);
 
     const pollForNewMeeting = useCallback(
         (prevCount: number, timeoutMs = 60_000): Promise<GovernanceMeeting[]> => {
@@ -48,8 +43,11 @@ export function useGovernanceMeetingsFromIndexer(
                     try {
                         const result = await client.listGovernanceMeetingsByContract(addr);
                         const items = result.items;
-                        setMeetings(items);
                         if (items.length > prevCount) {
+                            queryClient.setQueryData(
+                                ["governanceMeetings", governanceMeetingAddress],
+                                items,
+                            );
                             resolve(items);
                             return;
                         }
@@ -66,7 +64,7 @@ export function useGovernanceMeetingsFromIndexer(
                 void tick();
             });
         },
-        [governanceMeetingAddress],
+        [governanceMeetingAddress, queryClient],
     );
 
     const fetchMeetingLinks = useCallback(
@@ -89,7 +87,7 @@ export function useGovernanceMeetingsFromIndexer(
     return {
         meetings,
         loading,
-        refetch: fetch,
+        refetch,
         pollForNewMeeting,
         fetchMeetingLinks,
     };

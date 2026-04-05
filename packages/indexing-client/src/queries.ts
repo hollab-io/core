@@ -362,6 +362,30 @@ export const LIST_PENDING_JOIN_REQUESTS_BY_ORG = `
     }
 `;
 
+// ─── Tension board ──────────────────────────────────────────────────────────
+
+export const TENSION_FIELDS = `
+    id tensionId contractAddress author orgId circleId target title description status champion submittedAt resolvedAt txHash
+`;
+
+export const LIST_OPEN_TENSIONS_BY_ORG = `
+    query ListOpenTensionsByOrg($orgId: BigInt!, $limit: Int, $after: String, $before: String) {
+        tensions(where: { orgId: $orgId, status: 0 }, limit: $limit, after: $after, before: $before, orderBy: "submittedAt", orderDirection: "desc") {
+            items { ${TENSION_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+export const LIST_TENSIONS_BY_ORG = `
+    query ListTensionsByOrg($orgId: BigInt!, $limit: Int, $after: String, $before: String) {
+        tensions(where: { orgId: $orgId }, limit: $limit, after: $after, before: $before, orderBy: "submittedAt", orderDirection: "desc") {
+            items { ${TENSION_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
 export const LIST_ACTION_VOTE_CASTS = `
     query ListActionVoteCasts($contractAddress: String!, $voteId: String!, $limit: Int, $after: String, $before: String) {
         actionVoteCasts(where: { contractAddress: $contractAddress, voteId: $voteId }, limit: $limit, after: $after, before: $before) {

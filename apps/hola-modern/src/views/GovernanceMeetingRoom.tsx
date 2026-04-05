@@ -1,3 +1,6 @@
+import { isEthereumWallet } from "@dynamic-labs/ethereum";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { circleRegistryAbi, governanceMeetingAbi } from "@hollab-io/viem-extension";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowLeft,
@@ -20,6 +23,7 @@ import {
     X,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { encodeFunctionData } from "viem";
 
 import type { GovernanceMeeting } from "../hooks/useGovernanceMeetingsFromIndexer";
 import { useGovernanceMeeting } from "../hooks/useGovernanceMeeting";
@@ -40,6 +44,24 @@ type ChangeType =
     | "move-role";
 
 type ProposalWizardStep = "action" | "details";
+
+type PendingGovernanceAction = {
+    id: string;
+    changeType: ChangeType;
+    label: string;
+    // Role fields
+    circleId: string;
+    roleName?: string;
+    roleDescription?: string;
+    roleDomain?: string;
+    roleAccountabilities?: string;
+    // Policy fields
+    policyTitle?: string;
+    policyBody?: string;
+    // Target
+    existingTargetId?: string;
+    destinationCircleId?: string;
+};
 
 type ProposalDraft = {
     changeType: ChangeType;
@@ -811,6 +833,8 @@ function PhaseContent({
     showWizard,
     onShowWizard,
     wizardProps,
+    pendingActions,
+    onRemovePendingAction,
 }: {
     phaseIndex: number;
     participants: string[];
@@ -852,6 +876,8 @@ function PhaseContent({
     showWizard: boolean;
     onShowWizard: () => void;
     wizardProps: React.ReactNode;
+    pendingActions: PendingGovernanceAction[];
+    onRemovePendingAction: (id: string) => void;
 }) {
     const phase = GOVERNANCE_PHASES[phaseIndex];
     const [idmSubStep, setIdmSubStep] = useState(0);
@@ -1210,13 +1236,13 @@ function PhaseContent({
                     <div className="grid grid-cols-3 gap-3">
                         {[
                             {
-                                label: "Proposals",
-                                value: agendaItems.filter((a) => a.type === "proposal").length,
+                                label: "Actions",
+                                value: pendingActions.length,
                                 color: "text-[#3481FF]",
                             },
                             {
-                                label: "Elections",
-                                value: agendaItems.filter((a) => a.type === "election").length,
+                                label: "Agenda",
+                                value: agendaItems.length,
                                 color: "text-amber-400",
                             },
                             {
@@ -1238,10 +1264,53 @@ function PhaseContent({
                             </div>
                         ))}
                     </div>
+
+                    {/* Pending on-chain actions */}
+                    {pendingActions.length > 0 && (
+                        <div>
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                                Queued on-chain actions
+                            </p>
+                            <div className="space-y-1.5">
+                                {pendingActions.map((action) => {
+                                    const opt = CHANGE_TYPE_OPTIONS.find(
+                                        (o) => o.value === action.changeType,
+                                    );
+                                    const Icon = opt?.icon ?? Plus;
+                                    return (
+                                        <div
+                                            key={action.id}
+                                            className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3.5 py-2.5"
+                                        >
+                                            <Icon
+                                                size={13}
+                                                className="shrink-0 text-[#6aabff]"
+                                                strokeWidth={1.75}
+                                            />
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-[12px] font-medium text-white">
+                                                    {action.label}
+                                                </p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => onRemovePendingAction(action.id)}
+                                                className="shrink-0 rounded-full p-1 text-slate-600 transition-colors hover:text-slate-300"
+                                            >
+                                                <X size={11} />
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-4">
                         <p className="text-[12px] leading-relaxed text-slate-400">
-                            Take a moment to share closing reflections. Once everyone has spoken,
-                            the facilitator can complete the meeting to record it on-chain.
+                            {pendingActions.length > 0
+                                ? `Completing the meeting will submit ${pendingActions.length} governance action${pendingActions.length > 1 ? "s" : ""} on-chain in a single batch transaction.`
+                                : "Take a moment to share closing reflections. Once everyone has spoken, the facilitator can complete the meeting to record it on-chain."}
                         </p>
                     </div>
                 </div>
@@ -1377,11 +1446,14 @@ function GovernanceMeetingHistoryList({
 
 export default function GovernanceMeetingRoom({
     governanceMeetingAddress,
+    circleRegistryAddress,
     indexedGovernanceMeetings,
 }: {
     governanceMeetingAddress?: `0x${string}`;
+    circleRegistryAddress?: `0x${string}`;
     indexedGovernanceMeetings?: GovernanceMeeting[];
 }) {
+    const { primaryWallet } = useDynamicContext();
     const {
         activeGovernanceMeeting,
         authenticatedWalletAddress,
@@ -1410,6 +1482,13 @@ export default function GovernanceMeetingRoom({
         buildEmptyDraft(initialCircleId, initialRoleId),
     );
 
+    // Pending governance actions — batched on meeting completion
+    const [pendingActions, setPendingActions] = useState<PendingGovernanceAction[]>([]);
+
+    const removePendingAction = useCallback((id: string) => {
+        setPendingActions((prev) => prev.filter((a) => a.id !== id));
+    }, []);
+
     // Reset phase when meeting changes
     const [prevMeetingId, setPrevMeetingId] = useState<string | null>(null);
     if (activeGovernanceMeeting && activeGovernanceMeeting.id !== prevMeetingId) {
@@ -1423,6 +1502,7 @@ export default function GovernanceMeetingRoom({
         setDrawerTab("meeting");
         setSelectedAgendaItemId(null);
         setShowWizard(false);
+        setPendingActions([]);
     }
 
     const activePhase = GOVERNANCE_PHASES[activePhaseIndex];
@@ -1458,29 +1538,229 @@ export default function GovernanceMeetingRoom({
 
     const handleCompleteMeeting = useCallback(async () => {
         if (!activeGovernanceMeeting) return;
-        if (governanceMeetingAddress && authenticatedWalletAddress) {
-            setIsTxPending(true);
-            setTxError(null);
-            try {
+
+        const hasOnChain = governanceMeetingAddress && authenticatedWalletAddress;
+        const hasCircleRegistry =
+            circleRegistryAddress && /^\d+$/.test(activeGovernanceMeeting.circleId);
+
+        if (!hasOnChain) {
+            closeGovernanceMeeting();
+            return;
+        }
+
+        setIsTxPending(true);
+        setTxError(null);
+
+        try {
+            const walletAddr = authenticatedWalletAddress as `0x${string}`;
+            const meetingIdBigInt = /^\d+$/.test(activeGovernanceMeeting.id)
+                ? BigInt(activeGovernanceMeeting.id)
+                : BigInt(0);
+
+            // Build calls array: governance actions + completeMeeting
+            const calls: { to: `0x${string}`; data: `0x${string}` }[] = [];
+
+            // Encode each pending governance action
+            if (hasCircleRegistry) {
+                const circleIdBigInt = BigInt(activeGovernanceMeeting.circleId);
+
+                for (const action of pendingActions) {
+                    switch (action.changeType) {
+                        case "create-role":
+                        case "amend-role":
+                            if (action.roleName) {
+                                calls.push({
+                                    to: circleRegistryAddress,
+                                    data: encodeFunctionData({
+                                        abi: circleRegistryAbi,
+                                        functionName: "createRoleInCircle",
+                                        args: [
+                                            circleIdBigInt,
+                                            action.roleName,
+                                            action.roleDescription ?? "",
+                                            action.roleDomain
+                                                ? action.roleDomain
+                                                      .split(",")
+                                                      .map((s) => s.trim())
+                                                      .filter(Boolean)
+                                                : [],
+                                            action.roleAccountabilities
+                                                ? action.roleAccountabilities
+                                                      .split("\n")
+                                                      .filter(Boolean)
+                                                : [],
+                                        ],
+                                    }),
+                                });
+                            }
+                            break;
+
+                        case "remove-role":
+                            if (action.existingTargetId && /^\d+$/.test(action.existingTargetId)) {
+                                calls.push({
+                                    to: circleRegistryAddress,
+                                    data: encodeFunctionData({
+                                        abi: circleRegistryAbi,
+                                        functionName: "removeRoleFromCircle",
+                                        args: [circleIdBigInt, BigInt(action.existingTargetId)],
+                                    }),
+                                });
+                            }
+                            break;
+
+                        case "create-policy":
+                        case "amend-policy":
+                            if (action.policyTitle) {
+                                calls.push({
+                                    to: circleRegistryAddress,
+                                    data: encodeFunctionData({
+                                        abi: circleRegistryAbi,
+                                        functionName: "addPolicy",
+                                        args: [
+                                            circleIdBigInt,
+                                            action.policyTitle,
+                                            action.policyBody ?? "",
+                                        ],
+                                    }),
+                                });
+                            }
+                            break;
+
+                        case "remove-policy":
+                            if (action.existingTargetId && /^\d+$/.test(action.existingTargetId)) {
+                                calls.push({
+                                    to: circleRegistryAddress,
+                                    data: encodeFunctionData({
+                                        abi: circleRegistryAbi,
+                                        functionName: "removePolicy",
+                                        args: [circleIdBigInt, BigInt(action.existingTargetId)],
+                                    }),
+                                });
+                            }
+                            break;
+
+                        case "move-role":
+                            // Remove from current circle, create in destination
+                            if (
+                                action.existingTargetId &&
+                                /^\d+$/.test(action.existingTargetId) &&
+                                action.destinationCircleId &&
+                                /^\d+$/.test(action.destinationCircleId)
+                            ) {
+                                calls.push({
+                                    to: circleRegistryAddress,
+                                    data: encodeFunctionData({
+                                        abi: circleRegistryAbi,
+                                        functionName: "removeRoleFromCircle",
+                                        args: [circleIdBigInt, BigInt(action.existingTargetId)],
+                                    }),
+                                });
+                                if (action.roleName) {
+                                    calls.push({
+                                        to: circleRegistryAddress,
+                                        data: encodeFunctionData({
+                                            abi: circleRegistryAbi,
+                                            functionName: "createRoleInCircle",
+                                            args: [
+                                                BigInt(action.destinationCircleId),
+                                                action.roleName,
+                                                action.roleDescription ?? "",
+                                                action.roleDomain
+                                                    ? action.roleDomain
+                                                          .split(",")
+                                                          .map((s) => s.trim())
+                                                          .filter(Boolean)
+                                                    : [],
+                                                action.roleAccountabilities
+                                                    ? action.roleAccountabilities
+                                                          .split("\n")
+                                                          .filter(Boolean)
+                                                    : [],
+                                            ],
+                                        }),
+                                    });
+                                }
+                            }
+                            break;
+                    }
+                }
+            }
+
+            // Always add completeMeeting as the final call
+            calls.push({
+                to: governanceMeetingAddress,
+                data: encodeFunctionData({
+                    abi: governanceMeetingAbi,
+                    functionName: "completeMeeting",
+                    args: [meetingIdBigInt],
+                }),
+            });
+
+            // Try EIP-5792 batch first
+            let batched = false;
+            if (primaryWallet && isEthereumWallet(primaryWallet)) {
+                try {
+                    const walletClient = await primaryWallet.getWalletClient();
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await (walletClient as any).request({
+                        method: "wallet_sendCalls",
+                        params: [
+                            {
+                                version: "1",
+                                from: walletAddr,
+                                calls: calls.map((c) => ({ to: c.to, data: c.data })),
+                            },
+                        ],
+                    });
+                    batched = true;
+                } catch {
+                    // wallet doesn't support wallet_sendCalls
+                }
+            }
+
+            // Sequential fallback
+            if (!batched) {
+                if (hasCircleRegistry && pendingActions.length > 0) {
+                    // Can't batch — send governance actions sequentially via useSendTransaction pattern
+                    if (primaryWallet && isEthereumWallet(primaryWallet)) {
+                        const walletClient = await primaryWallet.getWalletClient();
+                        for (const call of calls.slice(0, -1)) {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            await (walletClient as any).sendTransaction({
+                                to: call.to,
+                                data: call.data,
+                                account: walletAddr,
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                chain: (walletClient as any).chain,
+                            });
+                        }
+                    }
+                }
+                // Complete meeting via the hook (last call)
                 await completeMeetingOnChain({
                     governanceMeetingAddress,
-                    meetingId: BigInt(activeGovernanceMeeting.id),
-                    walletAddress: authenticatedWalletAddress as `0x${string}`,
+                    meetingId: meetingIdBigInt,
+                    walletAddress: walletAddr,
                 });
-            } catch (err) {
-                setTxError(err instanceof Error ? err.message : "Failed to complete meeting");
-                setIsTxPending(false);
-                return;
             }
+
+            setPendingActions([]);
+        } catch (err) {
+            setTxError(err instanceof Error ? err.message : "Failed to complete meeting");
             setIsTxPending(false);
+            return;
         }
+        setIsTxPending(false);
         closeGovernanceMeeting();
     }, [
         activeGovernanceMeeting,
         authenticatedWalletAddress,
+        circleRegistryAddress,
         closeGovernanceMeeting,
         completeMeetingOnChain,
         governanceMeetingAddress,
+        pendingActions,
+        primaryWallet,
     ]);
 
     const handleLinkProposal = useCallback(
@@ -1528,22 +1808,27 @@ export default function GovernanceMeetingRoom({
         let summary: string;
         let payload: string;
 
+        const changeLabel =
+            CHANGE_TYPE_OPTIONS.find((o) => o.value === proposalDraft.changeType)?.label ??
+            proposalDraft.changeType;
+
         if (isCreate && isRoleAction) {
             targetId = proposalDraft.roleName.trim().toLowerCase().replace(/\s+/g, "-");
             title = proposalDraft.roleName.trim();
-            summary = proposalDraft.roleDescription.trim();
-            payload = [
-                proposalDraft.roleDomain && `Domain: ${proposalDraft.roleDomain}`,
-                proposalDraft.roleAccountabilities &&
-                    `Accountabilities:\n${proposalDraft.roleAccountabilities}`,
-            ]
-                .filter(Boolean)
-                .join("\n\n");
+            summary = proposalDraft.roleDescription.trim() || `New role: ${title}`;
+            payload =
+                [
+                    proposalDraft.roleDomain && `Domain: ${proposalDraft.roleDomain}`,
+                    proposalDraft.roleAccountabilities &&
+                        `Accountabilities:\n${proposalDraft.roleAccountabilities}`,
+                ]
+                    .filter(Boolean)
+                    .join("\n\n") || summary;
         } else if (isCreate && isPolicyAction) {
             targetId = proposalDraft.policyTitle.trim().toLowerCase().replace(/\s+/g, "-");
             title = proposalDraft.policyTitle.trim();
-            summary = proposalDraft.policyBody.trim().slice(0, 200);
-            payload = proposalDraft.policyBody.trim();
+            summary = proposalDraft.policyBody.trim().slice(0, 200) || `New policy: ${title}`;
+            payload = proposalDraft.policyBody.trim() || summary;
         } else {
             targetId = proposalDraft.existingTargetId;
             const target = isRoleAction
@@ -1553,7 +1838,7 @@ export default function GovernanceMeetingRoom({
             summary =
                 proposalDraft.roleDescription ||
                 proposalDraft.policyBody ||
-                `${proposalDraft.changeType} ${title}`;
+                `${changeLabel}: ${title}`;
             payload = proposalDraft.roleAccountabilities || proposalDraft.policyBody || summary;
         }
 
@@ -1576,6 +1861,27 @@ export default function GovernanceMeetingRoom({
             },
             meetingId: activeGovernanceMeeting.id,
         });
+
+        // Queue the on-chain action for batched execution at meeting completion
+        const actionLabel = `${changeLabel}: ${title}`;
+
+        setPendingActions((prev) => [
+            ...prev,
+            {
+                id: `action-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                changeType: proposalDraft.changeType,
+                label: actionLabel,
+                circleId: proposalDraft.circleId,
+                roleName: proposalDraft.roleName || undefined,
+                roleDescription: proposalDraft.roleDescription || undefined,
+                roleDomain: proposalDraft.roleDomain || undefined,
+                roleAccountabilities: proposalDraft.roleAccountabilities || undefined,
+                policyTitle: proposalDraft.policyTitle || undefined,
+                policyBody: proposalDraft.policyBody || undefined,
+                existingTargetId: proposalDraft.existingTargetId || undefined,
+                destinationCircleId: proposalDraft.destinationCircleId || undefined,
+            },
+        ]);
 
         setShowWizard(false);
         setWizardStep("action");
@@ -1842,6 +2148,8 @@ export default function GovernanceMeetingRoom({
                                                             policies={policiesForWizard}
                                                         />
                                                     }
+                                                    pendingActions={pendingActions}
+                                                    onRemovePendingAction={removePendingAction}
                                                 />
                                             </AnimatePresence>
                                         </div>

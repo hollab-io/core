@@ -230,11 +230,8 @@ function mergePartners(basePartners: PartnerRecord[], customPartners: PersistedP
 }
 
 function getCustomPartnersForPersistence(partners: PersistedPartnerRecord[]) {
-    const basePartnerIds = new Set(
-        getMockWorkspaceSnapshot().partners.map((partner) => partner.id),
-    );
-
-    return partners.filter((partner) => !basePartnerIds.has(partner.id));
+    // Persist all partners — enriched names/emails for on-chain members
+    return partners;
 }
 
 function persistPartners(partners: PersistedPartnerRecord[]) {
@@ -394,6 +391,7 @@ type WorkspaceContextValue = {
     setActiveOrganizationId: (id: string | null) => void;
     setProjectBoardCircleId: (circleId: string) => void;
     snapshot: WorkspaceSnapshot;
+    syncIndexedMembers: (indexedMembers: { memberAddress: string; addedAt: string }[]) => void;
     syncAuthenticatedIdentity: (input: {
         email?: string | null;
         walletAddress?: string | null;
@@ -437,7 +435,8 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
                 activeOrg?.ownerPartnerId ??
                 baseSnapshot.currentPartnerId,
             organization: activeOrg,
-            partners: mergePartners(baseSnapshot.partners, persistedPartners),
+            // Start with only localStorage partners — real members come from the indexer
+            partners: persistedPartners,
             projects: mergeProjects(baseSnapshot.projects, readPersistedProjects()),
             // Clear mock meetings — real data comes from the indexer
             meetings: [],
@@ -674,6 +673,69 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
         [organizations],
     );
 
+    /**
+     * Merge on-chain org members (from the indexer) into the snapshot's partner list.
+     * Each indexed member becomes a PartnerRecord keyed by wallet address.
+     * Existing localStorage partners (with names/avatars) take precedence.
+     */
+    const syncIndexedMembers = useCallback(
+        (indexedMembers: { memberAddress: string; addedAt: string }[]) => {
+            setSnapshot((currentSnapshot) => {
+                // Build a deduplicated map keyed by normalized wallet address.
+                // Existing partners (with enriched names) take precedence.
+                const byWallet = new Map<string, PersistedPartnerRecord>();
+
+                for (const p of currentSnapshot.partners) {
+                    if (p.walletAddress) {
+                        const w = normalizeWalletAddress(p.walletAddress);
+                        // Keep the first occurrence (preserves enriched names from localStorage)
+                        if (!byWallet.has(w)) {
+                            byWallet.set(w, p);
+                        }
+                    }
+                }
+
+                for (const member of indexedMembers) {
+                    const wallet = normalizeWalletAddress(member.memberAddress);
+                    const existing = byWallet.get(wallet);
+
+                    if (existing) {
+                        // Already known — upgrade status if still invited
+                        if (existing.status === "invited") {
+                            byWallet.set(wallet, {
+                                ...existing,
+                                status: "active",
+                                joinedAt:
+                                    existing.joinedAt ??
+                                    new Date(Number(member.addedAt) * 1000).toISOString(),
+                            });
+                        }
+                        continue;
+                    }
+
+                    // New member from on-chain — create a minimal PartnerRecord
+                    const partnerId = createWalletPartnerId(wallet);
+                    const shortAddr = `${wallet.slice(0, 6)}…${wallet.slice(-4)}`;
+                    byWallet.set(wallet, {
+                        id: partnerId,
+                        name: shortAddr,
+                        avatarSeed: wallet,
+                        walletAddress: wallet,
+                        status: "active",
+                        joinedAt: new Date(Number(member.addedAt) * 1000).toISOString(),
+                    });
+                }
+
+                // Also keep partners without wallets (shouldn't happen, but defensive)
+                const noWallet = currentSnapshot.partners.filter((p) => !p.walletAddress);
+                const partners = [...noWallet, ...byWallet.values()];
+
+                return { ...currentSnapshot, partners };
+            });
+        },
+        [],
+    );
+
     const inviteMember = useCallback((input: InviteMemberInput) => {
         const normalizedName = input.name.trim();
         const normalizedWallet = normalizeWalletAddress(input.walletAddress);
@@ -723,12 +785,14 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             const normalizedExample = input.example.trim();
             const normalizedExplanation = input.explanation.trim();
 
+            // When created from a governance meeting, tension/example/explanation
+            // are optional — the meeting itself provides the context.
+            const requiresTension = !input.meetingId;
             if (
                 !input.circleId ||
                 !input.proposerRoleId ||
-                !normalizedTension ||
-                !normalizedExample ||
-                !normalizedExplanation ||
+                (requiresTension &&
+                    (!normalizedTension || !normalizedExample || !normalizedExplanation)) ||
                 !input.content.title.trim() ||
                 !input.content.summary.trim() ||
                 !input.content.payload.trim()
@@ -1280,6 +1344,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             setProjectBoardCircleId,
             snapshot,
             syncAuthenticatedIdentity,
+            syncIndexedMembers,
             startGovernanceIntegration,
             toggleActionCompletion,
             withdrawGovernanceProposal,
@@ -1321,6 +1386,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             setProjectBoardCircleId,
             snapshot,
             syncAuthenticatedIdentity,
+            syncIndexedMembers,
             startGovernanceIntegration,
             toggleActionCompletion,
             withdrawGovernanceProposal,

@@ -21,6 +21,7 @@ import type {
     Proposal,
     Role,
     TacticalMeeting,
+    Tension,
     TreasuryDeposit,
     Vote,
 } from "./types.js";
@@ -45,6 +46,7 @@ import {
     LIST_MEETING_OUTPUTS_BY_CONTRACT,
     LIST_METRICS_BY_ROLE,
     LIST_OBJECTIONS_BY_PROPOSAL,
+    LIST_OPEN_TENSIONS_BY_ORG,
     LIST_ORG_MEMBERS,
     LIST_ORG_MEMBERS_BY_ADDRESS,
     LIST_ORGANIZATIONS,
@@ -55,6 +57,7 @@ import {
     LIST_ROLES_BY_CIRCLE,
     LIST_TACTICAL_MEETINGS_BY_CIRCLE,
     LIST_TACTICAL_MEETINGS_BY_CONTRACT,
+    LIST_TENSIONS_BY_ORG,
     LIST_VOTES_BY_PROPOSAL,
 } from "./queries.js";
 
@@ -390,6 +393,29 @@ export function createIndexingClient(url: string) {
                 { orgId, ...opts },
             );
             return data.joinRequests;
+        },
+
+        // ── Tension board ──────────────────────────────────────────────────────
+        async listOpenTensionsByOrg(
+            orgId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<Tension>> {
+            const data = await gql.request<{ tensions: PaginatedResult<Tension> }>(
+                LIST_OPEN_TENSIONS_BY_ORG,
+                { orgId, ...opts },
+            );
+            return data.tensions;
+        },
+
+        async listTensionsByOrg(
+            orgId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<Tension>> {
+            const data = await gql.request<{ tensions: PaginatedResult<Tension> }>(
+                LIST_TENSIONS_BY_ORG,
+                { orgId, ...opts },
+            );
+            return data.tensions;
         },
     };
 }
