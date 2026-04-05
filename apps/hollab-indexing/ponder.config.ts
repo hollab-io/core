@@ -12,6 +12,7 @@ import { createConfig } from "ponder";
 
 import { ActionVotingAbi } from "./abis/ActionVotingAbi";
 import { GovernanceMeetingAbi } from "./abis/GovernanceMeetingAbi";
+import { JoinRequestAbi } from "./abis/JoinRequestAbi";
 import { TacticalMeetingAbi } from "./abis/TacticalMeetingAbi";
 
 const addr = (key: string) =>
@@ -20,6 +21,7 @@ const addr = (key: string) =>
 const orgFactoryAddr = addr("ORGANIZATION_FACTORY_ADDRESS");
 const govFactoryAddr = addr("HOL_GOVERNOR_FACTORY_ADDRESS");
 const meetingFactoryAddr = addr("MEETING_COMPONENTS_FACTORY_ADDRESS");
+const joinRequestAddr = addr("JOIN_REQUEST_ADDRESS");
 const startBlock = Number(process.env.START_BLOCK ?? 0);
 
 const orgComponentsDeployedEvent = organizationFactoryAbi.find(
@@ -146,6 +148,14 @@ export default createConfig({
                 event: meetingComponentsDeployedEvent,
                 parameter: "_actionVoting",
             },
+            startBlock,
+        },
+
+        // ── JoinRequest: single deployment, indexes all join requests ────────────
+        JoinRequest: {
+            chain: "sepolia",
+            abi: JoinRequestAbi,
+            address: joinRequestAddr,
             startBlock,
         },
     },

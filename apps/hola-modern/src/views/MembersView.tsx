@@ -1,9 +1,11 @@
 import type { Organization } from "@hollab-io/indexing-client";
-import { ArrowRight, BadgeCheck, Loader2, Mail, Plus, Users, Wallet } from "lucide-react";
-import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, BadgeCheck, Check, Loader2, Mail, Plus, Users, Wallet, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { isAddress } from "viem";
 
 import { useCircleRegistry } from "../hooks/useCircleRegistry";
+import { getIndexingClient } from "../hooks/useOrganizationsFromIndexer";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 const SPRING = "cubic-bezier(0.32,0.72,0,1)";
@@ -31,12 +33,30 @@ export default function MembersView({ org }: Props) {
     const { authenticatedWalletAddress, circleMap, inviteMember, organization, snapshot } =
         useWorkspaceSnapshot();
     const { addOrgMembers } = useCircleRegistry();
+
     const [inviteName, setInviteName] = useState("");
     const [inviteWallet, setInviteWallet] = useState("");
     const [inviteEmail, setInviteEmail] = useState("");
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [txStatus, setTxStatus] = useState<TxStatus>("idle");
     const [txHash, setTxHash] = useState<string | null>(null);
+
+    // ── On-chain members (from indexer) ──────────────────────────────────────
+    const [onChainAddresses, setOnChainAddresses] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (!org.circleRegistry) return;
+        const client = getIndexingClient();
+        if (!client) return;
+        client
+            .listOrgMembers(org.circleRegistry, { limit: 500 })
+            .then((r) =>
+                setOnChainAddresses(new Set(r.items.map((m) => m.memberAddress.toLowerCase()))),
+            )
+            .catch(() => {
+                /* silent — indexer may not have caught up yet */
+            });
+    }, [org.circleRegistry]);
 
     const members = useMemo(() => {
         const rolesByPartnerId = new Map<string, string[]>();
@@ -47,14 +67,39 @@ export default function MembersView({ org }: Props) {
                 rolesByPartnerId.set(id, list);
             });
         });
-        return snapshot.partners
-            .map((p) => ({ ...p, roles: rolesByPartnerId.get(p.id) ?? [] }))
-            .sort((a, b) => {
-                const sa = a.status === "invited" ? 1 : 0;
-                const sb = b.status === "invited" ? 1 : 0;
-                return sa !== sb ? sa - sb : a.name.localeCompare(b.name);
-            });
-    }, [snapshot.partners, snapshot.roles]);
+
+        // Build base list from local snapshot
+        const knownAddresses = new Set(
+            snapshot.partners
+                .map((p) => p.walletAddress?.toLowerCase())
+                .filter(Boolean) as string[],
+        );
+        const base = snapshot.partners.map((p) => ({
+            ...p,
+            roles: rolesByPartnerId.get(p.id) ?? [],
+        }));
+
+        // Append any on-chain member whose address isn't already in local snapshot
+        const extra = Array.from(onChainAddresses)
+            .filter((addr) => !knownAddresses.has(addr))
+            .map((addr) => ({
+                id: addr,
+                name: shortenWallet(addr),
+                walletAddress: addr,
+                email: undefined as string | undefined,
+                status: "active" as const,
+                avatarSeed: addr,
+                invitedAt: undefined as string | undefined,
+                joinedAt: undefined as string | undefined,
+                roles: [] as string[],
+            }));
+
+        return [...base, ...extra].sort((a, b) => {
+            const sa = a.status === "invited" ? 1 : 0;
+            const sb = b.status === "invited" ? 1 : 0;
+            return sa !== sb ? sa - sb : a.name.localeCompare(b.name);
+        });
+    }, [snapshot.partners, snapshot.roles, onChainAddresses]);
 
     const activeMembers = members.filter((m) => m.status !== "invited");
     const invitedMembers = members.filter((m) => m.status === "invited");
@@ -131,7 +176,7 @@ export default function MembersView({ org }: Props) {
     return (
         <section className="mx-auto flex w-full max-w-[1400px] flex-col gap-5 px-5 pb-32 pt-8 sm:px-8">
             {/* Stats row */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-3 grid-cols-3">
                 {[
                     {
                         label: "Active members",

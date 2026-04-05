@@ -34,6 +34,7 @@ services:
             ORGANIZATION_FACTORY_ADDRESS: ${ORGANIZATION_FACTORY_ADDRESS}
             HOL_GOVERNOR_FACTORY_ADDRESS: ${HOL_GOVERNOR_FACTORY_ADDRESS}
             MEETING_COMPONENTS_FACTORY_ADDRESS: ${MEETING_COMPONENTS_FACTORY_ADDRESS}
+            JOIN_REQUEST_ADDRESS: ${JOIN_REQUEST_ADDRESS}
         ports:
             - "42069:42069"
         depends_on:
@@ -52,6 +53,7 @@ services:
             args:
                 VITE_DYNAMIC_ENVIRONMENT_ID: "0b12312c-6584-4e59-bb4f-ba10b5bc0a5b"
                 VITE_INDEXER_URL: "https://indexer.hollab.io"
+                VITE_JOIN_REQUEST_ADDRESS: ${VITE_JOIN_REQUEST_ADDRESS}
         restart: unless-stopped
         networks:
             - internal

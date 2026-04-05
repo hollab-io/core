@@ -36,6 +36,8 @@ export const organization = onchainTable("organization", (t) => ({
     quorumNumerator: t.bigint().notNull(),
     circleCount: t.bigint().notNull(),
     roleCount: t.bigint().notNull(),
+    memberCount: t.bigint().notNull(),
+    purpose: t.text().notNull(),
     createdAt: t.bigint().notNull(),
     updatedAt: t.bigint().notNull(),
 }));
@@ -271,6 +273,36 @@ export const governanceMeetingLink = onchainTable("governance_meeting_link", (t)
     meetingId: t.bigint().notNull(),
     proposalId: t.bigint().notNull(),
     linkedAt: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+}));
+
+// ─── Org members ─────────────────────────────────────────────────────────────
+// On-chain membership — one row per (circleRegistry, memberAddress) pair.
+// Deleted when OrgMemberRemoved fires.
+
+export const orgMember = onchainTable("org_member", (t) => ({
+    id: t.text().primaryKey(), // "<registryAddress>-<memberAddress>"
+    registryAddress: t.hex().notNull(),
+    orgId: t.bigint().notNull(),
+    memberAddress: t.hex().notNull(),
+    addedAt: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+}));
+
+// ─── Join requests ────────────────────────────────────────────────────────────
+// Outsiders submit requestToJoin(orgId, message). Admin approves/rejects.
+// status: 0=Pending 1=Approved 2=Rejected
+
+export const joinRequest = onchainTable("join_request", (t) => ({
+    id: t.text().primaryKey(), // "<contractAddress>-<requestId>"
+    requestId: t.bigint().notNull(),
+    contractAddress: t.hex().notNull(),
+    requester: t.hex().notNull(),
+    orgId: t.bigint().notNull(),
+    message: t.text().notNull(),
+    status: t.integer().notNull(), // 0=Pending 1=Approved 2=Rejected
+    submittedAt: t.bigint().notNull(),
+    resolvedAt: t.bigint(),
     txHash: t.hex().notNull(),
 }));
 

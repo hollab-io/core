@@ -1,39 +1,31 @@
-import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { holLabContractActions } from "@hollab-io/viem-extension";
-import { useCallback } from "react";
+import { circleRegistryAbi } from "@hollab-io/viem-extension";
+
+import { useSendTransaction } from "./useSendTransaction";
 
 export function useCircleRegistry() {
     const { primaryWallet } = useDynamicContext();
+    const { send } = useSendTransaction();
 
-    const addOrgMembers = useCallback(
-        async (params: {
-            circleRegistryAddress: `0x${string}`;
-            memberAddresses: `0x${string}`[];
-            walletAddress: `0x${string}`;
-        }): Promise<`0x${string}`> => {
-            if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
-                throw new Error("No Ethereum wallet connected");
-            }
-
-            const walletClient = await primaryWallet.getWalletClient();
-            if (!walletClient) throw new Error("Could not get wallet client");
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const contractActions = holLabContractActions()(walletClient as any);
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const txHash = await (contractActions.circleRegistry.write as any)({
-                address: params.circleRegistryAddress,
-                functionName: "addOrgMembers",
-                account: params.walletAddress,
-                args: [params.memberAddresses],
-            });
-
-            return txHash;
-        },
-        [primaryWallet],
-    );
+    const addOrgMembers = async (params: {
+        circleRegistryAddress: `0x${string}`;
+        memberAddresses: `0x${string}`[];
+        walletAddress: `0x${string}`;
+    }): Promise<`0x${string}`> => {
+        const account = (primaryWallet?.address ?? params.walletAddress) as `0x${string}`;
+        return send(
+            [
+                {
+                    to: params.circleRegistryAddress,
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    abi: circleRegistryAbi as any,
+                    functionName: "addOrgMembers",
+                    args: [params.memberAddresses],
+                },
+            ],
+            account,
+        );
+    };
 
     return { addOrgMembers };
 }

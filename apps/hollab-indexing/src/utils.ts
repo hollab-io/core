@@ -3,6 +3,19 @@ import schema from "ponder:schema";
 
 import { HolacracyDataProviderAbi } from "../abis/HolacracyDataProviderAbi";
 
+const getOrgMembersAbi = [
+    {
+        type: "function",
+        name: "getOrgMembers",
+        stateMutability: "view",
+        inputs: [],
+        outputs: [{ name: "", type: "address[]" }],
+    },
+] as const;
+
+const ZERO_HASH =
+    "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
+
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
 const dataProvider = () =>
@@ -44,6 +57,37 @@ export async function upsertOrgSnapshot(
         args: [factoryAddress, orgId],
     });
 
+    const anchorPurpose = circles.find((c) => c.isAnchor)?.purpose ?? "";
+
+    // ── Sync on-chain members (source of truth — avoids log-order race) ─────────
+    // Guard with try/catch: old CircleRegistry clones (pre-getOrgMembers) will revert.
+    let memberCount = 0n;
+    try {
+        const onChainMembers = (await context.client.readContract({
+            address: overview.circleRegistry,
+            abi: getOrgMembersAbi,
+            functionName: "getOrgMembers",
+        })) as readonly `0x${string}`[];
+
+        for (const addr of onChainMembers) {
+            await context.db
+                .insert(schema.orgMember)
+                .values({
+                    id: `${overview.circleRegistry}-${addr}`,
+                    registryAddress: overview.circleRegistry,
+                    orgId: overview.id,
+                    memberAddress: addr,
+                    addedAt: timestamp,
+                    txHash: ZERO_HASH,
+                })
+                .onConflictDoNothing();
+        }
+
+        memberCount = BigInt(onChainMembers.length);
+    } catch {
+        // Old contract version — members will be tracked via OrgMemberAdded events instead
+    }
+
     // ── Organisation ────────────────────────────────────────────────────────────
     await context.db
         .insert(schema.organization)
@@ -58,7 +102,7 @@ export async function upsertOrgSnapshot(
             circleRegistry: overview.circleRegistry,
             roleRegistry: overview.roleRegistry,
             governanceProcess: overview.governanceProcess,
-            anchorCircleId: overview.id, // DataProvider doesn't expose anchorCircleId directly; read below
+            anchorCircleId: overview.id,
             tokenName: overview.tokenName,
             tokenSymbol: overview.tokenSymbol,
             tokenTotalSupply: overview.tokenTotalSupply,
@@ -69,6 +113,8 @@ export async function upsertOrgSnapshot(
             quorumNumerator: overview.quorumNumerator,
             circleCount: overview.circleCount,
             roleCount: overview.roleCount,
+            memberCount,
+            purpose: anchorPurpose,
             createdAt: overview.createdAt,
             updatedAt: timestamp,
         })
@@ -77,6 +123,8 @@ export async function upsertOrgSnapshot(
             tokenTotalSupply: overview.tokenTotalSupply,
             circleCount: overview.circleCount,
             roleCount: overview.roleCount,
+            memberCount,
+            purpose: anchorPurpose,
             updatedAt: timestamp,
         }));
 

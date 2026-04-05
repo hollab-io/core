@@ -8,10 +8,12 @@ import type {
     DaoProposal,
     GovernanceMeeting,
     GovernanceMeetingLink,
+    JoinRequest,
     MeetingOutput,
     Metric,
     Objection,
     Organization,
+    OrgMember,
     PaginatedResult,
     PaginationOptions,
     Policy,
@@ -39,8 +41,11 @@ import {
     LIST_MEETING_OUTPUTS,
     LIST_METRICS_BY_ROLE,
     LIST_OBJECTIONS_BY_PROPOSAL,
+    LIST_ORG_MEMBERS,
+    LIST_ORG_MEMBERS_BY_ADDRESS,
     LIST_ORGANIZATIONS,
     LIST_ORGANIZATIONS_BY_CREATOR,
+    LIST_PENDING_JOIN_REQUESTS_BY_ORG,
     LIST_POLICIES_BY_CIRCLE,
     LIST_PROPOSALS_BY_CIRCLE,
     LIST_ROLES_BY_CIRCLE,
@@ -303,6 +308,41 @@ export function createIndexingClient(url: string) {
                 { contractAddress, voteId, ...opts },
             );
             return data.actionVoteCasts;
+        },
+
+        // ── Org members ─────────────────────────────────────────────────────────
+        async listOrgMembers(
+            registryAddress: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<OrgMember>> {
+            const data = await gql.request<{ orgMembers: PaginatedResult<OrgMember> }>(
+                LIST_ORG_MEMBERS,
+                { registryAddress: registryAddress.toLowerCase(), ...opts },
+            );
+            return data.orgMembers;
+        },
+
+        async listOrgMembersByAddress(
+            memberAddress: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<OrgMember>> {
+            const data = await gql.request<{ orgMembers: PaginatedResult<OrgMember> }>(
+                LIST_ORG_MEMBERS_BY_ADDRESS,
+                { memberAddress: memberAddress.toLowerCase(), ...opts },
+            );
+            return data.orgMembers;
+        },
+
+        // ── Join requests ───────────────────────────────────────────────────────
+        async listPendingJoinRequestsByOrg(
+            orgId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<JoinRequest>> {
+            const data = await gql.request<{ joinRequests: PaginatedResult<JoinRequest> }>(
+                LIST_PENDING_JOIN_REQUESTS_BY_ORG,
+                { orgId, ...opts },
+            );
+            return data.joinRequests;
         },
     };
 }
