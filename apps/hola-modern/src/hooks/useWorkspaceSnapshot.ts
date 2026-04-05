@@ -360,6 +360,11 @@ type WorkspaceContextValue = {
     activateGovernanceProposal: (proposalId: string) => void;
     addProject: (project: WorkspaceSnapshot["projects"][number]) => void;
     adoptGovernanceProposal: (proposalId: string) => boolean;
+    conveneGovernanceMeeting: (params: {
+        meetingId: string;
+        circleId: string;
+        convenedBy: string;
+    }) => void;
     advanceGovernanceElection: (electionId: string) => void;
     circleMap: ReturnType<typeof createCircleMap>;
     closeGovernanceMeeting: () => void;
@@ -490,6 +495,34 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
     const openGovernanceMeeting = useCallback((meetingId: string) => {
         setActiveGovernanceMeetingId(meetingId);
     }, []);
+
+    const conveneGovernanceMeeting = useCallback(
+        (params: { meetingId: string; circleId: string; convenedBy: string }) => {
+            const circle = circleMap[params.circleId];
+            const meeting: GovernanceMeetingRecord = {
+                id: params.meetingId,
+                circleId: params.circleId,
+                title: `${circle?.title ?? "Circle"} Governance`,
+                scheduledById: params.convenedBy,
+                facilitatorId: params.convenedBy,
+                secretaryId: params.convenedBy,
+                intention: "",
+                limits: "",
+                participantIds: [params.convenedBy],
+                agendaItemIds: [],
+                status: "in_progress",
+                phase: "check-in",
+                scheduledAt: new Date().toISOString(),
+                startedAt: new Date().toISOString(),
+            };
+            setSnapshot((prev) => ({
+                ...prev,
+                governanceMeetings: [meeting, ...prev.governanceMeetings],
+            }));
+            setActiveGovernanceMeetingId(params.meetingId);
+        },
+        [circleMap],
+    );
 
     const closeGovernanceMeeting = useCallback(() => {
         setActiveGovernanceMeetingId(null);
@@ -1321,6 +1354,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             circleMap,
             closeGovernanceMeeting,
             closeMeeting,
+            conveneGovernanceMeeting,
             createOrganization,
             createGovernanceProposal,
             declareProcessBreakdown,
@@ -1364,6 +1398,7 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
             circleMap,
             closeGovernanceMeeting,
             closeMeeting,
+            conveneGovernanceMeeting,
             createOrganization,
             createGovernanceProposal,
             declareProcessBreakdown,

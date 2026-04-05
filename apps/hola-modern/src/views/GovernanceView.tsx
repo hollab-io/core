@@ -49,11 +49,25 @@ const IDM_STEPS = [
 
 type Props = {
     governanceMeetingAddress?: `0x${string}`;
+    indexedGovernanceMeetings?: import("../hooks/useGovernanceMeetingsFromIndexer").GovernanceMeeting[];
+    pollForNewGovernanceMeeting?: (
+        prevCount: number,
+    ) => Promise<import("../hooks/useGovernanceMeetingsFromIndexer").GovernanceMeeting[]>;
 };
 
-export default function GovernanceView({ governanceMeetingAddress }: Props) {
-    const { snapshot, openGovernanceMeeting, circleMap, partnerMap, authenticatedWalletAddress } =
-        useWorkspaceSnapshot();
+export default function GovernanceView({
+    governanceMeetingAddress,
+    indexedGovernanceMeetings = [],
+    pollForNewGovernanceMeeting,
+}: Props) {
+    const {
+        snapshot,
+        openGovernanceMeeting,
+        conveneGovernanceMeeting,
+        circleMap,
+        partnerMap,
+        authenticatedWalletAddress,
+    } = useWorkspaceSnapshot();
     const { conveneMeeting } = useGovernanceMeeting();
     const [isConvening, setIsConvening] = useState(false);
     const [conveneError, setConveneError] = useState<string | null>(null);
@@ -63,6 +77,9 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
         ["active", "integrating", "objected"].includes(p.status),
     );
     const recentMeetings = gMeetings.slice(0, 3);
+
+    // Check for in-progress indexed meetings
+    const indexedInProgress = indexedGovernanceMeetings.filter((m) => !m.completedAt);
 
     const handleStartMeeting = async (meetingId: string, circleId: string) => {
         // If no contract address, no wallet, or non-numeric circleId (mock data), open locally
@@ -87,6 +104,52 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
         }
     };
 
+    const handleConveneNewMeeting = async () => {
+        if (!governanceMeetingAddress || !authenticatedWalletAddress) return;
+
+        // Use the org's anchor circle (circleId 1) by default
+        const circleId = 1n;
+
+        setIsConvening(true);
+        setConveneError(null);
+        try {
+            await conveneMeeting({
+                governanceMeetingAddress,
+                circleId,
+                walletAddress: authenticatedWalletAddress as `0x${string}`,
+            });
+
+            // Poll indexer for the new meeting
+            if (pollForNewGovernanceMeeting) {
+                const prevCount = indexedGovernanceMeetings.length;
+                const updated = await pollForNewGovernanceMeeting(prevCount);
+                const newest = updated[0];
+                if (newest) {
+                    conveneGovernanceMeeting({
+                        meetingId: newest.id,
+                        circleId: newest.circleId,
+                        convenedBy: newest.convenedBy,
+                    });
+                }
+            }
+        } catch (err) {
+            setConveneError(err instanceof Error ? err.message : "Failed to convene meeting");
+        } finally {
+            setIsConvening(false);
+        }
+    };
+
+    const handleResumeIndexedMeeting = (
+        m: import("../hooks/useGovernanceMeetingsFromIndexer").GovernanceMeeting,
+    ) => {
+        // Create a local record and open the drawer
+        conveneGovernanceMeeting({
+            meetingId: m.id,
+            circleId: m.circleId,
+            convenedBy: m.convenedBy,
+        });
+    };
+
     return (
         <div className="min-h-[calc(100dvh-60px)] pb-32 pt-8">
             <div className="mx-auto max-w-[900px] px-5 sm:px-8">
@@ -109,15 +172,59 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
                     </p>
                 </motion.div>
 
-                {/* Start governance meeting CTA */}
+                {/* Governance meeting CTA */}
                 <motion.div
                     initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.65, delay: 0.08, ease: EXPO }}
                     className="mb-8"
                 >
-                    {gMeetings.length > 0 ? (
-                        <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2">
+                        {/* Resume indexed in-progress meeting */}
+                        {indexedInProgress.map((m) => (
+                            <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => handleResumeIndexedMeeting(m)}
+                                className="group flex w-full items-center justify-between gap-4
+                                    rounded-[1.5rem]
+                                    border border-[#3481FF]/20
+                                    bg-[linear-gradient(135deg,rgba(52,129,255,0.1),rgba(52,129,255,0.05))]
+                                    p-5
+                                    transition-all duration-500
+                                    hover:border-[#3481FF]/35
+                                    hover:shadow-[0_0_40px_rgba(52,129,255,0.1)]
+                                    active:scale-[0.99]"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#3481FF]/25 bg-[#3481FF]/12">
+                                        <Scale
+                                            size={18}
+                                            className="text-[#6aabff]"
+                                            strokeWidth={1.75}
+                                        />
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-[15px] font-semibold text-white">
+                                            Resume governance meeting
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-slate-400">
+                                            Meeting #{m.meetingId} · In progress
+                                        </p>
+                                    </div>
+                                </div>
+                                <motion.div
+                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[#3481FF]/25 bg-[#3481FF]/10 text-[#6aabff]"
+                                    whileHover={{ x: 3 }}
+                                    transition={SPRING}
+                                >
+                                    <ArrowRight size={15} strokeWidth={2} />
+                                </motion.div>
+                            </button>
+                        ))}
+
+                        {/* Resume mock meeting (local data) */}
+                        {indexedInProgress.length === 0 && gMeetings.length > 0 && (
                             <button
                                 type="button"
                                 disabled={isConvening}
@@ -136,29 +243,16 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
                                     disabled:opacity-60 disabled:pointer-events-none"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div
-                                        className="flex h-11 w-11 items-center justify-center rounded-2xl
-                                        border border-violet-500/25 bg-violet-500/12"
-                                    >
-                                        {isConvening ? (
-                                            <Loader2
-                                                size={18}
-                                                className="text-violet-400 animate-spin"
-                                                strokeWidth={1.75}
-                                            />
-                                        ) : (
-                                            <Scale
-                                                size={18}
-                                                className="text-violet-400"
-                                                strokeWidth={1.75}
-                                            />
-                                        )}
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-violet-500/25 bg-violet-500/12">
+                                        <Scale
+                                            size={18}
+                                            className="text-violet-400"
+                                            strokeWidth={1.75}
+                                        />
                                     </div>
                                     <div className="text-left">
                                         <p className="text-[15px] font-semibold text-white">
-                                            {isConvening
-                                                ? "Convening meeting…"
-                                                : "Start governance meeting"}
+                                            Open governance meeting
                                         </p>
                                         <p className="mt-0.5 text-xs text-slate-400">
                                             {circleMap[gMeetings[0].circleId]?.title ?? "Circle"} ·
@@ -167,30 +261,75 @@ export default function GovernanceView({ governanceMeetingAddress }: Props) {
                                     </div>
                                 </div>
                                 <motion.div
-                                    className="flex h-8 w-8 items-center justify-center rounded-full
-                                        border border-violet-500/25 bg-violet-500/10 text-violet-400"
+                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-violet-500/25 bg-violet-500/10 text-violet-400"
                                     whileHover={{ x: 3 }}
                                     transition={SPRING}
                                 >
                                     <ArrowRight size={15} strokeWidth={2} />
                                 </motion.div>
                             </button>
-                            {conveneError && (
-                                <div
-                                    className="rounded-xl border border-rose-500/20 bg-rose-500/[0.08]
-                                    px-4 py-2.5 text-[12px] text-rose-400"
-                                >
-                                    {conveneError}
+                        )}
+
+                        {/* Convene new meeting on-chain */}
+                        {governanceMeetingAddress && indexedInProgress.length === 0 && (
+                            <button
+                                type="button"
+                                disabled={isConvening}
+                                onClick={handleConveneNewMeeting}
+                                className="group flex w-full items-center justify-between gap-4
+                                    rounded-[1.5rem]
+                                    border border-emerald-500/20
+                                    bg-[linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.03))]
+                                    p-5
+                                    transition-all duration-500
+                                    hover:border-emerald-500/35
+                                    hover:shadow-[0_0_40px_rgba(16,185,129,0.08)]
+                                    active:scale-[0.99]
+                                    disabled:opacity-60 disabled:pointer-events-none"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-500/25 bg-emerald-500/12">
+                                        {isConvening ? (
+                                            <Loader2
+                                                size={18}
+                                                className="text-emerald-400 animate-spin"
+                                                strokeWidth={1.75}
+                                            />
+                                        ) : (
+                                            <Scale
+                                                size={18}
+                                                className="text-emerald-400"
+                                                strokeWidth={1.75}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="text-left">
+                                        <p className="text-[15px] font-semibold text-white">
+                                            {isConvening
+                                                ? "Convening meeting on-chain..."
+                                                : "Convene governance meeting"}
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-slate-400">
+                                            Start a new on-chain governance session
+                                        </p>
+                                    </div>
                                 </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5">
-                            <p className="text-sm text-slate-500">
-                                No governance meetings scheduled yet.
-                            </p>
-                        </div>
-                    )}
+                                <motion.div
+                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
+                                    whileHover={{ x: 3 }}
+                                    transition={SPRING}
+                                >
+                                    <ArrowRight size={15} strokeWidth={2} />
+                                </motion.div>
+                            </button>
+                        )}
+
+                        {conveneError && (
+                            <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.08] px-4 py-2.5 text-[12px] text-rose-400">
+                                {conveneError}
+                            </div>
+                        )}
+                    </div>
                 </motion.div>
 
                 {/* Two-column: active proposals + recent meetings */}

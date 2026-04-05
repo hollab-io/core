@@ -50,7 +50,7 @@ function App() {
         refetch: refetchMeetings,
         fetchOutputs,
     } = useTacticalMeetingsFromIndexer(activeOrganizationId);
-    const { meetings: indexedGovernanceMeetings } =
+    const { meetings: indexedGovernanceMeetings, pollForNewMeeting: pollForNewGovernanceMeeting } =
         useGovernanceMeetingsFromIndexer(governanceMeetingAddress);
     const [activeTab, setActiveTab] = useState<AppTabId>("constitution");
     // When true, StructureView should auto-open the add-members panel
@@ -136,7 +136,13 @@ function App() {
                     />
                 );
             case "governance":
-                return <GovernanceView governanceMeetingAddress={governanceMeetingAddress} />;
+                return (
+                    <GovernanceView
+                        governanceMeetingAddress={governanceMeetingAddress}
+                        indexedGovernanceMeetings={indexedGovernanceMeetings}
+                        pollForNewGovernanceMeeting={pollForNewGovernanceMeeting}
+                    />
+                );
             case "actions":
                 return <ActionItemsView outputs={indexedOutputs} meetings={indexedMeetings} />;
             case "structure":
