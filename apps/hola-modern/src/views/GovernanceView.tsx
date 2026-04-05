@@ -50,7 +50,7 @@ export default function GovernanceView({
     indexedGovernanceMeetings = [],
     pollForNewGovernanceMeeting,
 }: Props) {
-    const { conveneGovernanceMeeting, circleMap, authenticatedWalletAddress } =
+    const { conveneGovernanceMeeting, authenticatedWalletAddress } =
         useWorkspaceSnapshot();
     const { conveneMeeting } = useGovernanceMeeting();
     const [isConvening, setIsConvening] = useState(false);
@@ -387,41 +387,6 @@ export default function GovernanceView({
                     </div>
                 </motion.div>
 
-                {/* Stats */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.5, delay: 0.3 }}
-                    className="mt-6 grid grid-cols-3 gap-px rounded-[1.25rem] overflow-hidden border border-white/[0.05]"
-                >
-                    {[
-                        { icon: FileText, label: "Total proposals", value: proposals.length },
-                        {
-                            icon: Vote,
-                            label: "Adopted",
-                            value: proposals.filter((p) => p.status === "adopted").length,
-                        },
-                        {
-                            icon: ShieldAlert,
-                            label: "Objections raised",
-                            value: (snapshot.governanceObjections ?? []).length,
-                        },
-                    ].map(({ icon: Icon, label, value }) => (
-                        <div
-                            key={label}
-                            className="flex flex-col items-center justify-center
-                            gap-1 bg-[#0a0a0f] px-4 py-4"
-                        >
-                            <Icon size={14} className="text-slate-600" strokeWidth={1.75} />
-                            <p className="font-mono text-xl font-semibold tracking-tight text-white">
-                                {value}
-                            </p>
-                            <p className="text-center text-[10px] uppercase tracking-wider text-slate-600">
-                                {label}
-                            </p>
-                        </div>
-                    ))}
-                </motion.div>
             </div>
         </div>
     );
