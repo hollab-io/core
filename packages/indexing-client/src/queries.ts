@@ -223,9 +223,27 @@ export const LIST_TACTICAL_MEETINGS_BY_CIRCLE = `
     }
 `;
 
+export const LIST_TACTICAL_MEETINGS_BY_CONTRACT = `
+    query ListTacticalMeetingsByContract($contractAddress: String!, $limit: Int, $after: String, $before: String) {
+        tacticalMeetings(where: { contractAddress: $contractAddress }, limit: $limit, after: $after, before: $before, orderBy: "createdAt", orderDirection: "desc") {
+            items { ${TACTICAL_MEETING_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
 export const LIST_MEETING_OUTPUTS = `
     query ListMeetingOutputs($contractAddress: String!, $meetingId: String!, $limit: Int, $after: String, $before: String) {
         meetingOutputs(where: { contractAddress: $contractAddress, meetingId: $meetingId }, limit: $limit, after: $after, before: $before) {
+            items { ${MEETING_OUTPUT_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+export const LIST_MEETING_OUTPUTS_BY_CONTRACT = `
+    query ListMeetingOutputsByContract($contractAddress: String!, $limit: Int, $after: String, $before: String) {
+        meetingOutputs(where: { contractAddress: $contractAddress }, limit: $limit, after: $after, before: $before, orderBy: "createdAt", orderDirection: "desc") {
             items { ${MEETING_OUTPUT_FIELDS} }
             ${PAGE_INFO}
         }
@@ -252,6 +270,15 @@ export const LIST_METRICS_BY_ROLE = `
 
 // ─── Governance meetings ──────────────────────────────────────────────────────
 
+export const LIST_GOVERNANCE_MEETINGS_BY_CONTRACT = `
+    query ListGovernanceMeetingsByContract($contractAddress: String!, $limit: Int, $after: String, $before: String) {
+        governanceMeetings(where: { contractAddress: $contractAddress }, limit: $limit, after: $after, before: $before, orderBy: "createdAt", orderDirection: "desc") {
+            items { ${GOVERNANCE_MEETING_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
 export const LIST_GOVERNANCE_MEETINGS_BY_CIRCLE = `
     query ListGovernanceMeetingsByCircle($contractAddress: String!, $circleId: String!, $limit: Int, $after: String, $before: String) {
         governanceMeetings(where: { contractAddress: $contractAddress, circleId: $circleId }, limit: $limit, after: $after, before: $before, orderBy: "createdAt", orderDirection: "desc") {
@@ -265,6 +292,21 @@ export const LIST_GOVERNANCE_MEETING_LINKS = `
     query ListGovernanceMeetingLinks($contractAddress: String!, $meetingId: String!, $limit: Int, $after: String, $before: String) {
         governanceMeetingLinks(where: { contractAddress: $contractAddress, meetingId: $meetingId }, limit: $limit, after: $after, before: $before) {
             items { ${GOVERNANCE_MEETING_LINK_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+// ─── Meeting components ──────────────────────────────────────────────────────
+
+export const MEETING_COMPONENT_SET_FIELDS = `
+    id orgId tacticalMeeting governanceMeeting actionVoting deployedAt txHash
+`;
+
+export const LIST_MEETING_COMPONENTS_BY_ORG = `
+    query ListMeetingComponentsByOrg($orgId: BigInt!, $limit: Int, $after: String, $before: String) {
+        meetingComponentSets(where: { orgId: $orgId }, limit: $limit, after: $after, before: $before, orderBy: "deployedAt", orderDirection: "desc") {
+            items { ${MEETING_COMPONENT_SET_FIELDS} }
             ${PAGE_INFO}
         }
     }

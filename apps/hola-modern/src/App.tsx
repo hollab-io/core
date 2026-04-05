@@ -1,17 +1,18 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { BookOpen, CheckSquare, Network, Scale, UserPlus, Users } from "lucide-react";
+import { BookOpen, CheckSquare, Network, Scale, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { AppTabId } from "./config/navigation";
 import DynamicAuthControl from "./components/DynamicAuthControl";
+import { useGovernanceMeetingsFromIndexer } from "./hooks/useGovernanceMeetingsFromIndexer";
 import { useOrganizationsFromIndexer } from "./hooks/useOrganizationsFromIndexer";
+import { useTacticalMeetingsFromIndexer } from "./hooks/useTacticalMeetingsFromIndexer";
 import { useWorkspaceSnapshot } from "./hooks/useWorkspaceSnapshot";
 import ActionItemsView from "./views/ActionItemsView";
 import ConstitutionView from "./views/ConstitutionView";
 import GovernanceMeetingRoom from "./views/GovernanceMeetingRoom";
 import GovernanceView from "./views/GovernanceView";
 import MemberOnboarding from "./views/MemberOnboarding";
-import MembersView from "./views/MembersView";
 import OrganizationsHome from "./views/OrganizationsHome";
 import StructureView from "./views/StructureView";
 import TacticalMeetingRoom from "./views/TacticalMeetingRoom";
@@ -26,7 +27,6 @@ const NAV = [
     { id: "governance" as AppTabId, icon: Scale, label: "Governance" },
     { id: "actions" as AppTabId, icon: CheckSquare, label: "Actions" },
     { id: "structure" as AppTabId, icon: Network, label: "Structure" },
-    { id: "members" as AppTabId, icon: UserPlus, label: "Members" },
     { id: "constitution" as AppTabId, icon: BookOpen, label: "Constitution" },
 ] as const;
 
@@ -35,6 +35,17 @@ function App() {
         useWorkspaceSnapshot();
     const { organizations, pollUntil } = useOrganizationsFromIndexer(authenticatedWalletAddress);
     const activeOrg = organizations.find((o) => o.id === activeOrganizationId) ?? null;
+    const {
+        tacticalMeetingAddress,
+        governanceMeetingAddress,
+        meetings: indexedMeetings,
+        outputs: indexedOutputs,
+        pollForNewMeeting,
+        refetch: refetchMeetings,
+        fetchOutputs,
+    } = useTacticalMeetingsFromIndexer(activeOrganizationId);
+    const { meetings: indexedGovernanceMeetings } =
+        useGovernanceMeetingsFromIndexer(governanceMeetingAddress);
     const [activeTab, setActiveTab] = useState<AppTabId>("tactical");
     // Org IDs that have completed (or skipped) member onboarding this session
     const [onboardedOrgIds, setOnboardedOrgIds] = useState<Set<string>>(() => new Set());
@@ -86,15 +97,21 @@ function App() {
     const renderContent = () => {
         switch (activeTab) {
             case "tactical":
-                return <TacticalView />;
+                return (
+                    <TacticalView
+                        tacticalMeetingAddress={tacticalMeetingAddress}
+                        indexedMeetings={indexedMeetings}
+                        pollForNewMeeting={pollForNewMeeting}
+                        refetchMeetings={refetchMeetings}
+                        activeOrg={activeOrg}
+                    />
+                );
             case "governance":
                 return <GovernanceView />;
             case "actions":
-                return <ActionItemsView />;
+                return <ActionItemsView outputs={indexedOutputs} meetings={indexedMeetings} />;
             case "structure":
                 return <StructureView org={activeOrg!} isDarkMode={isDarkMode} />;
-            case "members":
-                return <MembersView org={activeOrg!} />;
             case "constitution":
                 return <ConstitutionView />;
         }
@@ -220,8 +237,17 @@ function App() {
             </div>
 
             {/* Meeting overlays */}
-            <TacticalMeetingRoom onNavigateToTab={setActiveTab} />
-            <GovernanceMeetingRoom />
+            <TacticalMeetingRoom
+                onNavigateToTab={setActiveTab}
+                tacticalMeetingAddress={tacticalMeetingAddress}
+                indexedMeetings={indexedMeetings}
+                fetchOutputs={fetchOutputs}
+                refetchMeetings={refetchMeetings}
+            />
+            <GovernanceMeetingRoom
+                governanceMeetingAddress={governanceMeetingAddress}
+                indexedGovernanceMeetings={indexedGovernanceMeetings}
+            />
         </div>
     );
 }

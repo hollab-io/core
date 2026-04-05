@@ -8,6 +8,7 @@ import type {
     DaoProposal,
     GovernanceMeeting,
     GovernanceMeetingLink,
+    MeetingComponentSet,
     MeetingOutput,
     Metric,
     Objection,
@@ -36,7 +37,10 @@ import {
     LIST_DEPOSITS_BY_TREASURY,
     LIST_GOVERNANCE_MEETING_LINKS,
     LIST_GOVERNANCE_MEETINGS_BY_CIRCLE,
+    LIST_GOVERNANCE_MEETINGS_BY_CONTRACT,
+    LIST_MEETING_COMPONENTS_BY_ORG,
     LIST_MEETING_OUTPUTS,
+    LIST_MEETING_OUTPUTS_BY_CONTRACT,
     LIST_METRICS_BY_ROLE,
     LIST_OBJECTIONS_BY_PROPOSAL,
     LIST_ORGANIZATIONS,
@@ -45,6 +49,7 @@ import {
     LIST_PROPOSALS_BY_CIRCLE,
     LIST_ROLES_BY_CIRCLE,
     LIST_TACTICAL_MEETINGS_BY_CIRCLE,
+    LIST_TACTICAL_MEETINGS_BY_CONTRACT,
     LIST_VOTES_BY_PROPOSAL,
 } from "./queries.js";
 
@@ -221,6 +226,16 @@ export function createIndexingClient(url: string) {
             return data.tacticalMeetings;
         },
 
+        async listTacticalMeetingsByContract(
+            contractAddress: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<TacticalMeeting>> {
+            const data = await gql.request<{
+                tacticalMeetings: PaginatedResult<TacticalMeeting>;
+            }>(LIST_TACTICAL_MEETINGS_BY_CONTRACT, { contractAddress, ...opts });
+            return data.tacticalMeetings;
+        },
+
         async listMeetingOutputs(
             contractAddress: string,
             meetingId: string,
@@ -229,6 +244,17 @@ export function createIndexingClient(url: string) {
             const data = await gql.request<{ meetingOutputs: PaginatedResult<MeetingOutput> }>(
                 LIST_MEETING_OUTPUTS,
                 { contractAddress, meetingId, ...opts },
+            );
+            return data.meetingOutputs;
+        },
+
+        async listMeetingOutputsByContract(
+            contractAddress: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<MeetingOutput>> {
+            const data = await gql.request<{ meetingOutputs: PaginatedResult<MeetingOutput> }>(
+                LIST_MEETING_OUTPUTS_BY_CONTRACT,
+                { contractAddress, ...opts },
             );
             return data.meetingOutputs;
         },
@@ -258,6 +284,16 @@ export function createIndexingClient(url: string) {
         },
 
         // ── Governance meetings ─────────────────────────────────────────────────
+        async listGovernanceMeetingsByContract(
+            contractAddress: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<GovernanceMeeting>> {
+            const data = await gql.request<{
+                governanceMeetings: PaginatedResult<GovernanceMeeting>;
+            }>(LIST_GOVERNANCE_MEETINGS_BY_CONTRACT, { contractAddress, ...opts });
+            return data.governanceMeetings;
+        },
+
         async listGovernanceMeetingsByCircle(
             contractAddress: string,
             circleId: string,
@@ -278,6 +314,17 @@ export function createIndexingClient(url: string) {
                 governanceMeetingLinks: PaginatedResult<GovernanceMeetingLink>;
             }>(LIST_GOVERNANCE_MEETING_LINKS, { contractAddress, meetingId, ...opts });
             return data.governanceMeetingLinks;
+        },
+
+        // ── Meeting components ─────────────────────────────────────────────────
+        async listMeetingComponentsByOrg(
+            orgId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<MeetingComponentSet>> {
+            const data = await gql.request<{
+                meetingComponentSets: PaginatedResult<MeetingComponentSet>;
+            }>(LIST_MEETING_COMPONENTS_BY_ORG, { orgId, ...opts });
+            return data.meetingComponentSets;
         },
 
         // ── Action voting ───────────────────────────────────────────────────────
