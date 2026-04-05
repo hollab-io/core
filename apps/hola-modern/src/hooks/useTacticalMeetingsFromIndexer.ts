@@ -3,51 +3,56 @@ import type {
     MeetingOutput,
     TacticalMeeting,
 } from "@hollab-io/indexing-client";
-import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 
 import { getIndexingClient } from "./useOrganizationsFromIndexer";
 
 export type { TacticalMeeting, MeetingOutput };
 
+type TacticalData = {
+    components: MeetingComponentSet | null;
+    meetings: TacticalMeeting[];
+    outputs: MeetingOutput[];
+};
+
 export function useTacticalMeetingsFromIndexer(orgId: string | null) {
-    const [components, setComponents] = useState<MeetingComponentSet | null>(null);
-    const [meetings, setMeetings] = useState<TacticalMeeting[]>([]);
-    const [outputs, setOutputs] = useState<MeetingOutput[]>([]);
-    const [loading, setLoading] = useState(false);
+    const queryClient = useQueryClient();
 
-    const fetch = useCallback(async () => {
-        const client = getIndexingClient();
-        if (!client || !orgId) {
-            setComponents(null);
-            setMeetings([]);
-            setOutputs([]);
-            return;
-        }
+    const { data, isLoading: loading } = useQuery<TacticalData>({
+        queryKey: ["tacticalMeetings", orgId],
+        queryFn: async (): Promise<TacticalData> => {
+            const client = getIndexingClient();
+            if (!client || !orgId) return { components: null, meetings: [], outputs: [] };
 
-        setLoading(true);
-        try {
             const componentsResult = await client.listMeetingComponentsByOrg(orgId);
             const comp = componentsResult.items[0] ?? null;
-            setComponents(comp);
 
-            if (comp?.tacticalMeeting) {
-                const [meetingsResult, outputsResult] = await Promise.all([
-                    client.listTacticalMeetingsByContract(comp.tacticalMeeting),
-                    client.listMeetingOutputsByContract(comp.tacticalMeeting),
-                ]);
-                setMeetings(meetingsResult.items);
-                setOutputs(outputsResult.items);
+            if (!comp?.tacticalMeeting) {
+                return { components: comp, meetings: [], outputs: [] };
             }
-        } catch {
-            // indexer unreachable
-        } finally {
-            setLoading(false);
-        }
-    }, [orgId]);
 
-    useEffect(() => {
-        void fetch();
-    }, [fetch]);
+            const [meetingsResult, outputsResult] = await Promise.all([
+                client.listTacticalMeetingsByContract(comp.tacticalMeeting),
+                client.listMeetingOutputsByContract(comp.tacticalMeeting),
+            ]);
+
+            return {
+                components: comp,
+                meetings: meetingsResult.items,
+                outputs: outputsResult.items,
+            };
+        },
+        enabled: Boolean(orgId),
+    });
+
+    const components = data?.components ?? null;
+    const meetings = data?.meetings ?? [];
+    const outputs = data?.outputs ?? [];
+
+    const refetch = useCallback(() => {
+        return queryClient.invalidateQueries({ queryKey: ["tacticalMeetings", orgId] });
+    }, [queryClient, orgId]);
 
     const pollForNewMeeting = useCallback(
         (prevCount: number, timeoutMs = 60_000): Promise<TacticalMeeting[]> => {
@@ -64,8 +69,12 @@ export function useTacticalMeetingsFromIndexer(orgId: string | null) {
                     try {
                         const result = await client.listTacticalMeetingsByContract(contractAddr);
                         const items = result.items;
-                        setMeetings(items);
                         if (items.length > prevCount) {
+                            // Update the cache with new data
+                            queryClient.setQueryData<TacticalData>(
+                                ["tacticalMeetings", orgId],
+                                (old) => (old ? { ...old, meetings: items } : undefined),
+                            );
                             resolve(items);
                             return;
                         }
@@ -82,7 +91,7 @@ export function useTacticalMeetingsFromIndexer(orgId: string | null) {
                 void tick();
             });
         },
-        [components],
+        [components, orgId, queryClient],
     );
 
     const fetchOutputs = useCallback(
@@ -109,7 +118,7 @@ export function useTacticalMeetingsFromIndexer(orgId: string | null) {
         meetings,
         outputs,
         loading,
-        refetch: fetch,
+        refetch,
         pollForNewMeeting,
         fetchOutputs,
     };

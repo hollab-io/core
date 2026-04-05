@@ -306,6 +306,28 @@ export const joinRequest = onchainTable("join_request", (t) => ({
     txHash: t.hex().notNull(),
 }));
 
+// ─── Tension board ──────────────────────────────────────────────────────────
+// Anyone (including non-members) can submit tensions for circles.
+// status: 0=Open 1=Championed 2=Dismissed 3=Processed
+// target: 0=Tactical 1=Governance
+
+export const tension = onchainTable("tension", (t) => ({
+    id: t.text().primaryKey(), // "<contractAddress>-<tensionId>"
+    tensionId: t.bigint().notNull(),
+    contractAddress: t.hex().notNull(),
+    author: t.hex().notNull(),
+    orgId: t.bigint().notNull(),
+    circleId: t.bigint().notNull(),
+    target: t.integer().notNull(), // 0=Tactical 1=Governance
+    title: t.text().notNull(),
+    description: t.text().notNull(),
+    status: t.integer().notNull(), // 0=Open 1=Championed 2=Dismissed 3=Processed
+    champion: t.hex(),
+    submittedAt: t.bigint().notNull(),
+    resolvedAt: t.bigint(),
+    txHash: t.hex().notNull(),
+}));
+
 // ─── Action voting ────────────────────────────────────────────────────────────
 // Lightweight votes on tactical meeting outputs. Vote tallies are updated live.
 

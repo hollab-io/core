@@ -97,6 +97,9 @@ importers:
             "@hollab-io/viem-extension":
                 specifier: workspace:*
                 version: link:../../packages/viem-extension
+            "@tanstack/react-query":
+                specifier: 5.96.2
+                version: 5.96.2(react@19.2.4)
             autoprefixer:
                 specifier: ^10.4.27
                 version: 10.4.27(postcss@8.5.8)
@@ -3238,6 +3241,20 @@ packages:
                 integrity: sha512-4BAffykYOgO+5nzBWYwE3W90sBgLJoUPRWWcL8wlyiM8IB8ipJz3UMJ9KXQd1RKQXpKp8Tutn80HZtWsu2u76w==,
             }
         engines: { node: ">=10" }
+
+    "@tanstack/query-core@5.96.2":
+        resolution:
+            {
+                integrity: sha512-hzI6cTVh4KNRk8UtoIBS7Lv9g6BnJPXvBKsvYH1aGWvv0347jT3BnSvztOE+kD76XGvZnRC/t6qdW1CaIfwCeA==,
+            }
+
+    "@tanstack/react-query@5.96.2":
+        resolution:
+            {
+                integrity: sha512-sYyzzJT4G0g02azzJ8o55VFFV31XvFpdUpG+unxS0vSaYsJnSPKGoI6WdPwUucJL1wpgGfwfmntNX/Ub1uOViA==,
+            }
+        peerDependencies:
+            react: ^18 || ^19
 
     "@thumbmarkjs/thumbmarkjs@0.16.0":
         resolution:
@@ -12864,6 +12881,13 @@ snapshots:
     "@szmarczak/http-timer@4.0.6":
         dependencies:
             defer-to-connect: 2.0.1
+
+    "@tanstack/query-core@5.96.2": {}
+
+    "@tanstack/react-query@5.96.2(react@19.2.4)":
+        dependencies:
+            "@tanstack/query-core": 5.96.2
+            react: 19.2.4
 
     "@thumbmarkjs/thumbmarkjs@0.16.0": {}
 

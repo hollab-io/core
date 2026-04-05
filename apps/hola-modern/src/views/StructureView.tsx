@@ -41,7 +41,12 @@ type MemberEntry = {
     error?: string;
 };
 
-type Props = { org: Organization; isDarkMode: boolean };
+type Props = {
+    org: Organization;
+    isDarkMode: boolean;
+    autoOpenInvite?: boolean;
+    onInviteOpened?: () => void;
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function looksLikeEns(v: string) {
@@ -415,12 +420,20 @@ function shortenWallet(address: string) {
 }
 
 // ─── Main view ───────────────────────────────────────────────────────────────
-export default function StructureView({ org, isDarkMode }: Props) {
+export default function StructureView({ org, isDarkMode, autoOpenInvite, onInviteOpened }: Props) {
     const { authenticatedWalletAddress, snapshot, organization } = useWorkspaceSnapshot();
     const { addOrgMembers } = useCircleRegistry();
     const { getPendingRequests, approveWithTokens, rejectRequest } = useJoinRequest();
     const [tab, setTab] = useState<"members" | "chart" | "requests">("members");
     const [showAddMembers, setShowAddMembers] = useState(false);
+
+    // Auto-open the add-members panel when redirected from onboarding
+    useEffect(() => {
+        if (autoOpenInvite) {
+            setShowAddMembers(true);
+            onInviteOpened?.();
+        }
+    }, [autoOpenInvite, onInviteOpened]);
 
     const members = useMemo(() => {
         const rolesByPartnerId = new Map<string, string[]>();

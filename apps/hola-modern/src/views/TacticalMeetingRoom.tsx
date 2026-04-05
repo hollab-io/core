@@ -84,12 +84,14 @@ type PendingOutput = {
 
 export default function TacticalMeetingRoom({
     indexedMeetings,
+    allOutputs: allIndexedOutputs,
     fetchOutputs,
     refetchMeetings,
     tacticalMeetingAddress,
     onNavigateToTab,
 }: {
     indexedMeetings: TacticalMeeting[];
+    allOutputs: MeetingOutput[];
     fetchOutputs: (meetingId: string) => Promise<MeetingOutput[]>;
     refetchMeetings: () => Promise<void>;
     tacticalMeetingAddress?: `0x${string}`;
@@ -107,6 +109,38 @@ export default function TacticalMeetingRoom({
                 : null,
         [activeMeetingId, indexedMeetings],
     );
+
+    /* ── Outputs from previous huddles (for Progress updates phase) ────── */
+    const previousOutputs = useMemo(() => {
+        if (!activeMeeting) return [];
+        return allIndexedOutputs.filter(
+            (o) => String(o.meetingId) !== String(activeMeeting.meetingId),
+        );
+    }, [allIndexedOutputs, activeMeeting]);
+
+    /* ── Completed outputs (persisted locally) ─────────────────────────── */
+    const COMPLETED_KEY = "hola-modern:completed-outputs";
+    const [completedOutputIds, setCompletedOutputIds] = useState<Set<string>>(() => {
+        try {
+            const raw = window.localStorage.getItem(COMPLETED_KEY);
+            return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+        } catch {
+            return new Set();
+        }
+    });
+
+    const toggleOutputDone = useCallback((outputId: string) => {
+        setCompletedOutputIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(outputId)) {
+                next.delete(outputId);
+            } else {
+                next.add(outputId);
+            }
+            window.localStorage.setItem(COMPLETED_KEY, JSON.stringify([...next]));
+            return next;
+        });
+    }, []);
 
     /* ── Tabs ─────────────────────────────────────────────────────────────── */
     const [activeTab, setActiveTab] = useState<"meeting" | "history">("meeting");
@@ -250,7 +284,8 @@ export default function TacticalMeetingRoom({
                 });
             }
 
-            // Refresh data
+            // Give the indexer a moment to index the completion event
+            await new Promise((r) => setTimeout(r, 3000));
             await refetchMeetings();
             setCompletedScreen(true);
         } catch (err) {
@@ -362,7 +397,10 @@ export default function TacticalMeetingRoom({
                                 </motion.p>
                                 <motion.button
                                     type="button"
-                                    onClick={closeMeeting}
+                                    onClick={() => {
+                                        void refetchMeetings();
+                                        closeMeeting();
+                                    }}
                                     className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.03] px-8 py-3 text-sm font-medium text-slate-200 transition-colors hover:bg-white/[0.06]"
                                     initial={{ opacity: 0 }}
                                     animate={{ opacity: 1 }}
@@ -539,133 +577,258 @@ export default function TacticalMeetingRoom({
                                                         {PHASE_DESCRIPTIONS[activePhase]}
                                                     </p>
 
-                                                    {/* Triage: inline output creation + list */}
-                                                    {activePhase === "Triage items" && (
-                                                        <div className="mt-4 space-y-3">
-                                                            {/* Quick-add buttons */}
-                                                            <div className="grid grid-cols-2 gap-2">
-                                                                {(
-                                                                    [
-                                                                        {
-                                                                            type: OutputType.NextAction,
-                                                                            label: "Action",
-                                                                            icon: "arrow",
-                                                                        },
-                                                                        {
-                                                                            type: OutputType.Project,
-                                                                            label: "Project",
-                                                                            icon: "kanban",
-                                                                        },
-                                                                        {
-                                                                            type: OutputType.Information,
-                                                                            label: "Share info",
-                                                                            icon: "info",
-                                                                        },
-                                                                        {
-                                                                            type: OutputType.Request,
-                                                                            label: "Request info",
-                                                                            icon: "question",
-                                                                        },
-                                                                    ] as const
-                                                                ).map((item) => (
-                                                                    <button
-                                                                        key={item.type}
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            setOutputType(
-                                                                                item.type,
-                                                                            );
-                                                                            setShowRecordOutput(
-                                                                                true,
-                                                                            );
-                                                                        }}
-                                                                        className="flex items-center gap-2 rounded-xl
-                                                                            border border-white/[0.06] bg-white/[0.03]
-                                                                            px-3 py-2.5 text-[12px] font-medium text-slate-300
-                                                                            transition-all hover:border-[#3481FF]/25 hover:bg-[#3481FF]/[0.06] hover:text-white
-                                                                            active:scale-[0.98]"
-                                                                    >
-                                                                        <Plus
-                                                                            size={13}
-                                                                            strokeWidth={2}
-                                                                            className="text-[#3481FF]"
-                                                                        />
-                                                                        {item.label}
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-
-                                                            {/* Pending outputs inline */}
-                                                            {pendingOutputs.length > 0 && (
-                                                                <div className="space-y-2 pt-1">
+                                                    {/* Progress updates: show outputs from previous huddles */}
+                                                    {activePhase === "Progress updates" && (
+                                                        <div className="mt-4 space-y-2">
+                                                            {previousOutputs.length > 0 ? (
+                                                                <>
                                                                     <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                                                                        Queued (
-                                                                        {pendingOutputs.length})
+                                                                        From previous huddles (
+                                                                        {previousOutputs.length})
                                                                     </p>
-                                                                    {pendingOutputs.map((po) => (
-                                                                        <div
-                                                                            key={po.id}
-                                                                            className="flex items-start gap-2 rounded-xl
-                                                                                border border-amber-400/15 bg-amber-500/[0.04] px-3 py-2"
-                                                                        >
-                                                                            <span
-                                                                                className="mt-0.5 shrink-0 rounded-full bg-amber-500/15
-                                                                                px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-400"
-                                                                            >
-                                                                                {OUTPUT_TYPE_LABELS[
-                                                                                    po.outputType
-                                                                                ] ?? "Output"}
-                                                                            </span>
-                                                                            <span className="min-w-0 flex-1 text-[12px] leading-relaxed text-slate-300">
-                                                                                {po.description}
-                                                                            </span>
+                                                                    {previousOutputs.map((o) => {
+                                                                        const isDone =
+                                                                            completedOutputIds.has(
+                                                                                o.id,
+                                                                            );
+                                                                        return (
                                                                             <button
+                                                                                key={o.id}
                                                                                 type="button"
                                                                                 onClick={() =>
-                                                                                    removePendingOutput(
-                                                                                        po.id,
+                                                                                    !activeMeeting?.completedAt &&
+                                                                                    toggleOutputDone(
+                                                                                        o.id,
                                                                                     )
                                                                                 }
-                                                                                className="shrink-0 rounded-full p-0.5 text-slate-600
-                                                                                    transition-colors hover:text-red-400"
+                                                                                disabled={Boolean(
+                                                                                    activeMeeting?.completedAt,
+                                                                                )}
+                                                                                className={`flex w-full items-start gap-3 rounded-xl
+                                                                                    border px-3 py-2.5 text-left transition-colors
+                                                                                    disabled:cursor-default
+                                                                                    ${
+                                                                                        isDone
+                                                                                            ? "border-emerald-400/15 bg-emerald-500/[0.04]"
+                                                                                            : "border-white/[0.06] bg-white/[0.03] hover:border-white/[0.1]"
+                                                                                    }`}
                                                                             >
-                                                                                <X size={12} />
+                                                                                {/* Checkbox */}
+                                                                                <div
+                                                                                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center
+                                                                                    rounded border transition-colors
+                                                                                    ${
+                                                                                        isDone
+                                                                                            ? "border-emerald-400/40 bg-emerald-500/20"
+                                                                                            : "border-white/[0.15] bg-white/[0.04]"
+                                                                                    }`}
+                                                                                >
+                                                                                    {isDone && (
+                                                                                        <Check
+                                                                                            size={
+                                                                                                11
+                                                                                            }
+                                                                                            className="text-emerald-400"
+                                                                                            strokeWidth={
+                                                                                                2.5
+                                                                                            }
+                                                                                        />
+                                                                                    )}
+                                                                                </div>
+                                                                                <div className="min-w-0 flex-1">
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <span
+                                                                                            className="shrink-0 rounded-full bg-[#3481FF]/15
+                                                                                            px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-[#6aabff]"
+                                                                                        >
+                                                                                            {OUTPUT_TYPE_LABELS[
+                                                                                                o
+                                                                                                    .outputType
+                                                                                            ] ??
+                                                                                                "Output"}
+                                                                                        </span>
+                                                                                        {isDone && (
+                                                                                            <span
+                                                                                                className="rounded-full bg-emerald-500/15
+                                                                                                px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-400"
+                                                                                            >
+                                                                                                Done
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <p
+                                                                                        className={`mt-1 text-[12px] leading-relaxed
+                                                                                        ${isDone ? "text-slate-500 line-through" : "text-slate-200"}`}
+                                                                                    >
+                                                                                        {
+                                                                                            o.description
+                                                                                        }
+                                                                                    </p>
+                                                                                    <p className="mt-0.5 font-mono text-[10px] text-slate-600">
+                                                                                        {o.assignedTo.slice(
+                                                                                            0,
+                                                                                            6,
+                                                                                        )}
+                                                                                        ...
+                                                                                        {o.assignedTo.slice(
+                                                                                            -4,
+                                                                                        )}
+                                                                                    </p>
+                                                                                </div>
                                                                             </button>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-
-                                                            {/* On-chain outputs inline */}
-                                                            {indexedOutputs.length > 0 && (
-                                                                <div className="space-y-2 pt-1">
-                                                                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
-                                                                        On-chain (
-                                                                        {indexedOutputs.length})
-                                                                    </p>
-                                                                    {indexedOutputs.map((o) => (
-                                                                        <div
-                                                                            key={o.id}
-                                                                            className="flex items-start gap-2 rounded-xl
-                                                                                border border-emerald-400/10 bg-emerald-500/[0.03] px-3 py-2"
-                                                                        >
-                                                                            <span
-                                                                                className="mt-0.5 shrink-0 rounded-full bg-emerald-500/15
-                                                                                px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-400"
-                                                                            >
-                                                                                {OUTPUT_TYPE_LABELS[
-                                                                                    o.outputType
-                                                                                ] ?? "Output"}
-                                                                            </span>
-                                                                            <span className="min-w-0 flex-1 text-[12px] leading-relaxed text-slate-300">
-                                                                                {o.description}
-                                                                            </span>
-                                                                        </div>
-                                                                    ))}
+                                                                        );
+                                                                    })}
+                                                                </>
+                                                            ) : (
+                                                                <div
+                                                                    className="rounded-xl border border-dashed border-white/[0.06]
+                                                                    bg-white/[0.02] px-4 py-5 text-center text-[12px] text-slate-600"
+                                                                >
+                                                                    No projects or actions from
+                                                                    previous huddles to review.
                                                                 </div>
                                                             )}
                                                         </div>
                                                     )}
+
+                                                    {/* Triage: inline output creation + list */}
+                                                    {activePhase === "Triage items" &&
+                                                        !activeMeeting?.completedAt && (
+                                                            <div className="mt-4 space-y-3">
+                                                                {/* Quick-add buttons */}
+                                                                <div className="grid grid-cols-2 gap-2">
+                                                                    {(
+                                                                        [
+                                                                            {
+                                                                                type: OutputType.NextAction,
+                                                                                label: "Action",
+                                                                                icon: "arrow",
+                                                                            },
+                                                                            {
+                                                                                type: OutputType.Project,
+                                                                                label: "Project",
+                                                                                icon: "kanban",
+                                                                            },
+                                                                            {
+                                                                                type: OutputType.Information,
+                                                                                label: "Share info",
+                                                                                icon: "info",
+                                                                            },
+                                                                            {
+                                                                                type: OutputType.Request,
+                                                                                label: "Request info",
+                                                                                icon: "question",
+                                                                            },
+                                                                        ] as const
+                                                                    ).map((item) => (
+                                                                        <button
+                                                                            key={item.type}
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setOutputType(
+                                                                                    item.type,
+                                                                                );
+                                                                                setShowRecordOutput(
+                                                                                    true,
+                                                                                );
+                                                                            }}
+                                                                            className="flex items-center gap-2 rounded-xl
+                                                                            border border-white/[0.06] bg-white/[0.03]
+                                                                            px-3 py-2.5 text-[12px] font-medium text-slate-300
+                                                                            transition-all hover:border-[#3481FF]/25 hover:bg-[#3481FF]/[0.06] hover:text-white
+                                                                            active:scale-[0.98]"
+                                                                        >
+                                                                            <Plus
+                                                                                size={13}
+                                                                                strokeWidth={2}
+                                                                                className="text-[#3481FF]"
+                                                                            />
+                                                                            {item.label}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+
+                                                                {/* Pending outputs inline */}
+                                                                {pendingOutputs.length > 0 && (
+                                                                    <div className="space-y-2 pt-1">
+                                                                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                                                                            Queued (
+                                                                            {pendingOutputs.length})
+                                                                        </p>
+                                                                        {pendingOutputs.map(
+                                                                            (po) => (
+                                                                                <div
+                                                                                    key={po.id}
+                                                                                    className="flex items-start gap-2 rounded-xl
+                                                                                border border-amber-400/15 bg-amber-500/[0.04] px-3 py-2"
+                                                                                >
+                                                                                    <span
+                                                                                        className="mt-0.5 shrink-0 rounded-full bg-amber-500/15
+                                                                                px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-400"
+                                                                                    >
+                                                                                        {OUTPUT_TYPE_LABELS[
+                                                                                            po
+                                                                                                .outputType
+                                                                                        ] ??
+                                                                                            "Output"}
+                                                                                    </span>
+                                                                                    <span className="min-w-0 flex-1 text-[12px] leading-relaxed text-slate-300">
+                                                                                        {
+                                                                                            po.description
+                                                                                        }
+                                                                                    </span>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        onClick={() =>
+                                                                                            removePendingOutput(
+                                                                                                po.id,
+                                                                                            )
+                                                                                        }
+                                                                                        className="shrink-0 rounded-full p-0.5 text-slate-600
+                                                                                    transition-colors hover:text-red-400"
+                                                                                    >
+                                                                                        <X
+                                                                                            size={
+                                                                                                12
+                                                                                            }
+                                                                                        />
+                                                                                    </button>
+                                                                                </div>
+                                                                            ),
+                                                                        )}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* On-chain outputs inline */}
+                                                                {indexedOutputs.length > 0 && (
+                                                                    <div className="space-y-2 pt-1">
+                                                                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                                                                            On-chain (
+                                                                            {indexedOutputs.length})
+                                                                        </p>
+                                                                        {indexedOutputs.map((o) => (
+                                                                            <div
+                                                                                key={o.id}
+                                                                                className="flex items-start gap-2 rounded-xl
+                                                                                border border-emerald-400/10 bg-emerald-500/[0.03] px-3 py-2"
+                                                                            >
+                                                                                <span
+                                                                                    className="mt-0.5 shrink-0 rounded-full bg-emerald-500/15
+                                                                                px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-400"
+                                                                                >
+                                                                                    {OUTPUT_TYPE_LABELS[
+                                                                                        o.outputType
+                                                                                    ] ?? "Output"}
+                                                                                </span>
+                                                                                <span className="min-w-0 flex-1 text-[12px] leading-relaxed text-slate-300">
+                                                                                    {o.description}
+                                                                                </span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                 </motion.div>
 
                                                 {/* Back / Next */}
@@ -702,32 +865,33 @@ export default function TacticalMeetingRoom({
                                                 </div>
 
                                                 {/* Complete button */}
-                                                {activePhase === "Closing round" && (
-                                                    <button
-                                                        type="button"
-                                                        disabled={isTxPending}
-                                                        onClick={handleCompleteMeeting}
-                                                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl
+                                                {activePhase === "Closing round" &&
+                                                    !activeMeeting?.completedAt && (
+                                                        <button
+                                                            type="button"
+                                                            disabled={isTxPending}
+                                                            onClick={handleCompleteMeeting}
+                                                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl
                                                             border border-emerald-400/40 bg-emerald-500/15
                                                             px-4 py-3 text-sm font-semibold text-emerald-100
                                                             transition-colors hover:bg-emerald-500/25
                                                             disabled:pointer-events-none disabled:opacity-60"
-                                                    >
-                                                        {isTxPending ? (
-                                                            <Loader2
-                                                                size={15}
-                                                                className="animate-spin"
-                                                            />
-                                                        ) : (
-                                                            <CheckSquare size={15} />
-                                                        )}
-                                                        {isTxPending
-                                                            ? "Completing huddle..."
-                                                            : pendingOutputs.length > 0
-                                                              ? `Complete huddle (${pendingOutputs.length} output${pendingOutputs.length !== 1 ? "s" : ""})`
-                                                              : "Complete huddle"}
-                                                    </button>
-                                                )}
+                                                        >
+                                                            {isTxPending ? (
+                                                                <Loader2
+                                                                    size={15}
+                                                                    className="animate-spin"
+                                                                />
+                                                            ) : (
+                                                                <CheckSquare size={15} />
+                                                            )}
+                                                            {isTxPending
+                                                                ? "Completing huddle..."
+                                                                : pendingOutputs.length > 0
+                                                                  ? `Complete huddle (${pendingOutputs.length} output${pendingOutputs.length !== 1 ? "s" : ""})`
+                                                                  : "Complete huddle"}
+                                                        </button>
+                                                    )}
 
                                                 {txError && (
                                                     <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/[0.08] px-4 py-2.5 text-[12px] text-rose-400">
@@ -747,14 +911,18 @@ export default function TacticalMeetingRoom({
                                                             Actions and projects from this huddle
                                                         </h3>
                                                     </div>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowRecordOutput(true)}
-                                                        className="flex items-center gap-1.5 rounded-xl border border-[#3481FF]/30 bg-[#3481FF]/10 px-3 py-2 text-xs font-semibold text-[#6aabff] transition-colors hover:bg-[#3481FF]/20"
-                                                    >
-                                                        <Plus size={14} />
-                                                        Record output
-                                                    </button>
+                                                    {!activeMeeting?.completedAt && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setShowRecordOutput(true)
+                                                            }
+                                                            className="flex items-center gap-1.5 rounded-xl border border-[#3481FF]/30 bg-[#3481FF]/10 px-3 py-2 text-xs font-semibold text-[#6aabff] transition-colors hover:bg-[#3481FF]/20"
+                                                        >
+                                                            <Plus size={14} />
+                                                            Record output
+                                                        </button>
+                                                    )}
                                                 </div>
 
                                                 <div className="mt-5 space-y-3">

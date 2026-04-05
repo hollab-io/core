@@ -1,36 +1,29 @@
 import type { Organization } from "@hollab-io/indexing-client";
 import { createIndexingClient } from "@hollab-io/indexing-client";
-import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 
 const indexerUrl = import.meta.env.VITE_INDEXER_URL as string;
 const client = indexerUrl ? createIndexingClient(indexerUrl) : null;
-console.log("indexerUrl", indexerUrl);
 
 export type { Organization };
 
 export function useOrganizationsFromIndexer(creatorAddress: string | null) {
-    const [organizations, setOrganizations] = useState<Organization[]>([]);
-    const [loading, setLoading] = useState(false);
+    const queryClient = useQueryClient();
 
-    const fetch = useCallback(async () => {
-        if (!client || !creatorAddress) {
-            setOrganizations([]);
-            return;
-        }
-        setLoading(true);
-        try {
+    const { data: organizations = [], isLoading: loading } = useQuery({
+        queryKey: ["organizations", creatorAddress],
+        queryFn: async () => {
+            if (!client || !creatorAddress) return [];
             const result = await client.listOrganizationsByCreator(creatorAddress);
-            setOrganizations(result.items);
-        } catch {
-            // indexer unreachable — silently keep empty list
-        } finally {
-            setLoading(false);
-        }
-    }, [creatorAddress]);
+            return result.items;
+        },
+        enabled: Boolean(client && creatorAddress),
+    });
 
-    useEffect(() => {
-        void fetch();
-    }, [fetch]);
+    const refetch = useCallback(() => {
+        return queryClient.invalidateQueries({ queryKey: ["organizations", creatorAddress] });
+    }, [queryClient, creatorAddress]);
 
     /**
      * Poll every `intervalMs` until `predicate` returns true or `timeoutMs` elapses.
@@ -54,7 +47,7 @@ export function useOrganizationsFromIndexer(creatorAddress: string | null) {
                     try {
                         const result = await client.listOrganizationsByCreator(creatorAddress);
                         const items = result.items;
-                        setOrganizations(items);
+                        queryClient.setQueryData(["organizations", creatorAddress], items);
                         if (predicate(items)) {
                             resolve(items);
                             return;
@@ -74,13 +67,13 @@ export function useOrganizationsFromIndexer(creatorAddress: string | null) {
                 void tick();
             });
         },
-        [creatorAddress],
+        [creatorAddress, queryClient],
     );
 
-    return { organizations, loading, refetch: fetch, pollUntil };
+    return { organizations, loading, refetch, pollUntil };
 }
 
-/** Stable singleton ref so App.tsx can share one instance. */
+/** Stable singleton ref so other hooks can share the client. */
 export function getIndexingClient() {
     return client;
 }
