@@ -3,11 +3,13 @@ import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { meetingComponentsFactoryAbi } from "@hollab-io/contracts/actions";
 import { useCallback } from "react";
 
-const MEETING_COMPONENTS_FACTORY_ADDRESS = import.meta.env
-    .VITE_MEETING_COMPONENTS_FACTORY_ADDRESS as `0x${string}` | undefined;
+import { useChain } from "../context/ChainContext";
 
 export function useMeetingComponentsFactory() {
     const { primaryWallet } = useDynamicContext();
+    const { chainConfig } = useChain();
+
+    const factoryAddress = chainConfig.meetingFactoryAddress;
 
     const deployMeetingComponents = useCallback(
         async (params: {
@@ -18,8 +20,11 @@ export function useMeetingComponentsFactory() {
             govToken: `0x${string}`;
             walletAddress: `0x${string}`;
         }): Promise<`0x${string}`> => {
-            if (!MEETING_COMPONENTS_FACTORY_ADDRESS) {
-                throw new Error("Meeting components factory address not configured");
+            if (
+                !factoryAddress ||
+                factoryAddress === "0x0000000000000000000000000000000000000000"
+            ) {
+                throw new Error("Meeting components factory address not configured for this chain");
             }
             if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
                 throw new Error("No Ethereum wallet connected");
@@ -30,9 +35,10 @@ export function useMeetingComponentsFactory() {
 
             const txHash = await walletClient.writeContract({
                 abi: meetingComponentsFactoryAbi,
-                address: MEETING_COMPONENTS_FACTORY_ADDRESS,
+                address: factoryAddress,
                 functionName: "deploy",
                 account: params.walletAddress,
+                chain: chainConfig.chain,
                 args: [
                     params.orgId,
                     params.circleRegistry,
@@ -44,11 +50,13 @@ export function useMeetingComponentsFactory() {
 
             return txHash;
         },
-        [primaryWallet],
+        [primaryWallet, factoryAddress],
     );
 
     return {
         deployMeetingComponents,
-        factoryConfigured: Boolean(MEETING_COMPONENTS_FACTORY_ADDRESS),
+        factoryConfigured: Boolean(
+            factoryAddress && factoryAddress !== "0x0000000000000000000000000000000000000000",
+        ),
     };
 }

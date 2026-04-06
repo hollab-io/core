@@ -2,6 +2,9 @@
 // ActionVoting
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ *
+ */
 export const actionVotingAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
     {
@@ -313,10 +316,25 @@ export const actionVotingAbi = [
     { type: "error", inputs: [], name: "ActionVoting_ZeroAmount" },
 ] as const;
 
+/**
+ *
+ */
+export const actionVotingAddress = {
+    31337: "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+} as const;
+
+/**
+ *
+ */
+export const actionVotingConfig = { address: actionVotingAddress, abi: actionVotingAbi } as const;
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CircleRegistry
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ *
+ */
 export const circleRegistryAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
     {
@@ -988,6 +1006,21 @@ export const circleRegistryAbi = [
     { type: "error", inputs: [], name: "CircleRegistry_Unauthorized" },
 ] as const;
 
+/**
+ *
+ */
+export const circleRegistryAddress = {
+    31337: "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+} as const;
+
+/**
+ *
+ */
+export const circleRegistryConfig = {
+    address: circleRegistryAddress,
+    abi: circleRegistryAbi,
+} as const;
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // CircleTreasury
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1534,6 +1567,9 @@ export const govTokenAbi = [
 // GovernanceMeeting
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ *
+ */
 export const governanceMeetingAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
     {
@@ -1682,10 +1718,28 @@ export const governanceMeetingAbi = [
     },
 ] as const;
 
+/**
+ *
+ */
+export const governanceMeetingAddress = {
+    31337: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+} as const;
+
+/**
+ *
+ */
+export const governanceMeetingConfig = {
+    address: governanceMeetingAddress,
+    abi: governanceMeetingAbi,
+} as const;
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // GovernanceProcess
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ *
+ */
 export const governanceProcessAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
     {
@@ -2229,6 +2283,21 @@ export const governanceProcessAbi = [
         name: "GovernanceProcess_UnresolvedObjections",
     },
 ] as const;
+
+/**
+ *
+ */
+export const governanceProcessAddress = {
+    31337: "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+} as const;
+
+/**
+ *
+ */
+export const governanceProcessConfig = {
+    address: governanceProcessAddress,
+    abi: governanceProcessAbi,
+} as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // HolGovernor
@@ -2936,6 +3005,9 @@ export const holGovernorAbi = [
 // HolGovernorFactory
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ *
+ */
 export const holGovernorFactoryAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
     {
@@ -3003,6 +3075,21 @@ export const holGovernorFactoryAbi = [
     { type: "error", inputs: [], name: "MissingENSRegistrar" },
 ] as const;
 
+/**
+ *
+ */
+export const holGovernorFactoryAddress = {
+    31337: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+} as const;
+
+/**
+ *
+ */
+export const holGovernorFactoryConfig = {
+    address: holGovernorFactoryAddress,
+    abi: holGovernorFactoryAbi,
+} as const;
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // IDAOGovernor
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3023,9 +3110,209 @@ export const idaoGovernorAbi = [
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// JoinRequest
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ *
+ */
+export const joinRequestAbi = [
+    {
+        type: "constructor",
+        inputs: [{ name: "_factory", internalType: "address", type: "address" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "FACTORY",
+        outputs: [{ name: "", internalType: "contract IOrganizationFactory", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "requestId", internalType: "uint256", type: "uint256" }],
+        name: "approve",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "orgId", internalType: "uint256", type: "uint256" }],
+        name: "getOrgRequests",
+        outputs: [
+            {
+                name: "result",
+                internalType: "struct JoinRequest.Request[]",
+                type: "tuple[]",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "requester", internalType: "address", type: "address" },
+                    { name: "orgId", internalType: "uint256", type: "uint256" },
+                    { name: "message", internalType: "string", type: "string" },
+                    { name: "status", internalType: "enum JoinRequest.Status", type: "uint8" },
+                    { name: "submittedAt", internalType: "uint256", type: "uint256" },
+                    { name: "resolvedAt", internalType: "uint256", type: "uint256" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "orgId", internalType: "uint256", type: "uint256" }],
+        name: "getPendingOrgRequests",
+        outputs: [
+            {
+                name: "result",
+                internalType: "struct JoinRequest.Request[]",
+                type: "tuple[]",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "requester", internalType: "address", type: "address" },
+                    { name: "orgId", internalType: "uint256", type: "uint256" },
+                    { name: "message", internalType: "string", type: "string" },
+                    { name: "status", internalType: "enum JoinRequest.Status", type: "uint8" },
+                    { name: "submittedAt", internalType: "uint256", type: "uint256" },
+                    { name: "resolvedAt", internalType: "uint256", type: "uint256" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "requestId", internalType: "uint256", type: "uint256" }],
+        name: "getRequest",
+        outputs: [
+            {
+                name: "",
+                internalType: "struct JoinRequest.Request",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "requester", internalType: "address", type: "address" },
+                    { name: "orgId", internalType: "uint256", type: "uint256" },
+                    { name: "message", internalType: "string", type: "string" },
+                    { name: "status", internalType: "enum JoinRequest.Status", type: "uint8" },
+                    { name: "submittedAt", internalType: "uint256", type: "uint256" },
+                    { name: "resolvedAt", internalType: "uint256", type: "uint256" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "requester", internalType: "address", type: "address" },
+            { name: "orgId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "hasPendingRequest",
+        outputs: [{ name: "", internalType: "bool", type: "bool" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "requestId", internalType: "uint256", type: "uint256" }],
+        name: "reject",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "orgId", internalType: "uint256", type: "uint256" },
+            { name: "message", internalType: "string", type: "string" },
+        ],
+        name: "requestToJoin",
+        outputs: [{ name: "requestId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "requestId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "requester", internalType: "address", type: "address", indexed: true },
+            { name: "orgId", internalType: "uint256", type: "uint256", indexed: true },
+        ],
+        name: "JoinApproved",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "requestId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "requester", internalType: "address", type: "address", indexed: true },
+            { name: "orgId", internalType: "uint256", type: "uint256", indexed: true },
+        ],
+        name: "JoinRejected",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "requestId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "requester", internalType: "address", type: "address", indexed: true },
+            { name: "orgId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "message", internalType: "string", type: "string", indexed: false },
+        ],
+        name: "JoinRequested",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "requester", internalType: "address", type: "address" },
+            { name: "orgId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "JoinRequest_AlreadyPending",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "requestId", internalType: "uint256", type: "uint256" }],
+        name: "JoinRequest_NotFound",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "requestId", internalType: "uint256", type: "uint256" }],
+        name: "JoinRequest_NotPending",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "orgId", internalType: "uint256", type: "uint256" }],
+        name: "JoinRequest_OrgNotFound",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "caller", internalType: "address", type: "address" },
+            { name: "orgId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "JoinRequest_Unauthorized",
+    },
+] as const;
+
+/**
+ *
+ */
+export const joinRequestAddress = {
+    31337: "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+} as const;
+
+/**
+ *
+ */
+export const joinRequestConfig = { address: joinRequestAddress, abi: joinRequestAbi } as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // MeetingComponentsFactory
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F)
+ */
 export const meetingComponentsFactoryAbi = [
     {
         type: "constructor",
@@ -3104,10 +3391,32 @@ export const meetingComponentsFactoryAbi = [
     { type: "error", inputs: [], name: "MeetingComponentsFactory_ZeroAddress" },
 ] as const;
 
+/**
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F)
+ */
+export const meetingComponentsFactoryAddress = {
+    1: "0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25",
+    11155111: "0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F",
+} as const;
+
+/**
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F)
+ */
+export const meetingComponentsFactoryConfig = {
+    address: meetingComponentsFactoryAddress,
+    abi: meetingComponentsFactoryAbi,
+} as const;
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // OrganizationFactory
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3)
+ */
 export const organizationFactoryAbi = [
     {
         type: "constructor",
@@ -3309,10 +3618,31 @@ export const organizationFactoryAbi = [
     },
 ] as const;
 
+/**
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3)
+ */
+export const organizationFactoryAddress = {
+    1: "0xC0252342923238CF5509cfBd2fa46A45ADeDc921",
+    11155111: "0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3",
+} as const;
+
+/**
+ * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3)
+ */
+export const organizationFactoryConfig = {
+    address: organizationFactoryAddress,
+    abi: organizationFactoryAbi,
+} as const;
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // RoleRegistry
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ *
+ */
 export const roleRegistryAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
     {
@@ -3622,10 +3952,25 @@ export const roleRegistryAbi = [
     { type: "error", inputs: [], name: "RoleRegistry_Unauthorized" },
 ] as const;
 
+/**
+ *
+ */
+export const roleRegistryAddress = {
+    31337: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+} as const;
+
+/**
+ *
+ */
+export const roleRegistryConfig = { address: roleRegistryAddress, abi: roleRegistryAbi } as const;
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // TacticalMeeting
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ *
+ */
 export const tacticalMeetingAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
     {
@@ -3937,6 +4282,272 @@ export const tacticalMeetingAbi = [
         name: "TacticalMeeting_NotFacilitator",
     },
 ] as const;
+
+/**
+ *
+ */
+export const tacticalMeetingAddress = {
+    31337: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+} as const;
+
+/**
+ *
+ */
+export const tacticalMeetingConfig = {
+    address: tacticalMeetingAddress,
+    abi: tacticalMeetingAbi,
+} as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// TensionBoard
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ *
+ */
+export const tensionBoardAbi = [
+    {
+        type: "constructor",
+        inputs: [{ name: "_factory", internalType: "address", type: "address" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "FACTORY",
+        outputs: [{ name: "", internalType: "contract IOrganizationFactory", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "tensionId", internalType: "uint256", type: "uint256" }],
+        name: "champion",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "tensionId", internalType: "uint256", type: "uint256" }],
+        name: "dismiss",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "orgId", internalType: "uint256", type: "uint256" }],
+        name: "getOpenOrgTensions",
+        outputs: [
+            {
+                name: "result",
+                internalType: "struct TensionBoard.Tension[]",
+                type: "tuple[]",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "author", internalType: "address", type: "address" },
+                    { name: "orgId", internalType: "uint256", type: "uint256" },
+                    { name: "circleId", internalType: "uint256", type: "uint256" },
+                    {
+                        name: "target",
+                        internalType: "enum TensionBoard.TensionTarget",
+                        type: "uint8",
+                    },
+                    { name: "title", internalType: "string", type: "string" },
+                    { name: "description", internalType: "string", type: "string" },
+                    {
+                        name: "status",
+                        internalType: "enum TensionBoard.TensionStatus",
+                        type: "uint8",
+                    },
+                    { name: "champion", internalType: "address", type: "address" },
+                    { name: "submittedAt", internalType: "uint256", type: "uint256" },
+                    { name: "resolvedAt", internalType: "uint256", type: "uint256" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "orgId", internalType: "uint256", type: "uint256" }],
+        name: "getOrgTensions",
+        outputs: [
+            {
+                name: "result",
+                internalType: "struct TensionBoard.Tension[]",
+                type: "tuple[]",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "author", internalType: "address", type: "address" },
+                    { name: "orgId", internalType: "uint256", type: "uint256" },
+                    { name: "circleId", internalType: "uint256", type: "uint256" },
+                    {
+                        name: "target",
+                        internalType: "enum TensionBoard.TensionTarget",
+                        type: "uint8",
+                    },
+                    { name: "title", internalType: "string", type: "string" },
+                    { name: "description", internalType: "string", type: "string" },
+                    {
+                        name: "status",
+                        internalType: "enum TensionBoard.TensionStatus",
+                        type: "uint8",
+                    },
+                    { name: "champion", internalType: "address", type: "address" },
+                    { name: "submittedAt", internalType: "uint256", type: "uint256" },
+                    { name: "resolvedAt", internalType: "uint256", type: "uint256" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "tensionId", internalType: "uint256", type: "uint256" }],
+        name: "getTension",
+        outputs: [
+            {
+                name: "",
+                internalType: "struct TensionBoard.Tension",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "author", internalType: "address", type: "address" },
+                    { name: "orgId", internalType: "uint256", type: "uint256" },
+                    { name: "circleId", internalType: "uint256", type: "uint256" },
+                    {
+                        name: "target",
+                        internalType: "enum TensionBoard.TensionTarget",
+                        type: "uint8",
+                    },
+                    { name: "title", internalType: "string", type: "string" },
+                    { name: "description", internalType: "string", type: "string" },
+                    {
+                        name: "status",
+                        internalType: "enum TensionBoard.TensionStatus",
+                        type: "uint8",
+                    },
+                    { name: "champion", internalType: "address", type: "address" },
+                    { name: "submittedAt", internalType: "uint256", type: "uint256" },
+                    { name: "resolvedAt", internalType: "uint256", type: "uint256" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "author", internalType: "address", type: "address" },
+            { name: "orgId", internalType: "uint256", type: "uint256" },
+            { name: "circleId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "hasOpenTension",
+        outputs: [{ name: "", internalType: "bool", type: "bool" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "tensionId", internalType: "uint256", type: "uint256" }],
+        name: "markProcessed",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "orgId", internalType: "uint256", type: "uint256" },
+            { name: "circleId", internalType: "uint256", type: "uint256" },
+            { name: "target", internalType: "enum TensionBoard.TensionTarget", type: "uint8" },
+            { name: "title", internalType: "string", type: "string" },
+            { name: "description", internalType: "string", type: "string" },
+        ],
+        name: "submitTension",
+        outputs: [{ name: "tensionId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "tensionId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "champion", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "TensionChampioned",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "tensionId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "dismissedBy", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "TensionDismissed",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [{ name: "tensionId", internalType: "uint256", type: "uint256", indexed: true }],
+        name: "TensionProcessed",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "tensionId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "author", internalType: "address", type: "address", indexed: true },
+            { name: "orgId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "circleId", internalType: "uint256", type: "uint256", indexed: false },
+            { name: "target", internalType: "uint8", type: "uint8", indexed: false },
+            { name: "title", internalType: "string", type: "string", indexed: false },
+            { name: "description", internalType: "string", type: "string", indexed: false },
+        ],
+        name: "TensionSubmitted",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "author", internalType: "address", type: "address" },
+            { name: "orgId", internalType: "uint256", type: "uint256" },
+            { name: "circleId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "TensionBoard_AlreadyOpen",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "tensionId", internalType: "uint256", type: "uint256" }],
+        name: "TensionBoard_NotFound",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "tensionId", internalType: "uint256", type: "uint256" }],
+        name: "TensionBoard_NotOpen",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "orgId", internalType: "uint256", type: "uint256" }],
+        name: "TensionBoard_OrgNotFound",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "caller", internalType: "address", type: "address" },
+            { name: "orgId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "TensionBoard_Unauthorized",
+    },
+] as const;
+
+/**
+ *
+ */
+export const tensionBoardAddress = {
+    31337: "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+} as const;
+
+/**
+ *
+ */
+export const tensionBoardConfig = { address: tensionBoardAddress, abi: tensionBoardAbi } as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // TreasuryDeployer

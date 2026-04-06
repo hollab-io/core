@@ -26,6 +26,13 @@ const joinRequestAddr = addr("JOIN_REQUEST_ADDRESS");
 const tensionBoardAddr = addr("TENSION_BOARD_ADDRESS");
 const startBlock = Number(process.env.START_BLOCK ?? 0);
 
+// ── Chain configuration ──────────────────────────────────────────────────────
+// PONDER_CHAIN: "localhost" | "sepolia" (default) | "mainnet"
+const chainName = (process.env.PONDER_CHAIN ?? "sepolia") as "mainnet" | "sepolia" | "localhost";
+const chainId = chainName === "mainnet" ? 1 : chainName === "localhost" ? 31337 : 11155111;
+const rpcUrl =
+    process.env.PONDER_RPC_URL ?? (chainName === "localhost" ? "http://127.0.0.1:8545" : undefined);
+
 const orgComponentsDeployedEvent = organizationFactoryAbi.find(
     (e): e is (typeof organizationFactoryAbi)[number] & { type: "event" } =>
         e.type === "event" && (e as { name?: string }).name === "OrgComponentsDeployed",
@@ -43,15 +50,15 @@ const meetingComponentsDeployedEvent = meetingComponentsFactoryAbi.find(
 
 export default createConfig({
     chains: {
-        mainnet: {
-            id: 1,
-            rpc: process.env.PONDER_RPC_URL_1,
+        chain: {
+            id: chainId,
+            rpc: rpcUrl,
         },
     },
     contracts: {
         // ── Fixed factory contracts ───────────────────────────────────────────────
         OrganizationFactory: {
-            chain: "mainnet",
+            chain: "chain",
             abi: organizationFactoryAbi,
             address: orgFactoryAddr,
             startBlock,
@@ -59,7 +66,7 @@ export default createConfig({
 
         // ── Per-org clones: auto-discovered from OrgComponentsDeployed ────────────
         CircleRegistry: {
-            chain: "mainnet",
+            chain: "chain",
             abi: circleRegistryAbi,
             address: {
                 address: orgFactoryAddr,
@@ -69,7 +76,7 @@ export default createConfig({
             startBlock,
         },
         RoleRegistry: {
-            chain: "mainnet",
+            chain: "chain",
             abi: roleRegistryAbi,
             address: {
                 address: orgFactoryAddr,
@@ -79,7 +86,7 @@ export default createConfig({
             startBlock,
         },
         GovernanceProcess: {
-            chain: "mainnet",
+            chain: "chain",
             abi: governanceProcessAbi,
             address: {
                 address: orgFactoryAddr,
@@ -91,7 +98,7 @@ export default createConfig({
 
         // ── Per-org governor: auto-discovered from GovernorDeployed ──────────────
         HolGovernor: {
-            chain: "mainnet",
+            chain: "chain",
             abi: holGovernorAbi,
             address: {
                 address: govFactoryAddr,
@@ -103,7 +110,7 @@ export default createConfig({
 
         // ── Per-org treasury: auto-discovered from OrgComponentsDeployed ─────────
         CircleTreasury: {
-            chain: "mainnet",
+            chain: "chain",
             abi: circleTreasuryAbi,
             address: {
                 address: orgFactoryAddr,
@@ -115,7 +122,7 @@ export default createConfig({
 
         // ── MeetingComponentsFactory: indexed directly for MeetingComponentsDeployed ─────────
         MeetingComponentsFactory: {
-            chain: "mainnet",
+            chain: "chain",
             abi: meetingComponentsFactoryAbi,
             address: meetingFactoryAddr,
             startBlock,
@@ -123,7 +130,7 @@ export default createConfig({
 
         // ── Per-org meeting & voting clones: auto-discovered from MeetingComponentsDeployed ─
         TacticalMeeting: {
-            chain: "mainnet",
+            chain: "chain",
             abi: TacticalMeetingAbi,
             address: {
                 address: meetingFactoryAddr,
@@ -133,7 +140,7 @@ export default createConfig({
             startBlock,
         },
         GovernanceMeeting: {
-            chain: "mainnet",
+            chain: "chain",
             abi: GovernanceMeetingAbi,
             address: {
                 address: meetingFactoryAddr,
@@ -143,7 +150,7 @@ export default createConfig({
             startBlock,
         },
         ActionVoting: {
-            chain: "mainnet",
+            chain: "chain",
             abi: ActionVotingAbi,
             address: {
                 address: meetingFactoryAddr,
@@ -155,7 +162,7 @@ export default createConfig({
 
         // ── JoinRequest: single deployment, indexes all join requests ────────────
         JoinRequest: {
-            chain: "mainnet",
+            chain: "chain",
             abi: JoinRequestAbi,
             address: joinRequestAddr,
             startBlock,
@@ -163,7 +170,7 @@ export default createConfig({
 
         // ── TensionBoard: single deployment, anyone can submit tensions ──────────
         TensionBoard: {
-            chain: "mainnet",
+            chain: "chain",
             abi: TensionBoardAbi,
             address: tensionBoardAddr,
             startBlock,
