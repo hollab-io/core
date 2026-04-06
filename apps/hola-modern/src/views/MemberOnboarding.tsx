@@ -206,46 +206,51 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
     };
 
     // ── Resolve a single entry by id ──────────────────────────────────────────
-    const resolveEntry = useCallback(async (id: string, raw: string) => {
-        const trimmed = raw.trim();
+    const resolveEntry = useCallback(
+        async (id: string, raw: string) => {
+            const trimmed = raw.trim();
 
-        if (isAddress(trimmed)) {
-            setEntries((prev) =>
-                prev.map((e) => (e.id === id ? { ...e, address: trimmed, status: "resolved" } : e)),
-            );
-            return;
-        }
-
-        if (looksLikeEns(trimmed)) {
-            try {
-                const { address, avatar } = await resolveEns(ensClient, trimmed);
+            if (isAddress(trimmed)) {
                 setEntries((prev) =>
                     prev.map((e) =>
-                        e.id === id
-                            ? { ...e, address, ens: trimmed, avatar, status: "resolved" }
-                            : e,
+                        e.id === id ? { ...e, address: trimmed, status: "resolved" } : e,
                     ),
                 );
-            } catch {
-                setEntries((prev) =>
-                    prev.map((e) =>
-                        e.id === id
-                            ? { ...e, status: "failed", error: "Name not found or unreachable" }
-                            : e,
-                    ),
-                );
+                return;
             }
-            return;
-        }
 
-        setEntries((prev) =>
-            prev.map((e) =>
-                e.id === id
-                    ? { ...e, status: "invalid" as Status, error: "Not a valid address or ENS" }
-                    : e,
-            ),
-        );
-    }, []);
+            if (looksLikeEns(trimmed)) {
+                try {
+                    const { address, avatar } = await resolveEns(ensClient, trimmed);
+                    setEntries((prev) =>
+                        prev.map((e) =>
+                            e.id === id
+                                ? { ...e, address, ens: trimmed, avatar, status: "resolved" }
+                                : e,
+                        ),
+                    );
+                } catch {
+                    setEntries((prev) =>
+                        prev.map((e) =>
+                            e.id === id
+                                ? { ...e, status: "failed", error: "Name not found or unreachable" }
+                                : e,
+                        ),
+                    );
+                }
+                return;
+            }
+
+            setEntries((prev) =>
+                prev.map((e) =>
+                    e.id === id
+                        ? { ...e, status: "invalid" as Status, error: "Not a valid address or ENS" }
+                        : e,
+                ),
+            );
+        },
+        [ensClient],
+    );
 
     // ── Batch-add raws (dedup against existing entries) ───────────────────────
     const addRaws = useCallback(
@@ -283,7 +288,8 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
         [entries, resolveEntry],
     );
 
-    // ── Live preview while typing ─────────────────────────────────────────────
+    // ── Live preview while typing (debounced ENS resolution) ──────────────────
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         const trimmed = input.trim();
 
@@ -318,7 +324,8 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
         return () => {
             if (debounceRef.current) clearTimeout(debounceRef.current);
         };
-    }, [input]);
+    }, [input, ensClient]);
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     // ── Paste handler — split on newline / comma / semicolon ─────────────────
     const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {

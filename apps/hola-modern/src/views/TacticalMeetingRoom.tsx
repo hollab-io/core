@@ -248,6 +248,7 @@ export default function TacticalMeetingRoom({
             const walletClient = await primaryWallet.getWalletClient();
             let batched = false;
             try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await (walletClient as any).request({
                     method: "wallet_sendCalls",
                     params: [

@@ -15,6 +15,7 @@ export default function DynamicWorkspaceSync() {
     useEffect(() => {
         if (!primaryWallet || !isEthereumWallet(primaryWallet)) return;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const connector = primaryWallet.connector as any;
         if (typeof connector.getNetwork !== "function") return;
 

@@ -50,7 +50,7 @@ export function useMeetingComponentsFactory() {
 
             return txHash;
         },
-        [primaryWallet, factoryAddress],
+        [primaryWallet, factoryAddress, chainConfig.chain],
     );
 
     return {

@@ -45,6 +45,7 @@ export function ChainProvider({ children }: PropsWithChildren) {
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useChain() {
     const ctx = useContext(ChainCtx);
     if (!ctx) throw new Error("useChain must be used within <ChainProvider>");

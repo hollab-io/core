@@ -192,7 +192,9 @@ function readPersistedOrganizations(): OrganizationRecord[] {
                 return migrated;
             }
         }
-    } catch {}
+    } catch {
+        // migration failed — return empty
+    }
     return [];
 }
 

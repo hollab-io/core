@@ -246,19 +246,20 @@ export function useJoinRequest() {
         }));
     }, []);
 
+    const walletAddress = primaryWallet?.address;
     const hasPendingRequest = useCallback(
         async (orgId: bigint): Promise<boolean> => {
-            if (!primaryWallet?.address) return false;
+            if (!walletAddress) return false;
             const client = getIndexingClient();
             if (!client) return false;
             const result = await client.listPendingJoinRequestsByOrg(orgId.toString(), {
                 limit: 1,
             });
             return result.items.some(
-                (r) => r.requester.toLowerCase() === primaryWallet.address?.toLowerCase(),
+                (r) => r.requester.toLowerCase() === walletAddress.toLowerCase(),
             );
         },
-        [primaryWallet?.address],
+        [walletAddress],
     );
 
     return {

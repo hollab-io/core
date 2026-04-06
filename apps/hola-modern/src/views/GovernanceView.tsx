@@ -74,7 +74,7 @@ export default function GovernanceView({
 
         // If the governance address isn't available yet, try refetching
         // the meeting components — the contract may already be deployed.
-        let address = governanceMeetingAddress;
+        const address = governanceMeetingAddress;
         if (!address && refetchMeetingComponents) {
             try {
                 await refetchMeetingComponents();
