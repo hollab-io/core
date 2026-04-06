@@ -109,6 +109,13 @@ contract DeployLocal is Script {
       })
     );
 
+    // ── 9. Fund test addresses ────────────────────────────────────────────────
+    address[1] memory testAddresses = [0x20309Eb9080288e31AB1161366Af6639f04d593e];
+    for (uint256 i = 0; i < testAddresses.length; i++) {
+      payable(testAddresses[i]).transfer(100 ether);
+      console.log('Funded', testAddresses[i], '(100 ETH)');
+    }
+
     vm.stopBroadcast();
 
     // ── Log everything ──────────────────────────────────────────────────────
