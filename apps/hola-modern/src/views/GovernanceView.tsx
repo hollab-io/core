@@ -52,8 +52,7 @@ export default function GovernanceView({
     pollForNewGovernanceMeeting,
     refetchMeetingComponents,
 }: Props) {
-    const { conveneGovernanceMeeting, authenticatedWalletAddress } =
-        useWorkspaceSnapshot();
+    const { conveneGovernanceMeeting, authenticatedWalletAddress } = useWorkspaceSnapshot();
     const { conveneMeeting } = useGovernanceMeeting();
     const [isConvening, setIsConvening] = useState(false);
     const [conveneError, setConveneError] = useState<string | null>(null);
@@ -157,7 +156,7 @@ export default function GovernanceView({
                     <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                         Governance
                     </p>
-                    <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-white">
+                    <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-slate-900 dark:text-white">
                         Integrative decisions
                     </h1>
                     <p className="mt-3 max-w-[52ch] text-sm leading-relaxed text-slate-400">
@@ -199,7 +198,7 @@ export default function GovernanceView({
                                         />
                                     </div>
                                     <div className="text-left">
-                                        <p className="text-[15px] font-semibold text-white">
+                                        <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
                                             Resume governance meeting
                                         </p>
                                         <p className="mt-0.5 text-xs text-slate-400">
@@ -251,7 +250,7 @@ export default function GovernanceView({
                                         )}
                                     </div>
                                     <div className="text-left">
-                                        <p className="text-[15px] font-semibold text-white">
+                                        <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
                                             {isConvening
                                                 ? "Convening meeting on-chain..."
                                                 : "Convene governance meeting"}
@@ -287,7 +286,7 @@ export default function GovernanceView({
                     className="mb-8 grid gap-4 sm:grid-cols-[1.1fr_1fr]"
                 >
                     {/* Stats */}
-                    <div className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5">
+                    <div className="rounded-[1.5rem] border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-5">
                         <div className="mb-4 flex items-center gap-2">
                             <Scale size={14} className="text-slate-500" strokeWidth={1.75} />
                             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -295,15 +294,15 @@ export default function GovernanceView({
                             </p>
                         </div>
                         <div className="grid grid-cols-3 gap-3">
-                            <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3 text-center">
-                                <p className="text-[22px] font-bold tabular-nums text-white">
+                            <div className="rounded-xl border border-slate-200 dark:border-white/[0.05] bg-slate-50 dark:bg-white/[0.02] px-4 py-3 text-center">
+                                <p className="text-[22px] font-bold tabular-nums text-slate-900 dark:text-white">
                                     {indexedGovernanceMeetings.length}
                                 </p>
                                 <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
                                     Meetings
                                 </p>
                             </div>
-                            <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3 text-center">
+                            <div className="rounded-xl border border-slate-200 dark:border-white/[0.05] bg-slate-50 dark:bg-white/[0.02] px-4 py-3 text-center">
                                 <p className="text-[22px] font-bold tabular-nums text-emerald-400">
                                     {indexedGovernanceMeetings.filter((m) => m.completedAt).length}
                                 </p>
@@ -311,7 +310,7 @@ export default function GovernanceView({
                                     Completed
                                 </p>
                             </div>
-                            <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-4 py-3 text-center">
+                            <div className="rounded-xl border border-slate-200 dark:border-white/[0.05] bg-slate-50 dark:bg-white/[0.02] px-4 py-3 text-center">
                                 <p className="text-[22px] font-bold tabular-nums text-[#6aabff]">
                                     {indexedInProgress.length}
                                 </p>
@@ -323,7 +322,7 @@ export default function GovernanceView({
                     </div>
 
                     {/* Recent indexed meetings */}
-                    <div className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5">
+                    <div className="rounded-[1.5rem] border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-5">
                         <div className="mb-4 flex items-center gap-2">
                             <Clock3 size={14} className="text-slate-500" strokeWidth={1.75} />
                             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -338,12 +337,12 @@ export default function GovernanceView({
                                             type="button"
                                             onClick={() => handleResumeIndexedMeeting(m)}
                                             className="group flex w-full items-center justify-between
-                                                rounded-xl border border-white/[0.05] bg-white/[0.02]
+                                                rounded-xl border border-slate-200 dark:border-white/[0.05] bg-slate-50 dark:bg-white/[0.02]
                                                 px-3.5 py-2.5 text-left
-                                                transition-colors hover:border-white/[0.1] hover:bg-white/[0.05]"
+                                                transition-colors hover:border-slate-300 dark:hover:border-white/[0.1] hover:bg-slate-100 dark:hover:bg-white/[0.05]"
                                         >
                                             <div>
-                                                <p className="text-[13px] font-medium text-slate-200">
+                                                <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
                                                     Meeting #{m.meetingId}
                                                 </p>
                                                 <p className="mt-0.5 text-[11px] text-slate-600">
@@ -378,25 +377,25 @@ export default function GovernanceView({
                     </p>
                     <div
                         className="grid grid-cols-1 gap-px rounded-[1.5rem] overflow-hidden
-                        border border-white/[0.06] bg-white/[0.04]"
+                        border border-slate-200 dark:border-white/[0.06] bg-slate-100 dark:bg-white/[0.04]"
                     >
                         {IDM_STEPS.map((s) => (
                             <div
                                 key={s.step}
-                                className="flex items-center gap-4 bg-[#0a0a0f] px-5 py-3.5
+                                className="flex items-center gap-4 bg-white dark:bg-[#0a0a0f] px-5 py-3.5
                                     first:rounded-t-[calc(1.5rem-1px)]
                                     last:rounded-b-[calc(1.5rem-1px)]"
                             >
                                 <span
                                     className="flex h-6 w-6 shrink-0 items-center justify-center
-                                    rounded-full bg-white/[0.05] text-[11px] font-semibold uppercase text-slate-500"
+                                    rounded-full bg-slate-100 dark:bg-white/[0.05] text-[11px] font-semibold uppercase text-slate-500"
                                 >
                                     {s.step}
                                 </span>
-                                <span className="text-sm font-medium text-slate-200">
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                                     {s.label}
                                 </span>
-                                <span className="ml-auto text-xs text-slate-600 text-right max-w-[22ch] hidden sm:block">
+                                <span className="ml-auto text-xs text-slate-500 dark:text-slate-600 text-right max-w-[22ch] hidden sm:block">
                                     {s.desc}
                                 </span>
                             </div>
@@ -425,7 +424,6 @@ export default function GovernanceView({
                         </p>
                     </div>
                 </motion.div>
-
             </div>
         </div>
     );

@@ -91,7 +91,7 @@ export default function TacticalView({
                     <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                         Tactical
                     </p>
-                    <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-white">
+                    <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-slate-900 dark:text-white">
                         Operational sync
                     </h1>
                     <p className="mt-3 max-w-[48ch] text-sm leading-relaxed text-slate-400">
@@ -135,7 +135,7 @@ export default function TacticalView({
                                         />
                                     </div>
                                     <div className="text-left">
-                                        <p className="text-[15px] font-semibold text-white">
+                                        <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
                                             Huddle in progress
                                         </p>
                                         <p className="mt-0.5 text-xs text-slate-400">
@@ -225,19 +225,19 @@ export default function TacticalView({
                                 }}
                                 className="group flex w-full items-center justify-between gap-4
                                     rounded-[1.5rem]
-                                    border border-white/[0.08]
-                                    bg-white/[0.03]
+                                    border border-slate-200 dark:border-white/[0.08]
+                                    bg-white dark:bg-white/[0.03]
                                     p-5
                                     transition-all duration-500
-                                    hover:border-white/[0.14]
-                                    hover:bg-white/[0.05]
+                                    hover:border-slate-300 dark:hover:border-white/[0.14]
+                                    hover:bg-slate-50 dark:hover:bg-white/[0.05]
                                     active:scale-[0.99]
                                     disabled:opacity-60 disabled:pointer-events-none"
                             >
                                 <div className="flex items-center gap-4">
                                     <div
                                         className="flex h-11 w-11 items-center justify-center rounded-2xl
-                                            border border-white/[0.08] bg-white/[0.05]"
+                                            border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.05]"
                                     >
                                         {isConvening || isDeploying ? (
                                             <Loader2
@@ -254,7 +254,7 @@ export default function TacticalView({
                                         )}
                                     </div>
                                     <div className="text-left">
-                                        <p className="text-[15px] font-semibold text-white">
+                                        <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
                                             {isDeploying
                                                 ? "Deploying huddle contracts..."
                                                 : isConvening
@@ -272,7 +272,7 @@ export default function TacticalView({
                                 </div>
                                 <motion.div
                                     className="flex h-8 w-8 items-center justify-center rounded-full
-                                        border border-white/[0.08] bg-white/[0.05] text-slate-400"
+                                        border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/[0.05] text-slate-400"
                                     whileHover={{ x: 3 }}
                                 >
                                     <ArrowRight size={15} strokeWidth={2} />
@@ -302,25 +302,27 @@ export default function TacticalView({
                     </p>
                     <div
                         className="grid grid-cols-1 gap-px rounded-[1.5rem] overflow-hidden
-                            border border-white/[0.06] bg-white/[0.04]"
+                            border border-slate-200 dark:border-white/[0.06] bg-slate-100 dark:bg-white/[0.04]"
                     >
                         {PHASES.map((phase, i) => (
                             <div
                                 key={phase.label}
-                                className="flex items-center gap-4 bg-[#0a0a0f] px-5 py-3.5
+                                className="flex items-center gap-4 bg-white dark:bg-[#0a0a0f] px-5 py-3.5
                                     first:rounded-t-[calc(1.5rem-1px)]
                                     last:rounded-b-[calc(1.5rem-1px)]"
                             >
                                 <span
                                     className="flex h-6 w-6 shrink-0 items-center justify-center
-                                        rounded-full bg-white/[0.05] text-[11px] font-semibold text-slate-500"
+                                        rounded-full bg-slate-100 dark:bg-white/[0.05] text-[11px] font-semibold text-slate-500"
                                 >
                                     {i + 1}
                                 </span>
-                                <span className="text-sm font-medium text-slate-200">
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                                     {phase.label}
                                 </span>
-                                <span className="ml-auto text-xs text-slate-600">{phase.desc}</span>
+                                <span className="ml-auto text-xs text-slate-500 dark:text-slate-600">
+                                    {phase.desc}
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -333,7 +335,7 @@ export default function TacticalView({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.65, delay: 0.2, ease: EXPO }}
                     >
-                        <div className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5">
+                        <div className="rounded-[1.5rem] border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-5">
                             <div className="mb-4 flex items-center gap-2">
                                 <FileText size={14} className="text-slate-500" strokeWidth={1.75} />
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -350,12 +352,12 @@ export default function TacticalView({
                                             type="button"
                                             onClick={() => openMeeting(m.id)}
                                             className="group flex w-full items-center justify-between rounded-xl
-                                                border border-white/[0.05] bg-white/[0.02]
+                                                border border-slate-200 dark:border-white/[0.05] bg-slate-50 dark:bg-white/[0.02]
                                                 px-3.5 py-2.5 text-left
-                                                transition-colors hover:border-white/[0.1] hover:bg-white/[0.05]"
+                                                transition-colors hover:border-slate-300 dark:hover:border-white/[0.1] hover:bg-slate-100 dark:hover:bg-white/[0.05]"
                                         >
                                             <div>
-                                                <p className="text-[13px] font-medium text-slate-200">
+                                                <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
                                                     Huddle #{m.meetingId}
                                                 </p>
                                                 <p className="mt-0.5 text-[11px] text-slate-600">

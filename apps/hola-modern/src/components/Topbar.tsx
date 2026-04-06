@@ -67,7 +67,7 @@ export default function Topbar({
         <header
             className="sticky top-0 z-10
                 border-b border-slate-200/60 dark:border-white/[0.05]
-                bg-[#f6f6f8]/80 dark:bg-[#050505]/80
+                bg-white/80 dark:bg-[#050505]/80
                 backdrop-blur-2xl px-5 py-3
                 transition-[background-color,border-color] duration-500"
             style={{ transitionTimingFunction: SPRING }}

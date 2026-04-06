@@ -3,7 +3,10 @@ import { BookOpen, CheckSquare, LogIn, Network, Scale, Users } from "lucide-reac
 import { useEffect, useState } from "react";
 
 import type { AppTabId } from "./config/navigation";
+import ChainSwitcher from "./components/ChainSwitcher";
 import DynamicAuthControl from "./components/DynamicAuthControl";
+import ThemeToggle from "./components/ThemeToggle";
+import { useTheme } from "./context/ThemeContext";
 import { useCirclesFromIndexer } from "./hooks/useCirclesFromIndexer";
 import { useGovernanceMeetingsFromIndexer } from "./hooks/useGovernanceMeetingsFromIndexer";
 import { useOrganizationsFromIndexer } from "./hooks/useOrganizationsFromIndexer";
@@ -34,6 +37,7 @@ const NAV = [
 ] as const;
 
 function App() {
+    const { isDark } = useTheme();
     const {
         activeOrganizationId,
         setActiveOrganizationId,
@@ -85,11 +89,7 @@ function App() {
     };
     const isGuest = Boolean(activeOrganizationId && guestOrgIds.has(activeOrganizationId));
     const [showGuestJoin, setShowGuestJoin] = useState(false);
-    const isDarkMode = true;
-
-    useEffect(() => {
-        document.documentElement.classList.add("dark");
-    }, []);
+    const [showPublicConstitution, setShowPublicConstitution] = useState(false);
 
     // Sync on-chain org members into the workspace partner list
     useEffect(() => {
@@ -120,13 +120,51 @@ function App() {
     }, [isOnboarding, activeOrg]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!authenticatedWalletAddress) {
-        return <Welcome />;
+        if (showPublicConstitution) {
+            return (
+                <div className="relative flex h-screen w-full flex-col overflow-hidden bg-white dark:bg-[#050505] text-slate-900 dark:text-white font-sans">
+                    <header
+                        className="relative z-10 flex h-[56px] shrink-0 items-center gap-3
+                            border-b border-slate-200/60 dark:border-white/[0.05] bg-white/80 dark:bg-[#050505]/80 backdrop-blur-2xl px-4"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setShowPublicConstitution(false)}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full
+                                border border-slate-200 dark:border-white/[0.07] text-slate-400 dark:text-slate-500
+                                transition-colors hover:border-slate-300 dark:hover:border-white/[0.14] hover:text-slate-600 dark:hover:text-slate-300"
+                            aria-label="Back"
+                        >
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                <path
+                                    d="M7.5 2L3.5 6L7.5 10"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+                        </button>
+                        <p className="text-[14px] font-semibold leading-none tracking-[-0.02em] text-slate-900 dark:text-white">
+                            Constitution
+                        </p>
+                        <div className="flex-1" />
+                        <ThemeToggle />
+                        <DynamicAuthControl />
+                    </header>
+                    <main className="custom-scrollbar relative z-10 min-w-0 flex-1 overflow-auto">
+                        <ConstitutionView />
+                    </main>
+                </div>
+            );
+        }
+        return <Welcome onShowConstitution={() => setShowPublicConstitution(true)} />;
     }
 
     if (!activeOrganizationId) {
         return (
-            <div className="relative flex h-screen w-full overflow-hidden bg-[#f6f6f8] dark:bg-[#050505]">
-                <div className="grain-overlay" aria-hidden="true" />
+            <div className="relative flex h-screen w-full overflow-hidden bg-white dark:bg-[#050505]">
+                <div className="grain-overlay hidden dark:block" aria-hidden="true" />
                 <main className="custom-scrollbar relative z-10 min-w-0 flex-1 overflow-auto">
                     <OrganizationsHome
                         organizations={organizations}
@@ -167,7 +205,7 @@ function App() {
                 return (
                     <StructureView
                         org={activeOrg!}
-                        isDarkMode={isDarkMode}
+                        isDarkMode={isDark}
                         autoOpenInvite={autoOpenInvite}
                         onInviteOpened={() => setAutoOpenInvite(false)}
                     />
@@ -179,12 +217,15 @@ function App() {
 
     return (
         <div
-            className="relative flex h-screen w-full flex-col overflow-hidden bg-[#050505] font-sans text-white"
-            style={{ transition: "background-color 0.5s cubic-bezier(0.32,0.72,0,1)" }}
+            className="relative flex h-screen w-full flex-col overflow-hidden bg-white text-slate-900 dark:bg-[#050505] dark:text-white font-sans"
+            style={{
+                transition:
+                    "background-color 0.5s cubic-bezier(0.32,0.72,0,1), color 0.5s cubic-bezier(0.32,0.72,0,1)",
+            }}
         >
-            {/* Ambient mesh */}
+            {/* Ambient mesh — dark only */}
             <div
-                className="pointer-events-none fixed inset-0 z-0"
+                className="pointer-events-none fixed inset-0 z-0 hidden dark:block"
                 aria-hidden="true"
                 style={{
                     background:
@@ -194,20 +235,20 @@ function App() {
             />
 
             {/* Grain */}
-            <div className="grain-overlay" aria-hidden="true" />
+            <div className="grain-overlay hidden dark:block" aria-hidden="true" />
 
             {/* ── Top header ── */}
             <header
                 className="relative z-10 flex h-[56px] shrink-0 items-center gap-3
-                    border-b border-white/[0.05] bg-[#050505]/80 backdrop-blur-2xl px-4"
+                    border-b border-slate-200/60 dark:border-white/[0.05] bg-white/80 dark:bg-[#050505]/80 backdrop-blur-2xl px-4"
             >
                 {/* Back to orgs */}
                 <button
                     type="button"
                     onClick={() => setActiveOrganizationId(null)}
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full
-                        border border-white/[0.07] text-slate-500
-                        transition-colors hover:border-white/[0.14] hover:text-slate-300"
+                        border border-slate-200 dark:border-white/[0.07] text-slate-400 dark:text-slate-500
+                        transition-colors hover:border-slate-300 dark:hover:border-white/[0.14] hover:text-slate-600 dark:hover:text-slate-300"
                     aria-label="Back to organizations"
                 >
                     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -223,17 +264,19 @@ function App() {
 
                 {/* Org info */}
                 <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-semibold leading-none tracking-[-0.02em] text-white">
+                    <p className="truncate text-[14px] font-semibold leading-none tracking-[-0.02em] text-slate-900 dark:text-white">
                         {activeOrg?.name ?? "Organization"}
                     </p>
                     {activeOrg && (
-                        <p className="mt-0.5 truncate text-[11px] leading-none text-slate-600">
+                        <p className="mt-0.5 truncate text-[11px] leading-none text-slate-400 dark:text-slate-600">
                             {activeOrg.subname}.hollab.eth
                         </p>
                     )}
                 </div>
 
-                {/* Right: auth */}
+                {/* Right: theme + chain + auth */}
+                <ThemeToggle />
+                <ChainSwitcher />
                 <DynamicAuthControl />
             </header>
 
@@ -249,7 +292,9 @@ function App() {
                             border-b border-[#3481FF]/15 bg-[#3481FF]/[0.06]
                             px-5 py-2.5"
                     >
-                        <p className="text-[12px] text-slate-400">You're browsing as a guest.</p>
+                        <p className="text-[12px] text-slate-500 dark:text-slate-400">
+                            You're browsing as a guest.
+                        </p>
                         <button
                             type="button"
                             onClick={() => setShowGuestJoin(true)}
@@ -270,7 +315,7 @@ function App() {
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                        className="relative z-10 overflow-hidden border-b border-white/[0.06]"
+                        className="relative z-10 overflow-hidden border-b border-slate-200/60 dark:border-white/[0.06]"
                     >
                         <div className="px-4 py-4">
                             <JoinOrganizationPanel
@@ -310,10 +355,10 @@ function App() {
             <div className="fixed bottom-6 left-1/2 z-20 -translate-x-1/2" aria-label="Navigation">
                 <nav
                     className="flex items-center gap-px rounded-full
-                        border border-white/[0.1]
-                        bg-[#0c0c12]/90 backdrop-blur-2xl
+                        border border-slate-200/80 dark:border-white/[0.1]
+                        bg-white/90 dark:bg-[#0c0c12]/90 backdrop-blur-2xl
                         p-[4px]
-                        shadow-[0_8px_40px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)]"
+                        shadow-[0_8px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.06)]"
                 >
                     {NAV.map(({ id, icon: Icon, label }) => {
                         const isActive = activeTab === id;
@@ -328,8 +373,8 @@ function App() {
                                     transition-all duration-500
                                     ${
                                         isActive
-                                            ? "bg-white/[0.1] text-white shadow-sm ring-1 ring-white/[0.1]"
-                                            : "text-slate-500 hover:text-slate-300"
+                                            ? "bg-slate-900/[0.08] dark:bg-white/[0.1] text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/60 dark:ring-white/[0.1]"
+                                            : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
                                     }`}
                                 style={{ transitionTimingFunction: SPRING }}
                                 aria-current={isActive ? "page" : undefined}
@@ -337,7 +382,11 @@ function App() {
                                 <Icon
                                     size={14}
                                     strokeWidth={isActive ? 2 : 1.75}
-                                    className={isActive ? "text-white" : "text-slate-500"}
+                                    className={
+                                        isActive
+                                            ? "text-slate-900 dark:text-white"
+                                            : "text-slate-400 dark:text-slate-500"
+                                    }
                                 />
                                 <span
                                     className={`transition-all duration-300 ${isActive ? "max-w-[80px] opacity-100" : "max-w-0 overflow-hidden opacity-0 sm:max-w-[80px] sm:opacity-100"}`}

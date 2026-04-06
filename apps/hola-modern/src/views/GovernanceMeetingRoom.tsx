@@ -1971,7 +1971,7 @@ export default function GovernanceMeetingRoom({
                     onClick={closeGovernanceMeeting}
                 >
                     <motion.aside
-                        className="absolute inset-y-0 right-0 flex w-full max-w-[720px] flex-col border-l border-white/[0.06] bg-[#0a0a0f] text-slate-100 shadow-[0_0_80px_rgba(0,0,0,0.6)]"
+                        className="absolute inset-y-0 right-0 flex w-full max-w-[720px] flex-col border-l border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0a0a0f] text-slate-900 dark:text-slate-100 shadow-[0_0_80px_rgba(0,0,0,0.08)] dark:shadow-[0_0_80px_rgba(0,0,0,0.6)]"
                         initial={{ x: "100%" }}
                         animate={{ x: 0 }}
                         exit={{ x: "100%" }}

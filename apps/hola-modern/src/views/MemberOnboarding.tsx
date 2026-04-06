@@ -1,4 +1,5 @@
 import type { Organization } from "@hollab-io/indexing-client";
+import type { PublicClient } from "viem";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -12,18 +13,12 @@ import {
     Users,
     X,
 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPublicClient, http, isAddress } from "viem";
-import { mainnet } from "viem/chains";
 import { normalize } from "viem/ens";
 
+import { useChain } from "../context/ChainContext";
 import { useCircleRegistry } from "../hooks/useCircleRegistry";
-
-// ─── viem client ─────────────────────────────────────────────────────────────
-const ensClient = createPublicClient({
-    chain: mainnet,
-    transport: http(),
-});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,13 +52,16 @@ function looksLikeEns(v: string) {
     return v.includes(".") && !v.startsWith("0x");
 }
 
-async function resolveEns(raw: string): Promise<{ address: string; avatar: string | null }> {
+async function resolveEns(
+    client: PublicClient,
+    raw: string,
+): Promise<{ address: string; avatar: string | null }> {
     const name = normalize(raw);
-    const address = await ensClient.getEnsAddress({ name });
+    const address = await client.getEnsAddress({ name });
     if (!address) throw new Error("Name not found");
     let avatar: string | null = null;
     try {
-        avatar = await ensClient.getEnsAvatar({ name });
+        avatar = await client.getEnsAvatar({ name });
     } catch {
         /* avatar is optional */
     }
@@ -162,6 +160,12 @@ function EntryRow({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function MemberOnboarding({ org, onComplete }: Props) {
+    const { chainConfig } = useChain();
+    const ensClient = useMemo(
+        () => createPublicClient({ chain: chainConfig.chain, transport: http() }),
+        [chainConfig.chain],
+    );
+
     const [input, setInput] = useState("");
     const [inputState, setInputState] = useState<InputState>({ kind: "idle" });
     const [entries, setEntries] = useState<MemberEntry[]>([]);
@@ -214,7 +218,7 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
 
         if (looksLikeEns(trimmed)) {
             try {
-                const { address, avatar } = await resolveEns(trimmed);
+                const { address, avatar } = await resolveEns(ensClient, trimmed);
                 setEntries((prev) =>
                     prev.map((e) =>
                         e.id === id
@@ -304,7 +308,7 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
 
         debounceRef.current = setTimeout(async () => {
             try {
-                const { address, avatar } = await resolveEns(trimmed);
+                const { address, avatar } = await resolveEns(ensClient, trimmed);
                 setInputState({ kind: "ens-ok", ens: trimmed, address, avatar });
             } catch {
                 setInputState({ kind: "error", message: "Name not found" });
@@ -401,10 +405,10 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
-        <div className="relative min-h-[100dvh] w-full overflow-hidden bg-[#07070a]">
+        <div className="relative min-h-[100dvh] w-full overflow-hidden bg-white dark:bg-[#07070a]">
             {/* Ambient glow — fixed, GPU-composited */}
             <div
-                className="pointer-events-none fixed inset-0"
+                className="pointer-events-none fixed inset-0 hidden dark:block"
                 aria-hidden="true"
                 style={{
                     background:
@@ -533,7 +537,7 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                                       : "border-white/[0.07] focus-within:border-[#3481FF]/40 focus-within:shadow-[0_0_0_3px_rgba(52,129,255,0.08)]"
                             }`}
                         >
-                            <div className="flex items-center rounded-[calc(1rem-3px)] bg-[#0d0d12]">
+                            <div className="flex items-center rounded-[calc(1rem-3px)] bg-white dark:bg-[#0d0d12]">
                                 <input
                                     ref={inputRef}
                                     type="text"
@@ -543,7 +547,7 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                                     onPaste={handlePaste}
                                     placeholder="0x… or name.eth — paste multiple"
                                     autoFocus
-                                    className="min-w-0 flex-1 bg-transparent px-4 py-3.5 font-mono text-[13px] text-white placeholder:text-slate-700 outline-none"
+                                    className="min-w-0 flex-1 bg-transparent px-4 py-3.5 font-mono text-[13px] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-700 outline-none"
                                 />
 
                                 {/* Inline status indicator */}

@@ -4,7 +4,9 @@ import { ArrowRight, ExternalLink, LogIn, Plus, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import logoSvg from "../assets/logo.svg";
+import ChainSwitcher from "../components/ChainSwitcher";
 import DynamicAuthControl from "../components/DynamicAuthControl";
+import ThemeToggle from "../components/ThemeToggle";
 import { useOrganizationFactory } from "../hooks/useOrganizationFactory";
 import { getIndexingClient } from "../hooks/useOrganizationsFromIndexer";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
@@ -53,8 +55,8 @@ function OrgCard({
                 type="button"
                 onClick={() => onSelect(org.id)}
                 className="group w-full rounded-[1.75rem]
-                    border border-white/[0.07]
-                    bg-white/[0.03]
+                    border border-slate-200/80 dark:border-white/[0.07]
+                    bg-white/80 dark:bg-white/[0.03]
                     p-[5px]
                     transition-all duration-700
                     hover:border-[#3481FF]/25
@@ -65,8 +67,8 @@ function OrgCard({
                 {/* Inner core */}
                 <div
                     className="rounded-[calc(1.75rem-5px)]
-                    bg-[#0c0c10]
-                    shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]
+                    bg-white dark:bg-[#0c0c10]
+                    shadow-[inset_0_1px_1px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)]
                     p-5 text-left"
                 >
                     <div className="flex items-start gap-4">
@@ -86,7 +88,7 @@ function OrgCard({
                             <div className="flex items-center justify-between gap-2">
                                 <p
                                     className="truncate text-[14px] font-bold tracking-[-0.02em]
-                                    text-white
+                                    text-slate-900 dark:text-white
                                     transition-colors duration-300 group-hover:text-[#3481FF]"
                                 >
                                     {org.name}
@@ -94,8 +96,8 @@ function OrgCard({
                                 {/* Button-in-button arrow */}
                                 <div
                                     className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full
-                                    bg-white/[0.05]
-                                    ring-1 ring-white/[0.08]
+                                    bg-slate-100/80 dark:bg-white/[0.05]
+                                    ring-1 ring-slate-200/60 dark:ring-white/[0.08]
                                     transition-all duration-500
                                     group-hover:bg-[#3481FF]/20
                                     group-hover:ring-[#3481FF]/30
@@ -244,10 +246,10 @@ export default function OrganizationsHome({
     };
 
     return (
-        <div className="relative min-h-[100dvh] w-full bg-[#050505]">
-            {/* Fixed ambient mesh — GPU safe */}
+        <div className="relative min-h-[100dvh] w-full bg-white dark:bg-[#050505]">
+            {/* Fixed ambient mesh — dark only */}
             <div
-                className="pointer-events-none fixed inset-0 z-0"
+                className="pointer-events-none fixed inset-0 z-0 hidden dark:block"
                 aria-hidden="true"
                 style={{
                     background:
@@ -280,16 +282,18 @@ export default function OrganizationsHome({
                             </span>
                         </div>
 
-                        <h1 className="text-[38px] font-bold leading-[1.05] tracking-[-0.045em] text-white sm:text-[48px]">
+                        <h1 className="text-[38px] font-bold leading-[1.05] tracking-[-0.045em] text-slate-900 dark:text-white sm:text-[48px]">
                             Workspaces
                         </h1>
-                        <p className="mt-2.5 text-[13px] leading-relaxed text-slate-600">
+                        <p className="mt-2.5 text-[13px] leading-relaxed text-slate-500 dark:text-slate-600">
                             Onchain organizations with circles, governance & roles.
                         </p>
                     </div>
 
-                    {/* Right: auth */}
-                    <div className="flex-shrink-0 pt-1">
+                    {/* Right: theme + chain + auth */}
+                    <div className="flex flex-shrink-0 items-center gap-3 pt-1">
+                        <ThemeToggle />
+                        <ChainSwitcher />
                         <DynamicAuthControl />
                     </div>
                 </motion.div>
@@ -315,21 +319,21 @@ export default function OrganizationsHome({
                                     setShowCreate(false);
                                 }}
                                 className="group flex items-center gap-2 rounded-full
-                                    border border-white/[0.1]
-                                    bg-white/[0.04]
+                                    border border-slate-200 dark:border-white/[0.1]
+                                    bg-slate-100/80 dark:bg-white/[0.04]
                                     pl-4 pr-[5px] py-[5px]
-                                    text-[12px] font-bold text-slate-300
+                                    text-[12px] font-bold text-slate-600 dark:text-slate-300
                                     transition-all duration-500
-                                    hover:border-white/[0.16] hover:text-white
+                                    hover:border-slate-300 dark:hover:border-white/[0.16] hover:text-slate-900 dark:hover:text-white
                                     active:scale-[0.97]"
                                 style={{ transitionTimingFunction: SPRING }}
                             >
                                 Join
                                 <div
                                     className="flex h-6 w-6 items-center justify-center rounded-full
-                                    bg-white/[0.08]
+                                    bg-slate-200/80 dark:bg-white/[0.08]
                                     transition-all duration-300
-                                    group-hover:bg-white/[0.14]"
+                                    group-hover:bg-slate-300/80 dark:group-hover:bg-white/[0.14]"
                                 >
                                     <LogIn size={11} strokeWidth={2.5} />
                                 </div>
@@ -370,20 +374,20 @@ export default function OrganizationsHome({
                         /* Empty state — double-bezel */
                         <div
                             className="rounded-[1.75rem]
-                            border border-white/[0.06]
-                            bg-white/[0.02]
+                            border border-slate-200/80 dark:border-white/[0.06]
+                            bg-white/80 dark:bg-white/[0.02]
                             p-[5px]"
                         >
                             <div
                                 className="rounded-[calc(1.75rem-5px)]
-                                bg-[#0a0a0e]
-                                shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)]
+                                bg-white dark:bg-[#0a0a0e]
+                                shadow-[inset_0_1px_1px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.03)]
                                 flex flex-col items-center gap-3 px-6 py-14 text-center"
                             >
                                 <div
                                     className="flex h-12 w-12 items-center justify-center rounded-[1rem]
-                                    bg-white/[0.04]
-                                    ring-1 ring-white/[0.07]"
+                                    bg-slate-100 dark:bg-white/[0.04]
+                                    ring-1 ring-slate-200 dark:ring-white/[0.07]"
                                 >
                                     <span className="text-[20px]">◎</span>
                                 </div>
@@ -460,8 +464,8 @@ export default function OrganizationsHome({
                             </div>
                         </div>
 
-                        <div className="rounded-[1.75rem] border border-white/[0.06] bg-white/[0.02] p-[5px]">
-                            <div className="rounded-[calc(1.75rem-5px)] bg-[#0c0c10] shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] divide-y divide-white/[0.04]">
+                        <div className="rounded-[1.75rem] border border-slate-200/80 dark:border-white/[0.06] bg-white/80 dark:bg-white/[0.02] p-[5px]">
+                            <div className="rounded-[calc(1.75rem-5px)] bg-white dark:bg-[#0c0c10] shadow-[inset_0_1px_1px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.04)] divide-y divide-slate-100 dark:divide-white/[0.04]">
                                 {discoverOrgs.map((org, i) => {
                                     const accent = ACCENT_PALETTE[i % ACCENT_PALETTE.length];
                                     return (
@@ -491,7 +495,7 @@ export default function OrganizationsHome({
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-2">
-                                                        <p className="text-[13px] font-bold tracking-[-0.01em] text-white group-hover:text-[#3481FF] transition-colors duration-200">
+                                                        <p className="text-[13px] font-bold tracking-[-0.01em] text-slate-900 dark:text-white group-hover:text-[#3481FF] transition-colors duration-200">
                                                             {org.name}
                                                         </p>
                                                     </div>
@@ -518,10 +522,10 @@ export default function OrganizationsHome({
                                                     type="button"
                                                     onClick={() => onPreview(org.id)}
                                                     className="flex items-center gap-1.5 rounded-full
-                                                    border border-white/[0.07] bg-white/[0.03]
+                                                    border border-slate-200 dark:border-white/[0.07] bg-slate-50 dark:bg-white/[0.03]
                                                     px-3 py-1.5 text-[11px] font-medium text-slate-500
                                                     transition-all duration-300
-                                                    hover:border-white/[0.14] hover:text-slate-300"
+                                                    hover:border-slate-300 dark:hover:border-white/[0.14] hover:text-slate-700 dark:hover:text-slate-300"
                                                 >
                                                     <ExternalLink size={10} strokeWidth={2} />
                                                     Browse
@@ -584,15 +588,15 @@ export default function OrganizationsHome({
                             {/* Double-bezel modal */}
                             <div
                                 className="rounded-[2rem]
-                                border border-white/[0.1]
-                                bg-white/[0.04]
+                                border border-slate-200 dark:border-white/[0.1]
+                                bg-white/80 dark:bg-white/[0.04]
                                 p-[6px]
-                                shadow-[0_32px_80px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)]"
+                                shadow-[0_32px_80px_rgba(0,0,0,0.12)] dark:shadow-[0_32px_80px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)]"
                             >
                                 <div
                                     className="rounded-[calc(2rem-6px)]
-                                    bg-[#0e0e14]
-                                    shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]
+                                    bg-white dark:bg-[#0e0e14]
+                                    shadow-[inset_0_1px_1px_rgba(0,0,0,0.03)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.06)]
                                     p-7"
                                 >
                                     {/* Modal header */}
@@ -608,7 +612,7 @@ export default function OrganizationsHome({
                                             >
                                                 New workspace
                                             </span>
-                                            <h2 className="text-[22px] font-bold tracking-[-0.03em] text-white">
+                                            <h2 className="text-[22px] font-bold tracking-[-0.03em] text-slate-900 dark:text-white">
                                                 Create workspace
                                             </h2>
                                             <p className="mt-1 text-[13px] text-slate-500">
@@ -620,11 +624,11 @@ export default function OrganizationsHome({
                                             onClick={() => setShowCreate(false)}
                                             disabled={txState === "wallet" || txState === "pending"}
                                             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full
-                                                bg-white/[0.05]
-                                                ring-1 ring-white/[0.08]
+                                                bg-slate-100 dark:bg-white/[0.05]
+                                                ring-1 ring-slate-200 dark:ring-white/[0.08]
                                                 text-slate-500
                                                 transition-all duration-300
-                                                hover:bg-white/[0.09] hover:text-slate-300
+                                                hover:bg-slate-200 dark:hover:bg-white/[0.09] hover:text-slate-700 dark:hover:text-slate-300
                                                 disabled:cursor-not-allowed disabled:opacity-40"
                                             style={{ transitionTimingFunction: SPRING }}
                                         >
@@ -644,8 +648,8 @@ export default function OrganizationsHome({
                                             {/* Input double-bezel */}
                                             <div
                                                 className="rounded-[0.875rem]
-                                                border border-white/[0.07]
-                                                bg-white/[0.03]
+                                                border border-slate-200 dark:border-white/[0.07]
+                                                bg-slate-50 dark:bg-white/[0.03]
                                                 p-[3px]
                                                 transition-all duration-300
                                                 focus-within:border-[#3481FF]/40
@@ -661,10 +665,10 @@ export default function OrganizationsHome({
                                                     placeholder="Acme DAO…"
                                                     autoFocus
                                                     className="w-full rounded-[calc(0.875rem-3px)]
-                                                        bg-[#0c0c10]
+                                                        bg-white dark:bg-[#0c0c10]
                                                         px-4 py-3 text-[13px] font-medium
-                                                        text-white
-                                                        placeholder:text-slate-700
+                                                        text-slate-900 dark:text-white
+                                                        placeholder:text-slate-400 dark:placeholder:text-slate-700
                                                         outline-none"
                                                 />
                                             </div>
@@ -682,8 +686,8 @@ export default function OrganizationsHome({
                                             </label>
                                             <div
                                                 className="rounded-[0.875rem]
-                                                border border-white/[0.07]
-                                                bg-white/[0.03]
+                                                border border-slate-200 dark:border-white/[0.07]
+                                                bg-slate-50 dark:bg-white/[0.03]
                                                 p-[3px]
                                                 transition-all duration-300
                                                 focus-within:border-[#3481FF]/40
@@ -698,10 +702,10 @@ export default function OrganizationsHome({
                                                     }
                                                     placeholder="What does this organization do?"
                                                     className="w-full rounded-[calc(0.875rem-3px)]
-                                                        bg-[#0c0c10]
+                                                        bg-white dark:bg-[#0c0c10]
                                                         px-4 py-3 text-[13px] font-medium
-                                                        text-white
-                                                        placeholder:text-slate-700
+                                                        text-slate-900 dark:text-white
+                                                        placeholder:text-slate-400 dark:placeholder:text-slate-700
                                                         outline-none"
                                                 />
                                             </div>
@@ -770,7 +774,7 @@ export default function OrganizationsHome({
                                                 ${
                                                     canCreate
                                                         ? "bg-[#3481FF] text-white shadow-[0_8px_28px_rgba(52,129,255,0.4)] hover:bg-[#2570f0] hover:shadow-[0_10px_36px_rgba(52,129,255,0.55)]"
-                                                        : "cursor-not-allowed bg-white/[0.05] text-slate-700 ring-1 ring-white/[0.07]"
+                                                        : "cursor-not-allowed bg-slate-100 dark:bg-white/[0.05] text-slate-400 dark:text-slate-700 ring-1 ring-slate-200 dark:ring-white/[0.07]"
                                                 }`}
                                             style={{ transitionTimingFunction: SPRING }}
                                         >
