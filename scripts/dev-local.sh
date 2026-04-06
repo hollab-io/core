@@ -71,7 +71,23 @@ mkdir -p "$CONTRACTS/deployments"
   --rpc-url "http://127.0.0.1:$ANVIL_PORT" \
   --broadcast -vvv)
 
-# ── 3. Regenerate wagmi bindings (picks up broadcast addresses) ──────────────
+# ── 3. Fund test addresses ───────────────────────────────────────────────────
+FUND_ADDRESSES_FILE="$ROOT/scripts/fund-addresses.local"
+ANVIL_PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+if [ -f "$FUND_ADDRESSES_FILE" ]; then
+  echo ""
+  echo "Funding test addresses..."
+  while IFS= read -r addr || [ -n "$addr" ]; do
+    addr=$(echo "$addr" | xargs)  # trim whitespace
+    [[ -z "$addr" || "$addr" == \#* ]] && continue  # skip empty/comments
+    cast send "$addr" --value 100ether \
+      --rpc-url "http://127.0.0.1:$ANVIL_PORT" \
+      --private-key "$ANVIL_PRIVATE_KEY" > /dev/null
+    echo "  Funded $addr (100 ETH)"
+  done < "$FUND_ADDRESSES_FILE"
+fi
+
+# ── 4. Regenerate wagmi bindings (picks up broadcast addresses) ──────────────
 echo ""
 echo "Regenerating wagmi bindings..."
 (cd "$CONTRACTS" && pnpm generate)
