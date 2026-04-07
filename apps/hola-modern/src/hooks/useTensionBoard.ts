@@ -10,14 +10,13 @@ import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
+import { useChain } from "../context/ChainContext";
 import { getIndexingClient } from "./useOrganizationsFromIndexer";
 import { useSendTransaction } from "./useSendTransaction";
 
 export type { Tension };
 
-// ── Contract address ─────────────────────────────────────────────────────────
-export const TENSION_BOARD_ADDRESS = (import.meta.env.VITE_TENSION_BOARD_ADDRESS ??
-    "0x0000000000000000000000000000000000000000") as Address;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
 // ── ABI (inline — contract not yet in wagmi codegen) ─────────────────────────
 
@@ -67,7 +66,9 @@ export function useTensionBoard(orgId: string | null) {
     const { primaryWallet } = useDynamicContext();
     const { send } = useSendTransaction();
     const queryClient = useQueryClient();
+    const { chainConfig } = useChain();
 
+    const tensionBoardAddress = chainConfig.tensionBoardAddress;
     const account = () => (primaryWallet?.address ?? "0x") as Address;
 
     // ── Query: open tensions for this org ────────────────────────────────────
@@ -97,15 +98,13 @@ export function useTensionBoard(orgId: string | null) {
             title: string;
             description: string;
         }): Promise<`0x${string}`> => {
-            if (TENSION_BOARD_ADDRESS === "0x0000000000000000000000000000000000000000") {
-                throw new Error(
-                    "TensionBoard contract not deployed yet. Set VITE_TENSION_BOARD_ADDRESS.",
-                );
+            if (tensionBoardAddress === ZERO_ADDRESS) {
+                throw new Error("TensionBoard contract not deployed on this chain yet.");
             }
             const hash = await send(
                 [
                     {
-                        to: TENSION_BOARD_ADDRESS,
+                        to: tensionBoardAddress,
                         abi: tensionBoardAbi as Abi,
                         functionName: "submitTension",
                         args: [
@@ -122,7 +121,7 @@ export function useTensionBoard(orgId: string | null) {
             void refetch();
             return hash;
         },
-        [send, account, refetch],
+        [send, account, refetch, tensionBoardAddress],
     );
 
     // ── Write: champion a tension (org admin) ────────────────────────────────
@@ -132,7 +131,7 @@ export function useTensionBoard(orgId: string | null) {
             const hash = await send(
                 [
                     {
-                        to: TENSION_BOARD_ADDRESS,
+                        to: tensionBoardAddress,
                         abi: tensionBoardAbi as Abi,
                         functionName: "champion",
                         args: [tensionId],
@@ -143,7 +142,7 @@ export function useTensionBoard(orgId: string | null) {
             void refetch();
             return hash;
         },
-        [send, account, refetch],
+        [send, account, refetch, tensionBoardAddress],
     );
 
     // ── Write: dismiss a tension (org admin) ─────────────────────────────────
@@ -153,7 +152,7 @@ export function useTensionBoard(orgId: string | null) {
             const hash = await send(
                 [
                     {
-                        to: TENSION_BOARD_ADDRESS,
+                        to: tensionBoardAddress,
                         abi: tensionBoardAbi as Abi,
                         functionName: "dismiss",
                         args: [tensionId],
@@ -164,7 +163,7 @@ export function useTensionBoard(orgId: string | null) {
             void refetch();
             return hash;
         },
-        [send, account, refetch],
+        [send, account, refetch, tensionBoardAddress],
     );
 
     // ── Write: mark processed (org admin) ────────────────────────────────────
@@ -174,7 +173,7 @@ export function useTensionBoard(orgId: string | null) {
             const hash = await send(
                 [
                     {
-                        to: TENSION_BOARD_ADDRESS,
+                        to: tensionBoardAddress,
                         abi: tensionBoardAbi as Abi,
                         functionName: "markProcessed",
                         args: [tensionId],
@@ -185,7 +184,7 @@ export function useTensionBoard(orgId: string | null) {
             void refetch();
             return hash;
         },
-        [send, account, refetch],
+        [send, account, refetch, tensionBoardAddress],
     );
 
     return {

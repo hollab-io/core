@@ -38,11 +38,11 @@ export default function OrganizationChart({ isDarkMode = false }: { isDarkMode?:
     const ORBIT_R = ROOT_R * 0.58;
 
     return (
-        <section className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl bg-[#f6f6f8] dark:bg-[#050505]">
+        <section className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-2xl bg-white dark:bg-[#050505]">
             <div className="min-h-0 flex-1 xl:grid xl:grid-cols-[minmax(0,1fr)_360px]">
                 {/* ── Canvas ──────────────────────────────────────────────── */}
                 <div
-                    className="relative flex min-h-[600px] items-center justify-center overflow-hidden bg-[#f6f6f8] dark:bg-[#050505]"
+                    className="relative flex min-h-[600px] items-center justify-center overflow-hidden bg-white dark:bg-[#050505]"
                     onClick={() => setSelectedRoleId(null)}
                 >
                     <svg

@@ -248,6 +248,7 @@ export default function TacticalMeetingRoom({
             const walletClient = await primaryWallet.getWalletClient();
             let batched = false;
             try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 await (walletClient as any).request({
                     method: "wallet_sendCalls",
                     params: [
@@ -356,7 +357,7 @@ export default function TacticalMeetingRoom({
                     onClick={closeMeeting}
                 >
                     <motion.aside
-                        className="absolute inset-y-0 right-0 flex w-full max-w-[760px] flex-col border-l border-white/[0.06] bg-[#0a0a0f] text-slate-100 shadow-[0_0_80px_rgba(0,0,0,0.6)]"
+                        className="absolute inset-y-0 right-0 flex w-full max-w-[760px] flex-col border-l border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0a0a0f] text-slate-900 dark:text-slate-100 shadow-[0_0_80px_rgba(0,0,0,0.08)] dark:shadow-[0_0_80px_rgba(0,0,0,0.6)]"
                         initial={{ x: "100%" }}
                         animate={{ x: 0 }}
                         exit={{ x: "100%" }}
@@ -1171,7 +1172,7 @@ export default function TacticalMeetingRoom({
                                     onClick={() => setShowRecordOutput(false)}
                                 >
                                     <motion.div
-                                        className="w-full max-w-md rounded-[1.75rem] border border-white/[0.08] bg-[#0a0a0f] p-6 text-slate-100 shadow-[0_32px_80px_rgba(0,0,0,0.6)]"
+                                        className="w-full max-w-md rounded-[1.75rem] border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0a0a0f] p-6 text-slate-900 dark:text-slate-100 shadow-[0_32px_80px_rgba(0,0,0,0.08)] dark:shadow-[0_32px_80px_rgba(0,0,0,0.6)]"
                                         initial={{ scale: 0.95, opacity: 0 }}
                                         animate={{ scale: 1, opacity: 1 }}
                                         exit={{ scale: 0.95, opacity: 0 }}

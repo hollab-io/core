@@ -34,7 +34,7 @@ export default function ActionItemsView({ outputs, meetings }: Props) {
                     <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                         Actions
                     </p>
-                    <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-white">
+                    <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-slate-900 dark:text-white">
                         Operational work
                     </h1>
                     <p className="mt-3 max-w-[48ch] text-sm leading-relaxed text-slate-400">

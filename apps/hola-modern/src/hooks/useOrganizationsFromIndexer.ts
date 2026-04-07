@@ -3,16 +3,33 @@ import { createIndexingClient } from "@hollab-io/indexing-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-const indexerUrl = import.meta.env.VITE_INDEXER_URL as string;
-const client = indexerUrl ? createIndexingClient(indexerUrl) : null;
+import { DEFAULT_CHAIN_ID, getChainConfig } from "../config/chains";
+import { useChain } from "../context/ChainContext";
 
 export type { Organization };
 
+// ── Per-chain client cache ───────────────────────────────────────────────────
+const clientCache = new Map<number, ReturnType<typeof createIndexingClient>>();
+
+function getOrCreateClient(chainId: number) {
+    let client = clientCache.get(chainId);
+    if (client) return client;
+
+    const url = getChainConfig(chainId).indexerUrl;
+    if (!url) return null;
+
+    client = createIndexingClient(url);
+    clientCache.set(chainId, client);
+    return client;
+}
+
 export function useOrganizationsFromIndexer(creatorAddress: string | null) {
     const queryClient = useQueryClient();
+    const { activeChainId } = useChain();
+    const client = getOrCreateClient(activeChainId);
 
     const { data: organizations = [], isLoading: loading } = useQuery({
-        queryKey: ["organizations", creatorAddress],
+        queryKey: ["organizations", creatorAddress, activeChainId],
         queryFn: async () => {
             if (!client || !creatorAddress) return [];
             const result = await client.listOrganizationsByCreator(creatorAddress);
@@ -22,8 +39,10 @@ export function useOrganizationsFromIndexer(creatorAddress: string | null) {
     });
 
     const refetch = useCallback(() => {
-        return queryClient.invalidateQueries({ queryKey: ["organizations", creatorAddress] });
-    }, [queryClient, creatorAddress]);
+        return queryClient.invalidateQueries({
+            queryKey: ["organizations", creatorAddress, activeChainId],
+        });
+    }, [queryClient, creatorAddress, activeChainId]);
 
     /**
      * Poll every `intervalMs` until `predicate` returns true or `timeoutMs` elapses.
@@ -47,7 +66,10 @@ export function useOrganizationsFromIndexer(creatorAddress: string | null) {
                     try {
                         const result = await client.listOrganizationsByCreator(creatorAddress);
                         const items = result.items;
-                        queryClient.setQueryData(["organizations", creatorAddress], items);
+                        queryClient.setQueryData(
+                            ["organizations", creatorAddress, activeChainId],
+                            items,
+                        );
                         if (predicate(items)) {
                             resolve(items);
                             return;
@@ -67,13 +89,18 @@ export function useOrganizationsFromIndexer(creatorAddress: string | null) {
                 void tick();
             });
         },
-        [creatorAddress, queryClient],
+        [creatorAddress, queryClient, client, activeChainId],
     );
 
     return { organizations, loading, refetch, pollUntil };
 }
 
-/** Stable singleton ref so other hooks can share the client. */
+/** Stable singleton ref so other hooks can share the client for the active chain. */
 export function getIndexingClient() {
-    return client;
+    // For non-React callers, read from the default chain.
+    // React hooks should use useChain() + getOrCreateClient() instead.
+    const stored =
+        typeof localStorage !== "undefined" ? localStorage.getItem("hollab:activeChainId") : null;
+    const chainId = stored ? Number(stored) : DEFAULT_CHAIN_ID;
+    return getOrCreateClient(chainId);
 }

@@ -7,14 +7,11 @@
 import { organizationFactoryAbi } from "@hollab-io/viem-extension";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Building2, Check, Loader2, Search, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPublicClient, http } from "viem";
-import { mainnet } from "viem/chains";
 
+import { useChain } from "../context/ChainContext";
 import { useJoinRequest } from "../hooks/useJoinRequest";
-import { ORGANIZATION_FACTORY_ADDRESS } from "./organizationFactoryAddress";
-
-const publicClient = createPublicClient({ chain: mainnet, transport: http() });
 
 type OrgPreview = {
     id: bigint;
@@ -41,6 +38,12 @@ type Props = {
 };
 
 export default function JoinOrganizationPanel({ onClose, prefilled }: Props) {
+    const { chainConfig } = useChain();
+    const publicClient = useMemo(
+        () => createPublicClient({ chain: chainConfig.chain, transport: http() }),
+        [chainConfig.chain],
+    );
+
     const [subname, setSubname] = useState(prefilled?.subname ?? "");
     const [message, setMessage] = useState("");
     const [lookupState, setLookupState] = useState<LookupState>(
@@ -60,7 +63,7 @@ export default function JoinOrganizationPanel({ onClose, prefilled }: Props) {
         setLookupState({ kind: "searching" });
         try {
             const org = (await publicClient.readContract({
-                address: ORGANIZATION_FACTORY_ADDRESS,
+                address: chainConfig.orgFactoryAddress,
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 abi: organizationFactoryAbi as any,
                 functionName: "getOrganizationBySubname",
@@ -113,13 +116,13 @@ export default function JoinOrganizationPanel({ onClose, prefilled }: Props) {
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: 8, filter: "blur(4px)" }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="relative rounded-2xl border border-white/[0.08] bg-[#0e0e14] p-6"
+            className="relative rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0e0e14] p-6"
         >
             {/* Close */}
             <button
                 type="button"
                 onClick={onClose}
-                className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full border border-white/[0.07] text-slate-500 transition-colors hover:text-slate-300"
+                className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 dark:border-white/[0.07] text-slate-400 dark:text-slate-500 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
             >
                 <X size={12} strokeWidth={2} />
             </button>

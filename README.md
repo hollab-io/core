@@ -1,5 +1,9 @@
 # hollab.eth
 
+> **WARNING: UNAUDITED SOFTWARE**
+>
+> The smart contracts in this repository have **not been audited**. They are provided as-is, with no guarantees of correctness or security. **Use at your own risk.** The authors accept no liability for any loss or damage arising from the use of this software.
+
 Minimalistic on-chain Holacracy framework. Only what needs to live on a public ledger goes on-chain — organizational structure, authority boundaries, and governance outcomes. Everything else stays off-chain.
 
 ## How It Works

@@ -1,0 +1,19 @@
+{
+    "name": "hollab.eth",
+    "short_name": "hollab",
+    "description": "The decentralized operating system for organizations — governance, execution, and strategy in one workspace.",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#ffffff",
+    "theme_color": "#3481FF",
+    "icons": [
+        {
+            "src": "./favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": ["productivity", "business"]
+}

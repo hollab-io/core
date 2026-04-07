@@ -9,7 +9,14 @@ import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {CircleRegistry} from 'contracts/CircleRegistry.sol';
 import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
+import {TacticalMeeting} from 'contracts/TacticalMeeting.sol';
+import {GovernanceMeeting} from 'contracts/GovernanceMeeting.sol';
+import {ActionVoting} from 'contracts/ActionVoting.sol';
+import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
 import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
+import {HolacracyDataProvider} from 'helpers/HolacracyDataProvider.sol';
+import {JoinRequest} from 'contracts/JoinRequest.sol';
+import {TensionBoard} from 'contracts/TensionBoard.sol';
 
 /// @notice Stub ENS subdomain registrar for local development — records calls without ENS logic
 contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
@@ -22,7 +29,9 @@ contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
 
 /**
  * @title DeployLocal
- * @notice Deploys the full HolLab stack to a local anvil node
+ * @notice Deploys the full HolLab stack to a local anvil node.
+ *         Mirrors DeployInfrastructure but adds a sample org and writes
+ *         a JSON artifact to deployments/31337-local.json for tooling.
  *
  * Usage:
  *   anvil                                           # terminal 1
@@ -42,18 +51,26 @@ contract DeployLocal is Script {
 
     vm.startBroadcast(deployerKey);
 
-    // 1. Deploy mock ENS registrar
+    // ── 1. Mock ENS registrar ───────────────────────────────────────────────
     MockENSSubdomainRegistrar ensRegistrar = new MockENSSubdomainRegistrar();
 
-    // 2. Deploy implementation contracts
+    // ── 2. Implementation contracts (clone sources) ─────────────────────────
     RoleRegistry roleRegistryImpl = new RoleRegistry();
     CircleRegistry circleRegistryImpl = new CircleRegistry();
     GovernanceProcess governanceProcessImpl = new GovernanceProcess();
+    TacticalMeeting tacticalMeetingImpl = new TacticalMeeting();
+    GovernanceMeeting governanceMeetingImpl = new GovernanceMeeting();
+    ActionVoting actionVotingImpl = new ActionVoting();
 
-    // 3. Deploy HolGovernorFactory
+    // ── 3. MeetingComponentsFactory ─────────────────────────────────────────
+    MeetingComponentsFactory meetingFactory = new MeetingComponentsFactory(
+      address(tacticalMeetingImpl), address(governanceMeetingImpl), address(actionVotingImpl)
+    );
+
+    // ── 4. HolGovernorFactory ───────────────────────────────────────────────
     HolGovernorFactory govFactory = new HolGovernorFactory();
 
-    // 4. Deploy OrganizationFactory
+    // ── 5. OrganizationFactory ──────────────────────────────────────────────
     OrganizationFactory factory = new OrganizationFactory(
       address(roleRegistryImpl),
       address(circleRegistryImpl),
@@ -62,7 +79,14 @@ contract DeployLocal is Script {
       address(ensRegistrar)
     );
 
-    // 5. Create a sample organization with default governance parameters
+    // ── 6. JoinRequest & TensionBoard ───────────────────────────────────────
+    JoinRequest joinRequest = new JoinRequest(address(factory));
+    TensionBoard tensionBoard = new TensionBoard(address(factory));
+
+    // ── 7. HolacracyDataProvider (stateless read helper) ────────────────────
+    HolacracyDataProvider dataProvider = new HolacracyDataProvider();
+
+    // ── 8. Create a sample organization with fast governance for testing ─────
     address[] memory holders = new address[](1);
     holders[0] = deployer;
     uint256[] memory amounts = new uint256[](1);
@@ -87,34 +111,46 @@ contract DeployLocal is Script {
 
     vm.stopBroadcast();
 
-    // Log addresses
-    console.log('--- Infrastructure ---');
-    console.log('MockENSRegistrar:     ', address(ensRegistrar));
-    console.log('HolGovernorFactory:   ', address(govFactory));
-    console.log('OrganizationFactory:  ', address(factory));
+    // ── Log everything ──────────────────────────────────────────────────────
+    console.log('=== Local Deployment Complete ===');
     console.log('');
-    console.log('--- Implementations ---');
-    console.log('RoleRegistry impl:    ', address(roleRegistryImpl));
-    console.log('CircleRegistry impl:  ', address(circleRegistryImpl));
-    console.log('GovernanceProcess impl:', address(governanceProcessImpl));
+    console.log('--- Factories ---');
+    console.log('OrganizationFactory:      ', address(factory));
+    console.log('HolGovernorFactory:       ', address(govFactory));
+    console.log('MeetingComponentsFactory: ', address(meetingFactory));
     console.log('');
-    console.log('--- Sample Organization (id:', orgId, ') ---');
+    console.log('--- Standalone Contracts ---');
+    console.log('JoinRequest:              ', address(joinRequest));
+    console.log('TensionBoard:             ', address(tensionBoard));
+    console.log('HolacracyDataProvider:    ', address(dataProvider));
+    console.log('MockENSRegistrar:         ', address(ensRegistrar));
+    console.log('');
 
     HolacracyTypes.Organization memory org = factory.getOrganization(orgId);
+    console.log('--- Sample Organization (id:', orgId, ') ---');
     console.log('Subname:              ', org.subname);
     console.log('Creator:              ', org.creator);
     console.log('RoleRegistry:         ', org.roleRegistry);
     console.log('CircleRegistry:       ', org.circleRegistry);
     console.log('GovernanceProcess:    ', org.governanceProcess);
-    console.log('AccessManager:        ', org.accessManager);
-    console.log('Anchor Circle ID:     ', org.anchorCircleId);
-    console.log('');
-    console.log('--- On-chain Governance ---');
     console.log('Governor:             ', org.governor);
     console.log('GovToken:             ', org.token);
     console.log('Timelock:             ', org.timelock);
-    console.log('');
-    console.log('--- Anchor Circle Treasury ---');
     console.log('CircleTreasury:       ', org.treasury);
+
+    // ── Write JSON artifact for tooling ──────────────────────────────────────
+    string memory obj = 'local';
+    vm.serializeAddress(obj, 'orgFactory', address(factory));
+    vm.serializeAddress(obj, 'govFactory', address(govFactory));
+    vm.serializeAddress(obj, 'meetingFactory', address(meetingFactory));
+    vm.serializeAddress(obj, 'joinRequest', address(joinRequest));
+    vm.serializeAddress(obj, 'tensionBoard', address(tensionBoard));
+    vm.serializeAddress(obj, 'dataProvider', address(dataProvider));
+    vm.serializeAddress(obj, 'ensRegistrar', address(ensRegistrar));
+    vm.serializeUint(obj, 'chainId', block.chainid);
+    string memory json = vm.serializeUint(obj, 'sampleOrgId', orgId);
+    vm.writeJson(json, './deployments/31337-local.json');
+    console.log('');
+    console.log('Artifact saved to: deployments/31337-local.json');
   }
 }

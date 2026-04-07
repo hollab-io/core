@@ -1,9 +1,8 @@
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { organizationFactoryAbi } from "@hollab-io/viem-extension";
 
+import { useChain } from "../context/ChainContext";
 import { useSendTransaction } from "./useSendTransaction";
-
-const ORGANIZATION_FACTORY_ADDRESS = "0xB0dEAE30f9Df19Db5066a889044B66b4fcB95553" as const;
 
 function deriveSubname(orgName: string): string {
     return orgName
@@ -28,6 +27,7 @@ function deriveTokenSymbol(orgName: string): string {
 export function useOrganizationFactory() {
     const { primaryWallet } = useDynamicContext();
     const { send } = useSendTransaction();
+    const { chainConfig } = useChain();
 
     const deployOrganization = async (params: {
         name: string;
@@ -46,7 +46,7 @@ export function useOrganizationFactory() {
         return send(
             [
                 {
-                    to: ORGANIZATION_FACTORY_ADDRESS,
+                    to: chainConfig.orgFactoryAddress,
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     abi: organizationFactoryAbi as any,
                     functionName: "createOrganization",

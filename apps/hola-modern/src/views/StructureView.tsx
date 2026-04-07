@@ -1,4 +1,5 @@
 import type { Organization } from "@hollab-io/indexing-client";
+import type { PublicClient } from "viem";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowRight,
@@ -17,17 +18,14 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPublicClient, http, isAddress } from "viem";
-import { mainnet } from "viem/chains";
 import { normalize } from "viem/ens";
 
 import type { JoinRequestEntry } from "../hooks/useJoinRequest";
+import { useChain } from "../context/ChainContext";
 import { useCircleRegistry } from "../hooks/useCircleRegistry";
 import { useJoinRequest } from "../hooks/useJoinRequest";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 import OrganizationChart from "./OrganizationChart";
-
-// ─── viem ENS client ──────────────────────────────────────────────────────────
-const ensClient = createPublicClient({ chain: mainnet, transport: http() });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type EntryStatus = "resolving" | "resolved" | "invalid" | "failed";
@@ -53,9 +51,9 @@ function looksLikeEns(v: string) {
     return v.includes(".") && !v.startsWith("0x");
 }
 
-async function resolveEns(raw: string): Promise<{ address: string }> {
+async function resolveEns(client: PublicClient, raw: string): Promise<{ address: string }> {
     const name = normalize(raw);
-    const address = await ensClient.getEnsAddress({ name });
+    const address = await client.getEnsAddress({ name });
     if (!address) throw new Error("Name not found");
     return { address };
 }
@@ -163,6 +161,11 @@ function AddMembersPanel({
     }) => Promise<`0x${string}`>;
     onClose: () => void;
 }) {
+    const { chainConfig } = useChain();
+    const ensClient = useMemo(
+        () => createPublicClient({ chain: chainConfig.chain, transport: http() }),
+        [chainConfig.chain],
+    );
     const { authenticatedWalletAddress, inviteMember } = useWorkspaceSnapshot();
     const [inputValue, setInputValue] = useState("");
     const [entries, setEntries] = useState<MemberEntry[]>([]);
@@ -182,7 +185,7 @@ function AddMembersPanel({
 
         if (looksLikeEns(trimmed)) {
             try {
-                const { address } = await resolveEns(trimmed);
+                const { address } = await resolveEns(ensClient, trimmed);
                 setEntries((prev) =>
                     prev.map((e) =>
                         e.id === id ? { ...e, address, ens: trimmed, status: "resolved" } : e,
@@ -322,9 +325,9 @@ function AddMembersPanel({
                 exit={{ scale: 0.95, opacity: 0, y: 10 }}
                 transition={SPRING}
                 className="w-full max-w-md rounded-[1.75rem]
-                    border border-white/[0.08]
-                    bg-[#0a0a0f]
-                    shadow-[0_32px_80px_rgba(0,0,0,0.6)]
+                    border border-slate-200 dark:border-white/[0.08]
+                    bg-white dark:bg-[#0a0a0f]
+                    shadow-[0_32px_80px_rgba(0,0,0,0.08)] dark:shadow-[0_32px_80px_rgba(0,0,0,0.6)]
                     p-6"
                 onClick={(e) => e.stopPropagation()}
             >
@@ -333,7 +336,7 @@ function AddMembersPanel({
                         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                             Structure
                         </p>
-                        <h2 className="mt-1 text-lg font-bold tracking-[-0.02em] text-white">
+                        <h2 className="mt-1 text-lg font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
                             Add members
                         </h2>
                     </div>
@@ -524,7 +527,7 @@ export default function StructureView({ org, isDarkMode, autoOpenInvite, onInvit
                         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                             Structure
                         </p>
-                        <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-white">
+                        <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-slate-900 dark:text-white">
                             People & circles
                         </h1>
                     </div>

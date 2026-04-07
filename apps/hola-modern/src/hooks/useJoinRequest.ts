@@ -11,13 +11,11 @@ import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useCallback } from "react";
 import { isAddress } from "viem";
 
+import { useChain } from "../context/ChainContext";
 import { getIndexingClient } from "./useOrganizationsFromIndexer";
 import { useSendTransaction } from "./useSendTransaction";
 
-// ── Contract addresses ────────────────────────────────────────────────────────
-// Set VITE_JOIN_REQUEST_ADDRESS after running DeployJoinRequest.s.sol
-export const JOIN_REQUEST_ADDRESS = (import.meta.env.VITE_JOIN_REQUEST_ADDRESS ??
-    "0x0000000000000000000000000000000000000000") as Address;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
 const TOKENS_PER_APPROVAL = 100n * 10n ** 18n; // 100 tokens
 
@@ -143,7 +141,7 @@ const erc20Abi = [
     },
 ] as const satisfies Abi;
 
-// ── Types ──────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────��───────────────────────────���────
 
 export type JoinRequestStatus = 0 | 1 | 2; // Pending | Approved | Rejected
 
@@ -157,29 +155,29 @@ export type JoinRequestEntry = {
     resolvedAt: bigint;
 };
 
-// ── Hook ──────────────────────────────────────────────────────────────────────
+// ── Hook ──────────────���───────────────────────────────────────────────────────
 
 export function useJoinRequest() {
     const { primaryWallet } = useDynamicContext();
     const { send } = useSendTransaction();
+    const { chainConfig } = useChain();
 
+    const joinRequestAddress = chainConfig.joinRequestAddress;
     const account = () => (primaryWallet?.address ?? "0x") as Address;
 
-    // ── Write ─────────────────────────────────────────────────────────────────
+    // ── Write ───────────────────────────────────��─────────────────────────────
 
     const requestToJoin = async (params: {
         orgId: bigint;
         message: string;
     }): Promise<`0x${string}`> => {
-        if (JOIN_REQUEST_ADDRESS === "0x0000000000000000000000000000000000000000") {
-            throw new Error(
-                "JoinRequest contract not deployed yet. Set VITE_JOIN_REQUEST_ADDRESS.",
-            );
+        if (joinRequestAddress === ZERO_ADDRESS) {
+            throw new Error("JoinRequest contract not deployed on this chain yet.");
         }
         return send(
             [
                 {
-                    to: JOIN_REQUEST_ADDRESS,
+                    to: joinRequestAddress,
                     abi: joinRequestAbi as Abi,
                     functionName: "requestToJoin",
                     args: [params.orgId, params.message],
@@ -202,7 +200,7 @@ export function useJoinRequest() {
         return send(
             [
                 {
-                    to: JOIN_REQUEST_ADDRESS,
+                    to: joinRequestAddress,
                     abi: joinRequestAbi as Abi,
                     functionName: "approve",
                     args: [params.requestId],
@@ -222,7 +220,7 @@ export function useJoinRequest() {
         send(
             [
                 {
-                    to: JOIN_REQUEST_ADDRESS,
+                    to: joinRequestAddress,
                     abi: joinRequestAbi as Abi,
                     functionName: "reject",
                     args: [params.requestId],
@@ -248,19 +246,20 @@ export function useJoinRequest() {
         }));
     }, []);
 
+    const walletAddress = primaryWallet?.address;
     const hasPendingRequest = useCallback(
         async (orgId: bigint): Promise<boolean> => {
-            if (!primaryWallet?.address) return false;
+            if (!walletAddress) return false;
             const client = getIndexingClient();
             if (!client) return false;
             const result = await client.listPendingJoinRequestsByOrg(orgId.toString(), {
                 limit: 1,
             });
             return result.items.some(
-                (r) => r.requester.toLowerCase() === primaryWallet.address?.toLowerCase(),
+                (r) => r.requester.toLowerCase() === walletAddress.toLowerCase(),
             );
         },
-        [primaryWallet?.address],
+        [walletAddress],
     );
 
     return {

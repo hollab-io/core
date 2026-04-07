@@ -13,6 +13,8 @@ import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { encodeFunctionData } from "viem";
 
+import { useChain } from "../context/ChainContext";
+
 export type ContractCall = {
     to: Address;
     abi: Abi;
@@ -23,6 +25,7 @@ export type ContractCall = {
 
 export function useSendTransaction() {
     const { primaryWallet } = useDynamicContext();
+    const { chainConfig } = useChain();
 
     const send = async (calls: ContractCall[], account: Address): Promise<`0x${string}`> => {
         const encoded = calls.map(({ to, abi, functionName, args, value }) => ({
@@ -48,7 +51,7 @@ export function useSendTransaction() {
                 data: call.data,
                 value: call.value,
                 account,
-                chain: walletClient.chain,
+                chain: chainConfig.chain,
             });
         }
         return hash;

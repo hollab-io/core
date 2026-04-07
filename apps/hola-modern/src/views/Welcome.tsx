@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { BookOpen } from "lucide-react";
 
 import logoSvg from "../assets/logo.svg";
 import DynamicAuthControl from "../components/DynamicAuthControl";
@@ -12,13 +13,13 @@ const FEATURES = [
     "Wallet-native auth",
 ] as const;
 
-export default function WelcomeScreen() {
+export default function WelcomeScreen({ onShowConstitution }: { onShowConstitution?: () => void }) {
     return (
-        <section className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-[#050505]">
+        <section className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-white dark:bg-[#050505]">
             {/* ── Background mesh gradients ── */}
             {/* Bottom-right blue orb */}
             <div
-                className="pointer-events-none absolute inset-0"
+                className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-100"
                 aria-hidden="true"
                 style={{
                     background:
@@ -27,7 +28,7 @@ export default function WelcomeScreen() {
             />
             {/* Top-left indigo orb */}
             <div
-                className="pointer-events-none absolute inset-0"
+                className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-100"
                 aria-hidden="true"
                 style={{
                     background:
@@ -36,16 +37,16 @@ export default function WelcomeScreen() {
             />
             {/* Center-right violet accent */}
             <div
-                className="pointer-events-none absolute inset-0"
+                className="pointer-events-none absolute inset-0 opacity-[0.3] dark:opacity-100"
                 aria-hidden="true"
                 style={{
                     background:
                         "radial-gradient(ellipse 35% 30% at 90% 40%, rgba(139,92,246,0.07) 0%, transparent 55%)",
                 }}
             />
-            {/* Deep vignette */}
+            {/* Deep vignette — dark only */}
             <div
-                className="pointer-events-none absolute inset-0"
+                className="pointer-events-none absolute inset-0 hidden dark:block"
                 aria-hidden="true"
                 style={{
                     background:
@@ -53,12 +54,12 @@ export default function WelcomeScreen() {
                 }}
             />
 
-            {/* ── Noise grain (fixed, pointer-events-none) ── */}
-            <div className="grain-overlay" aria-hidden="true" />
+            {/* ── Noise grain — dark only ── */}
+            <div className="grain-overlay hidden dark:block" aria-hidden="true" />
 
-            {/* ── Grid lines (subtle) ── */}
+            {/* ── Grid lines (subtle) — dark only ── */}
             <div
-                className="pointer-events-none absolute inset-0 opacity-[0.03]"
+                className="pointer-events-none absolute inset-0 opacity-[0.03] hidden dark:block"
                 aria-hidden="true"
                 style={{
                     backgroundImage:
@@ -93,14 +94,14 @@ export default function WelcomeScreen() {
                 >
                     <span
                         className="inline-flex items-center gap-2 rounded-full
-                        border border-white/[0.1] bg-white/[0.05]
+                        border border-slate-200 dark:border-white/[0.1] bg-white/80 dark:bg-white/[0.05]
                         px-3.5 py-1.5 backdrop-blur-sm"
                     >
                         <span
                             className="h-1.5 w-1.5 rounded-full bg-[#3481FF]"
                             style={{ boxShadow: "0 0 8px rgba(52,129,255,0.9)" }}
                         />
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/50">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-white/50">
                             Holacracy · Web3 native
                         </span>
                     </span>
@@ -111,7 +112,7 @@ export default function WelcomeScreen() {
                     initial={{ opacity: 0, y: 18, filter: "blur(8px)" }}
                     animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                     transition={{ duration: 0.9, delay: 0.14, ease: EXPO }}
-                    className="mt-6 text-balance text-[50px] font-bold leading-[1.08] tracking-[-0.04em] text-white sm:text-[58px]"
+                    className="mt-6 text-balance text-[50px] font-bold leading-[1.08] tracking-[-0.04em] text-slate-900 dark:text-white sm:text-[58px]"
                 >
                     hollab.eth
                 </motion.h1>
@@ -121,7 +122,7 @@ export default function WelcomeScreen() {
                     initial={{ opacity: 0, y: 14, filter: "blur(6px)" }}
                     animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
                     transition={{ duration: 0.9, delay: 0.22, ease: EXPO }}
-                    className="mt-4 max-w-[300px] text-balance text-[14px] font-medium leading-relaxed text-white/35"
+                    className="mt-4 max-w-[300px] text-balance text-[14px] font-medium leading-relaxed text-slate-500 dark:text-white/35"
                 >
                     The decentralized operating system for organizations — governance, execution,
                     and strategy in one workspace.
@@ -137,8 +138,8 @@ export default function WelcomeScreen() {
                     {FEATURES.map((f) => (
                         <span
                             key={f}
-                            className="rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1
-                                text-[11px] font-medium text-white/40"
+                            className="rounded-full border border-slate-200 dark:border-white/[0.08] bg-white/80 dark:bg-white/[0.04] px-3 py-1
+                                text-[11px] font-medium text-slate-500 dark:text-white/40"
                         >
                             {f}
                         </span>
@@ -155,18 +156,17 @@ export default function WelcomeScreen() {
                     {/* Outer shell */}
                     <div
                         className="w-full rounded-[2rem]
-                            border border-white/[0.1] bg-white/[0.04]
+                            border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-white/[0.04]
                             p-[5px]
-                            shadow-[0_20px_60px_rgba(0,0,0,0.55)]
-                            backdrop-blur-2xl"
+                            shadow-[0_20px_60px_rgba(0,0,0,0.04)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
                     >
                         {/* Inner core */}
                         <div
-                            className="rounded-[calc(2rem-5px)] bg-[#0d0d11]
-                                shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]
+                            className="rounded-[calc(2rem-5px)] bg-slate-50 dark:bg-[#0d0d11]
+                                shadow-none dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]
                                 px-7 py-8"
                         >
-                            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/20">
+                            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-white/20">
                                 Connect to get started
                             </p>
 
@@ -177,7 +177,25 @@ export default function WelcomeScreen() {
                     </div>
                 </motion.div>
 
-                {/* Footer */}
+                {/* Constitution link */}
+                {onShowConstitution && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.8, delay: 0.5, ease: EXPO }}
+                        className="mt-6"
+                    >
+                        <button
+                            type="button"
+                            onClick={onShowConstitution}
+                            className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400 dark:text-slate-500
+                                transition-colors duration-300 hover:text-[#3481FF]"
+                        >
+                            <BookOpen size={14} strokeWidth={1.75} />
+                            Read the Constitution
+                        </button>
+                    </motion.div>
+                )}
             </div>
         </section>
     );
