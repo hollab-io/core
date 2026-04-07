@@ -1,0 +1,36 @@
+FROM node:24-alpine AS base
+WORKDIR /app
+RUN corepack enable
+
+# ── deps: install hollab-indexing and its transitive npm deps ────────────────
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+COPY apps/hollab-indexing/package.json  ./apps/hollab-indexing/
+COPY packages/contracts/package.json      ./packages/contracts/
+# generated/index.ts must exist before pnpm install so the workspace symlink
+# for @hollab-io/contracts/actions resolves correctly at install time.
+COPY packages/contracts/generated/        ./packages/contracts/generated/
+COPY packages/hollab-sdk/package.json     ./packages/hollab-sdk/
+COPY packages/viem-extension/package.json ./packages/viem-extension/
+
+RUN pnpm install --frozen-lockfile --filter hollab-indexing --ignore-scripts
+
+# ── runtime ──────────────────────────────────────────────────────────────────
+FROM base AS runtime
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/hollab-indexing/node_modules ./apps/hollab-indexing/node_modules
+
+COPY apps/hollab-indexing/src     ./apps/hollab-indexing/src
+COPY apps/hollab-indexing/abis    ./apps/hollab-indexing/abis
+COPY apps/hollab-indexing/ponder.config.ts  ./apps/hollab-indexing/
+COPY apps/hollab-indexing/ponder.schema.ts  ./apps/hollab-indexing/
+COPY apps/hollab-indexing/package.json      ./apps/hollab-indexing/
+COPY apps/hollab-indexing/tsconfig.json     ./apps/hollab-indexing/
+COPY --from=deps /app/packages/contracts ./packages/contracts
+
+WORKDIR /app/apps/hollab-indexing
+EXPOSE 42069
+HEALTHCHECK --interval=20s --timeout=5s --retries=5 \
+    CMD wget -qO- http://localhost:${PORT:-42069}/health || exit 1
+CMD ["pnpm", "run", "start"]

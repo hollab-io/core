@@ -33,7 +33,7 @@ COPY --from=indexing-deps /app/packages/contracts ./packages/contracts
 WORKDIR /app/apps/hollab-indexing
 EXPOSE 42069
 HEALTHCHECK --interval=20s --timeout=5s --retries=5 \
-    CMD wget -qO- http://localhost:42069/health || exit 1
+    CMD wget -qO- http://localhost:${PORT:-42069}/health || exit 1
 CMD ["pnpm", "run", "start"]
 
 # ── hola-modern prune ─────────────────────────────────────────────────────────
@@ -78,4 +78,5 @@ RUN node_modules/.bin/turbo run build --filter=hola-modern
 # ── hola-modern ───────────────────────────────────────────────────────────────
 FROM nginx:1.27-alpine AS hola-modern
 COPY --from=hola-modern-builder /app/apps/hola-modern/dist /usr/share/nginx/html
+COPY nginx/railway.conf.template /etc/nginx/templates/default.conf.template
 EXPOSE 80

@@ -1,0 +1,43 @@
+FROM node:24-alpine AS base
+WORKDIR /app
+RUN corepack enable
+
+# ── prune: minimal monorepo subtree for hola-modern ─────────────────────────
+FROM base AS pruner
+RUN npm install -g turbo@2
+COPY . .
+RUN turbo prune hola-modern --docker
+
+# ── deps: install only what hola-modern and its workspace deps need ─────────
+FROM base AS deps
+COPY --from=pruner /app/out/json/ .
+COPY --from=pruner /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# ── builder ──────────────────────────────────────────────────────────────────
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules                              ./node_modules
+COPY --from=deps /app/packages/viem-extension/node_modules      ./packages/viem-extension/node_modules
+COPY --from=deps /app/packages/indexing-client/node_modules     ./packages/indexing-client/node_modules
+COPY --from=deps /app/packages/contracts/node_modules           ./packages/contracts/node_modules
+COPY --from=deps /app/apps/hola-modern/node_modules             ./apps/hola-modern/node_modules
+COPY --from=pruner /app/out/full/ .
+COPY tsconfig*.json ./
+# VITE_ vars are inlined at build time — declare as ARG then promote to ENV
+ARG VITE_DYNAMIC_ENVIRONMENT_ID
+ARG VITE_INDEXER_URL
+ARG VITE_JOIN_REQUEST_ADDRESS
+ARG VITE_TENSION_BOARD_ADDRESS
+ENV VITE_DYNAMIC_ENVIRONMENT_ID=$VITE_DYNAMIC_ENVIRONMENT_ID
+ENV VITE_INDEXER_URL=$VITE_INDEXER_URL
+ENV VITE_JOIN_REQUEST_ADDRESS=$VITE_JOIN_REQUEST_ADDRESS
+ENV VITE_TENSION_BOARD_ADDRESS=$VITE_TENSION_BOARD_ADDRESS
+ENV NODE_OPTIONS=--max-old-space-size=1536
+RUN node_modules/.bin/turbo run build --filter=hola-modern
+
+# ── runtime: serve static files with nginx ───────────────────────────────────
+FROM nginx:1.27-alpine
+COPY --from=builder /app/apps/hola-modern/dist /usr/share/nginx/html
+COPY nginx/railway.conf.template /etc/nginx/templates/default.conf.template
+EXPOSE 80
