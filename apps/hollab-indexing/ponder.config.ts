@@ -30,8 +30,12 @@ const startBlock = Number(process.env.START_BLOCK ?? 0);
 // PONDER_CHAIN: "localhost" | "sepolia" (default) | "mainnet"
 const chainName = (process.env.PONDER_CHAIN ?? "sepolia") as "mainnet" | "sepolia" | "localhost";
 const chainId = chainName === "mainnet" ? 1 : chainName === "localhost" ? 31337 : 11155111;
-const rpcUrl =
-    process.env.PONDER_RPC_URL ?? (chainName === "localhost" ? "http://127.0.0.1:8545" : undefined);
+// Comma-separated list of RPC URLs; Ponder round-robins across them.
+const rpcUrls: string[] = process.env.PONDER_RPC_URL
+    ? process.env.PONDER_RPC_URL.split(",").map((u) => u.trim())
+    : chainName === "localhost"
+      ? ["http://127.0.0.1:8545"]
+      : [];
 
 const orgComponentsDeployedEvent = organizationFactoryAbi.find(
     (e): e is (typeof organizationFactoryAbi)[number] & { type: "event" } =>
@@ -52,7 +56,7 @@ export default createConfig({
     chains: {
         chain: {
             id: chainId,
-            rpc: rpcUrl,
+            rpc: rpcUrls.length === 1 ? rpcUrls[0] : rpcUrls,
         },
     },
     contracts: {
