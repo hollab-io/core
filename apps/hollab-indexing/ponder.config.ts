@@ -18,7 +18,6 @@ import { TensionBoardAbi } from "./abis/TensionBoardAbi";
 
 const ZERO = "0x0000000000000000000000000000000000000001" as `0x${string}`;
 const addr = (key: string) => (process.env[key] || ZERO) as `0x${string}`;
-const isSet = (a: `0x${string}`) => a !== ZERO;
 
 const orgFactoryAddr = addr("ORGANIZATION_FACTORY_ADDRESS");
 const govFactoryAddr = addr("HOL_GOVERNOR_FACTORY_ADDRESS");
@@ -26,6 +25,11 @@ const meetingFactoryAddr = addr("MEETING_COMPONENTS_FACTORY_ADDRESS");
 const joinRequestAddr = addr("JOIN_REQUEST_ADDRESS");
 const tensionBoardAddr = addr("TENSION_BOARD_ADDRESS");
 const startBlock = Number(process.env.START_BLOCK ?? 0);
+
+// For undeployed contracts, use a very high start block so Ponder registers
+// the contract (keeping handler validation happy) but never scans any blocks.
+const FAR_FUTURE = 999_999_999;
+const startBlockFor = (a: `0x${string}`) => (a === ZERO ? FAR_FUTURE : startBlock);
 
 // ── Chain configuration ──────────────────────────────────────────────────────
 // PONDER_CHAIN: "localhost" | "sepolia" (default) | "mainnet"
@@ -126,70 +130,59 @@ export default createConfig({
         },
 
         // ── MeetingComponentsFactory: indexed directly for MeetingComponentsDeployed ─────────
-        ...(isSet(meetingFactoryAddr)
-            ? {
-                  MeetingComponentsFactory: {
-                      chain: "chain" as const,
-                      abi: meetingComponentsFactoryAbi,
-                      address: meetingFactoryAddr,
-                      startBlock,
-                  },
-                  // ── Per-org meeting & voting clones: auto-discovered from MeetingComponentsDeployed ─
-                  TacticalMeeting: {
-                      chain: "chain" as const,
-                      abi: TacticalMeetingAbi,
-                      address: {
-                          address: meetingFactoryAddr,
-                          event: meetingComponentsDeployedEvent,
-                          parameter: "_tacticalMeeting" as const,
-                      },
-                      startBlock,
-                  },
-                  GovernanceMeeting: {
-                      chain: "chain" as const,
-                      abi: GovernanceMeetingAbi,
-                      address: {
-                          address: meetingFactoryAddr,
-                          event: meetingComponentsDeployedEvent,
-                          parameter: "_governanceMeeting" as const,
-                      },
-                      startBlock,
-                  },
-                  ActionVoting: {
-                      chain: "chain" as const,
-                      abi: ActionVotingAbi,
-                      address: {
-                          address: meetingFactoryAddr,
-                          event: meetingComponentsDeployedEvent,
-                          parameter: "_actionVoting" as const,
-                      },
-                      startBlock,
-                  },
-              }
-            : {}),
+        MeetingComponentsFactory: {
+            chain: "chain",
+            abi: meetingComponentsFactoryAbi,
+            address: meetingFactoryAddr,
+            startBlock: startBlockFor(meetingFactoryAddr),
+        },
+
+        // ── Per-org meeting & voting clones: auto-discovered from MeetingComponentsDeployed ─
+        TacticalMeeting: {
+            chain: "chain",
+            abi: TacticalMeetingAbi,
+            address: {
+                address: meetingFactoryAddr,
+                event: meetingComponentsDeployedEvent,
+                parameter: "_tacticalMeeting",
+            },
+            startBlock: startBlockFor(meetingFactoryAddr),
+        },
+        GovernanceMeeting: {
+            chain: "chain",
+            abi: GovernanceMeetingAbi,
+            address: {
+                address: meetingFactoryAddr,
+                event: meetingComponentsDeployedEvent,
+                parameter: "_governanceMeeting",
+            },
+            startBlock: startBlockFor(meetingFactoryAddr),
+        },
+        ActionVoting: {
+            chain: "chain",
+            abi: ActionVotingAbi,
+            address: {
+                address: meetingFactoryAddr,
+                event: meetingComponentsDeployedEvent,
+                parameter: "_actionVoting",
+            },
+            startBlock: startBlockFor(meetingFactoryAddr),
+        },
 
         // ── JoinRequest: single deployment, indexes all join requests ────────────
-        ...(isSet(joinRequestAddr)
-            ? {
-                  JoinRequest: {
-                      chain: "chain" as const,
-                      abi: JoinRequestAbi,
-                      address: joinRequestAddr,
-                      startBlock,
-                  },
-              }
-            : {}),
+        JoinRequest: {
+            chain: "chain",
+            abi: JoinRequestAbi,
+            address: joinRequestAddr,
+            startBlock: startBlockFor(joinRequestAddr),
+        },
 
         // ── TensionBoard: single deployment, anyone can submit tensions ──────────
-        ...(isSet(tensionBoardAddr)
-            ? {
-                  TensionBoard: {
-                      chain: "chain" as const,
-                      abi: TensionBoardAbi,
-                      address: tensionBoardAddr,
-                      startBlock,
-                  },
-              }
-            : {}),
+        TensionBoard: {
+            chain: "chain",
+            abi: TensionBoardAbi,
+            address: tensionBoardAddr,
+            startBlock: startBlockFor(tensionBoardAddr),
+        },
     },
 });
