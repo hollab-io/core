@@ -1,7 +1,4 @@
 import {
-    circleRegistryAbi,
-    circleTreasuryAbi,
-    governanceProcessAbi,
     holGovernorAbi,
     holGovernorFactoryAbi,
     meetingComponentsFactoryAbi,
@@ -11,10 +8,7 @@ import {
 import { createConfig } from "ponder";
 
 import { ActionVotingAbi } from "./abis/ActionVotingAbi";
-import { GovernanceMeetingAbi } from "./abis/GovernanceMeetingAbi";
-import { JoinRequestAbi } from "./abis/JoinRequestAbi";
-import { TacticalMeetingAbi } from "./abis/TacticalMeetingAbi";
-import { TensionBoardAbi } from "./abis/TensionBoardAbi";
+import { MeetingFactoryAbi } from "./abis/MeetingFactoryAbi";
 
 const ZERO = "0x0000000000000000000000000000000000000001" as `0x${string}`;
 const addr = (key: string) => (process.env[key] || ZERO) as `0x${string}`;
@@ -22,8 +16,6 @@ const addr = (key: string) => (process.env[key] || ZERO) as `0x${string}`;
 const orgFactoryAddr = addr("ORGANIZATION_FACTORY_ADDRESS");
 const govFactoryAddr = addr("HOL_GOVERNOR_FACTORY_ADDRESS");
 const meetingFactoryAddr = addr("MEETING_COMPONENTS_FACTORY_ADDRESS");
-const joinRequestAddr = addr("JOIN_REQUEST_ADDRESS");
-const tensionBoardAddr = addr("TENSION_BOARD_ADDRESS");
 const startBlock = Number(process.env.START_BLOCK ?? 0);
 
 // For undeployed contracts, use a very high start block so Ponder registers
@@ -74,16 +66,6 @@ export default createConfig({
         },
 
         // ── Per-org clones: auto-discovered from OrgComponentsDeployed ────────────
-        CircleRegistry: {
-            chain: "chain",
-            abi: circleRegistryAbi,
-            address: {
-                address: orgFactoryAddr,
-                event: orgComponentsDeployedEvent,
-                parameter: "_circleRegistry",
-            },
-            startBlock,
-        },
         RoleRegistry: {
             chain: "chain",
             abi: roleRegistryAbi,
@@ -91,16 +73,6 @@ export default createConfig({
                 address: orgFactoryAddr,
                 event: orgComponentsDeployedEvent,
                 parameter: "_roleRegistry",
-            },
-            startBlock,
-        },
-        GovernanceProcess: {
-            chain: "chain",
-            abi: governanceProcessAbi,
-            address: {
-                address: orgFactoryAddr,
-                event: orgComponentsDeployedEvent,
-                parameter: "_governanceProcess",
             },
             startBlock,
         },
@@ -117,18 +89,6 @@ export default createConfig({
             startBlock,
         },
 
-        // ── Per-org treasury: auto-discovered from OrgComponentsDeployed ─────────
-        CircleTreasury: {
-            chain: "chain",
-            abi: circleTreasuryAbi,
-            address: {
-                address: orgFactoryAddr,
-                event: orgComponentsDeployedEvent,
-                parameter: "_treasury",
-            },
-            startBlock,
-        },
-
         // ── MeetingComponentsFactory: indexed directly for MeetingComponentsDeployed ─────────
         MeetingComponentsFactory: {
             chain: "chain",
@@ -137,27 +97,19 @@ export default createConfig({
             startBlock: startBlockFor(meetingFactoryAddr),
         },
 
-        // ── Per-org meeting & voting clones: auto-discovered from MeetingComponentsDeployed ─
-        TacticalMeeting: {
+        // ── Per-org MeetingFactory clones: auto-discovered from MeetingComponentsDeployed ─
+        MeetingFactory: {
             chain: "chain",
-            abi: TacticalMeetingAbi,
+            abi: MeetingFactoryAbi,
             address: {
                 address: meetingFactoryAddr,
                 event: meetingComponentsDeployedEvent,
-                parameter: "_tacticalMeeting",
+                parameter: "_meetingFactory",
             },
             startBlock: startBlockFor(meetingFactoryAddr),
         },
-        GovernanceMeeting: {
-            chain: "chain",
-            abi: GovernanceMeetingAbi,
-            address: {
-                address: meetingFactoryAddr,
-                event: meetingComponentsDeployedEvent,
-                parameter: "_governanceMeeting",
-            },
-            startBlock: startBlockFor(meetingFactoryAddr),
-        },
+
+        // ── Per-org ActionVoting clones: auto-discovered from MeetingComponentsDeployed ─
         ActionVoting: {
             chain: "chain",
             abi: ActionVotingAbi,
@@ -167,22 +119,6 @@ export default createConfig({
                 parameter: "_actionVoting",
             },
             startBlock: startBlockFor(meetingFactoryAddr),
-        },
-
-        // ── JoinRequest: single deployment, indexes all join requests ────────────
-        JoinRequest: {
-            chain: "chain",
-            abi: JoinRequestAbi,
-            address: joinRequestAddr,
-            startBlock: startBlockFor(joinRequestAddr),
-        },
-
-        // ── TensionBoard: single deployment, anyone can submit tensions ──────────
-        TensionBoard: {
-            chain: "chain",
-            abi: TensionBoardAbi,
-            address: tensionBoardAddr,
-            startBlock: startBlockFor(tensionBoardAddr),
         },
     },
 });
