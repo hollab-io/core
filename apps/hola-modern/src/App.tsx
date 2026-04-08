@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, CheckSquare, LogIn, Network, Scale, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { AppTabId } from "./config/navigation";
 import ChainSwitcher from "./components/ChainSwitcher";
@@ -10,6 +10,7 @@ import { useChain } from "./context/ChainContext";
 import { useTheme } from "./context/ThemeContext";
 import { useCirclesFromIndexer } from "./hooks/useCirclesFromIndexer";
 import { useGovernanceMeetingsFromIndexer } from "./hooks/useGovernanceMeetingsFromIndexer";
+import { useHashRouter } from "./hooks/useHashRouter";
 import { useOrganizationsFromIndexer } from "./hooks/useOrganizationsFromIndexer";
 import { useOrgMembersFromIndexer } from "./hooks/useOrgMembersFromIndexer";
 import { useRolesFromIndexer } from "./hooks/useRolesFromIndexer";
@@ -40,6 +41,7 @@ const NAV = [
 function App() {
     const { chainConfig } = useChain();
     const { isDark } = useTheme();
+    const { route, navigate, setOrgId, setTab } = useHashRouter();
     const {
         activeOrganizationId,
         setActiveOrganizationId,
@@ -48,16 +50,32 @@ function App() {
         syncIndexedMembers,
         syncIndexedRoles,
     } = useWorkspaceSnapshot();
+
+    // Derive active org ID and tab from the route
+    const routeOrgId =
+        route.page === "org" ? route.orgId : route.page === "join" ? route.orgId : null;
+    const activeTab = route.page === "org" ? route.tab : "constitution";
+
+    // Sync route → workspace snapshot (so hooks that depend on activeOrganizationId still work)
+    useEffect(() => {
+        if (routeOrgId !== activeOrganizationId) {
+            setActiveOrganizationId(routeOrgId);
+        }
+    }, [routeOrgId, activeOrganizationId, setActiveOrganizationId]);
+
     const { organizations, allOrganizations, pollUntil } = useOrganizationsFromIndexer(
         authenticatedWalletAddress,
     );
-    const activeOrg = organizations.find((o) => o.id === activeOrganizationId) ?? null;
+    const activeOrg = useMemo(
+        () => (routeOrgId ? (organizations.find((o) => o.id === routeOrgId) ?? null) : null),
+        [routeOrgId, organizations],
+    );
     const { members: indexedMembers } = useOrgMembersFromIndexer(
         chainConfig.orgFactoryAddress,
         activeOrg?.id,
     );
-    const { circles: indexedCircles } = useCirclesFromIndexer(activeOrganizationId);
-    const { roles: indexedRoles } = useRolesFromIndexer(activeOrganizationId);
+    const { circles: indexedCircles } = useCirclesFromIndexer(routeOrgId);
+    const { roles: indexedRoles } = useRolesFromIndexer(routeOrgId);
     const {
         tacticalMeetingAddress,
         governanceMeetingAddress,
@@ -66,37 +84,30 @@ function App() {
         pollForNewMeeting,
         refetch: refetchMeetings,
         fetchOutputs,
-    } = useTacticalMeetingsFromIndexer(activeOrganizationId);
+    } = useTacticalMeetingsFromIndexer(routeOrgId);
     const { meetings: indexedGovernanceMeetings, pollForNewMeeting: pollForNewGovernanceMeeting } =
         useGovernanceMeetingsFromIndexer(governanceMeetingAddress);
-    const [activeTab, setActiveTab] = useState<AppTabId>("constitution");
+
     // When true, StructureView should auto-open the add-members panel
     const [autoOpenInvite, setAutoOpenInvite] = useState(false);
     // Org IDs that have completed (or skipped) member onboarding this session
     const [onboardedOrgIds, setOnboardedOrgIds] = useState<Set<string>>(() => new Set());
-    // Org IDs selected from Discover (user is not yet a member)
-    const [guestOrgIds, setGuestOrgIds] = useState<Set<string>>(() => new Set());
 
     // Skip invite onboarding if the org already has more than 1 member (creator + others)
     const isOnboarding = Boolean(
-        activeOrganizationId &&
-            !onboardedOrgIds.has(activeOrganizationId) &&
-            !guestOrgIds.has(activeOrganizationId) &&
+        routeOrgId &&
+            !onboardedOrgIds.has(routeOrgId) &&
+            route.page !== "join" &&
             (activeOrg ? Number(activeOrg.memberCount) <= 1 : true),
     );
     const completeOnboarding = () => {
-        if (activeOrganizationId) {
-            setOnboardedOrgIds((prev) => new Set([...prev, activeOrganizationId]));
+        if (routeOrgId) {
+            setOnboardedOrgIds((prev) => new Set([...prev, routeOrgId]));
         }
     };
-    // Navigate to an org from Discover — bypasses onboarding, shows join banner
-    const handlePreview = (id: string) => {
-        setActiveOrganizationId(id);
-        setGuestOrgIds((prev) => new Set([...prev, id]));
-    };
-    const isGuest = Boolean(activeOrganizationId && guestOrgIds.has(activeOrganizationId));
+
+    const isGuest = route.page === "join";
     const [showGuestJoin, setShowGuestJoin] = useState(false);
-    const [showPublicConstitution, setShowPublicConstitution] = useState(false);
 
     // Sync on-chain org members into the workspace partner list
     useEffect(() => {
@@ -126,8 +137,10 @@ function App() {
         }
     }, [isOnboarding, activeOrg]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // ── Unauthenticated screens ──────────────────────────────────────────────
+
     if (!authenticatedWalletAddress) {
-        if (showPublicConstitution) {
+        if (route.page === "constitution") {
             return (
                 <div className="relative flex h-screen w-full flex-col overflow-hidden bg-white dark:bg-[#050505] text-slate-900 dark:text-white font-sans">
                     <header
@@ -136,7 +149,7 @@ function App() {
                     >
                         <button
                             type="button"
-                            onClick={() => setShowPublicConstitution(false)}
+                            onClick={() => navigate({ page: "home" })}
                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full
                                 border border-slate-200 dark:border-white/[0.07] text-slate-400 dark:text-slate-500
                                 transition-colors hover:border-slate-300 dark:hover:border-white/[0.14] hover:text-slate-600 dark:hover:text-slate-300"
@@ -165,10 +178,12 @@ function App() {
                 </div>
             );
         }
-        return <Welcome onShowConstitution={() => setShowPublicConstitution(true)} />;
+        return <Welcome onShowConstitution={() => navigate({ page: "constitution" })} />;
     }
 
-    if (!activeOrganizationId) {
+    // ── Org list ─────────────────────────────────────────────────────────────
+
+    if (!routeOrgId) {
         return (
             <div className="relative flex h-screen w-full overflow-hidden bg-white dark:bg-[#050505]">
                 <div className="grain-overlay hidden dark:block" aria-hidden="true" />
@@ -176,15 +191,17 @@ function App() {
                     <OrganizationsHome
                         organizations={organizations}
                         discoverOrganizations={allOrganizations}
-                        onSelect={setActiveOrganizationId}
-                        onSelectNew={setActiveOrganizationId}
-                        onPreview={handlePreview}
+                        onSelect={(id) => setOrgId(id)}
+                        onSelectNew={(id) => setOrgId(id)}
+                        onPreview={(id) => navigate({ page: "join", orgId: id })}
                         pollUntil={pollUntil}
                     />
                 </main>
             </div>
         );
     }
+
+    // ── Org workspace ────────────────────────────────────────────────────────
 
     const renderContent = () => {
         switch (activeTab) {
@@ -253,7 +270,7 @@ function App() {
                 {/* Back to orgs */}
                 <button
                     type="button"
-                    onClick={() => setActiveOrganizationId(null)}
+                    onClick={() => setOrgId(null)}
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full
                         border border-slate-200 dark:border-white/[0.07] text-slate-400 dark:text-slate-500
                         transition-colors hover:border-slate-300 dark:hover:border-white/[0.14] hover:text-slate-600 dark:hover:text-slate-300"
@@ -374,7 +391,7 @@ function App() {
                             <button
                                 key={id}
                                 type="button"
-                                onClick={() => setActiveTab(id)}
+                                onClick={() => setTab(id)}
                                 className={`relative flex items-center gap-2 rounded-full
                                     px-4 py-2.5
                                     text-[12px] font-semibold tracking-wide
@@ -409,7 +426,7 @@ function App() {
 
             {/* Meeting overlays */}
             <TacticalMeetingRoom
-                onNavigateToTab={setActiveTab}
+                onNavigateToTab={setTab}
                 tacticalMeetingAddress={tacticalMeetingAddress}
                 indexedMeetings={indexedMeetings}
                 allOutputs={indexedOutputs}
