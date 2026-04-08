@@ -62,37 +62,6 @@ const organizationReadAbi = [
     },
 ] as const;
 
-const circleReadAbi = [
-    {
-        type: "function",
-        name: "getOrgMembers",
-        stateMutability: "view",
-        inputs: [],
-        outputs: [{ name: "_members", type: "address[]" }],
-    },
-    {
-        type: "function",
-        name: "getCircle",
-        stateMutability: "view",
-        inputs: [{ name: "_circleId", type: "uint256" }],
-        outputs: [
-            {
-                name: "_circle",
-                type: "tuple",
-                components: [
-                    { name: "id", type: "uint256" },
-                    { name: "parentCircleId", type: "uint256" },
-                    { name: "roleId", type: "uint256" },
-                    { name: "name", type: "string" },
-                    { name: "purpose", type: "string" },
-                    { name: "isAnchor", type: "bool" },
-                    { name: "exists", type: "bool" },
-                ],
-            },
-        ],
-    },
-] as const;
-
 function mapOrg(org: {
     id: bigint;
     name: string;
@@ -162,32 +131,7 @@ async function listOrganizationsOnchain(chainId: number): Promise<Organization[]
         })) as readonly Parameters<typeof mapOrg>[0][];
         for (const org of orgs) {
             if (org.id === 0n) continue;
-
-            let memberCount = "0";
-            let purpose = "";
-            try {
-                const members = (await publicClient.readContract({
-                    address: org.circleRegistry,
-                    abi: circleReadAbi,
-                    functionName: "getOrgMembers",
-                })) as readonly `0x${string}`[];
-                memberCount = members.length.toString();
-
-                const anchorCircle = (await publicClient.readContract({
-                    address: org.circleRegistry,
-                    abi: circleReadAbi,
-                    functionName: "getCircle",
-                    args: [org.anchorCircleId],
-                })) as { purpose: string };
-                purpose = anchorCircle.purpose;
-            } catch {
-                // Keep fallback values when one of the optional reads fails.
-            }
-
-            const mapped = mapOrg(org);
-            mapped.memberCount = memberCount;
-            mapped.purpose = purpose;
-            items.push(mapped);
+            items.push(mapOrg(org));
         }
     }
 
