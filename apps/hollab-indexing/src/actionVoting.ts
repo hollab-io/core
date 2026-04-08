@@ -9,8 +9,6 @@
 import { ponder } from "ponder:registry";
 import schema from "ponder:schema";
 
-import { ActionVotingAbi } from "../abis/ActionVotingAbi";
-
 const vid = (contract: string, voteId: bigint) => `${contract}-${voteId}`;
 const castId = (contract: string, voteId: bigint, voter: string) =>
     `${contract}-${voteId}-${voter.toLowerCase()}`;
@@ -19,19 +17,12 @@ const castId = (contract: string, voteId: bigint, voter: string) =>
 const VoteSupport = { Against: 0, For: 1, Abstain: 2 } as const;
 
 ponder.on("ActionVoting:VoteCreated", async ({ event, context }) => {
-    const { _voteId, _circleId, _outputId, _proposer, _deadline } = event.args;
+    const { _voteId, _circleId, _outputId, _proposer, _deadline, _reason, _snapshotBlock } =
+        event.args;
     const contract = event.log.address;
 
     const entry = await context.db.find(schema.meetingContractIndex, { contractAddress: contract });
     const orgId = entry?.orgId ?? 0n;
-
-    // Read full vote to get reason (not included in the event)
-    const full = await context.client.readContract({
-        abi: ActionVotingAbi,
-        address: contract,
-        functionName: "getVote",
-        args: [_voteId],
-    });
 
     await context.db.insert(schema.actionVote).values({
         id: vid(contract, _voteId),
@@ -41,8 +32,8 @@ ponder.on("ActionVoting:VoteCreated", async ({ event, context }) => {
         circleId: _circleId,
         outputId: _outputId,
         proposer: _proposer,
-        reason: full.reason,
-        snapshotBlock: full.snapshotBlock,
+        reason: _reason,
+        snapshotBlock: _snapshotBlock,
         deadline: _deadline,
         forVotes: 0n,
         againstVotes: 0n,

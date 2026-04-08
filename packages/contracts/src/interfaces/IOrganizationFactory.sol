@@ -25,7 +25,6 @@ interface IOrganizationFactory {
     uint32 votingPeriod;
     uint256 proposalThreshold;
     uint256 quorumNumerator;
-    uint256 treasuryTimelockDelay;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -38,9 +37,8 @@ interface IOrganizationFactory {
   /// @param _creator The address that created the organization
   event OrganizationCreated(uint256 indexed _orgId, string _subname, address indexed _creator);
 
-  /// @notice Emitted alongside OrganizationCreated with the addresses of the three
-  ///         per-org clone contracts so off-chain indexers can discover them via
-  ///         factory pattern without needing hardcoded addresses.
+  /// @notice Emitted alongside OrganizationCreated with the addresses of the
+  ///         per-org clone contracts so off-chain indexers can discover them.
   /// @param _orgId The organization ID
   /// @param _circleRegistry The deployed CircleRegistry clone
   /// @param _roleRegistry The deployed RoleRegistry clone
@@ -49,9 +47,15 @@ interface IOrganizationFactory {
     uint256 indexed _orgId,
     address indexed _circleRegistry,
     address indexed _roleRegistry,
-    address _governanceProcess,
-    address _treasury
+    address _governanceProcess
   );
+  event JoinRequested(uint256 indexed requestId, address indexed requester, uint256 indexed orgId, string message);
+  event JoinApproved(uint256 indexed requestId, address indexed requester, uint256 indexed orgId);
+  event JoinRejected(uint256 indexed requestId, address indexed requester, uint256 indexed orgId);
+  event OrgAdminAdded(uint256 indexed orgId, address indexed account);
+  event OrgAdminRemoved(uint256 indexed orgId, address indexed account);
+  event OrgMemberAdded(uint256 indexed orgId, address indexed account);
+  event OrgMemberRemoved(uint256 indexed orgId, address indexed account);
 
   /*///////////////////////////////////////////////////////////////
                             ERRORS
@@ -65,6 +69,10 @@ interface IOrganizationFactory {
 
   /// @notice Thrown when the subname is too short (minimum 3 characters)
   error OrganizationFactory_SubnameTooShort(string _subname);
+  error OrganizationFactory_JoinRequestAlreadyPending(address requester, uint256 orgId);
+  error OrganizationFactory_JoinRequestNotFound(address requester, uint256 orgId);
+  error OrganizationFactory_JoinRequestUnauthorized(address caller, uint256 orgId);
+  error OrganizationFactory_OrgNotFound(uint256 orgId);
 
   /*///////////////////////////////////////////////////////////////
                             LOGIC
@@ -80,6 +88,13 @@ interface IOrganizationFactory {
     string calldata _purpose,
     GovernanceConfig calldata _govConfig
   ) external returns (uint256 _orgId);
+  function requestToJoin(uint256 orgId, string calldata message) external returns (uint256 requestId);
+  function approveJoinRequest(uint256 orgId, address requester) external;
+  function rejectJoinRequest(uint256 orgId, address requester) external;
+  function addOrgAdmin(uint256 orgId, address account) external;
+  function removeOrgAdmin(uint256 orgId, address account) external;
+  function addOrgMember(uint256 orgId, address account) external;
+  function removeOrgMember(uint256 orgId, address account) external;
 
   /*///////////////////////////////////////////////////////////////
                             VARIABLES
@@ -99,15 +114,21 @@ interface IOrganizationFactory {
   /// @return _count The organization count
   function organizationCount() external view returns (uint256 _count);
 
+  /// @notice Returns a page of organizations by sequential IDs.
+  /// @dev Reads IDs in range [_offset + 1, min(_offset + _limit, organizationCount)].
+  /// @param _offset Zero-based offset into the organization list
+  /// @param _limit Maximum number of organizations to return
+  /// @return _orgs The paginated organization records
+  function getOrganizations(
+    uint256 _offset,
+    uint256 _limit
+  ) external view returns (HolacracyTypes.Organization[] memory _orgs);
+  function hasPendingRequest(address requester, uint256 orgId) external view returns (bool);
+  function isOrgAdmin(uint256 orgId, address account) external view returns (bool);
+  function isOrgMember(uint256 orgId, address account) external view returns (bool);
+
   /// @notice Returns the RoleRegistry implementation address
   /// @return _impl The implementation address
   function roleRegistryImplementation() external view returns (address _impl);
 
-  /// @notice Returns the CircleRegistry implementation address
-  /// @return _impl The implementation address
-  function circleRegistryImplementation() external view returns (address _impl);
-
-  /// @notice Returns the GovernanceProcess implementation address
-  /// @return _impl The implementation address
-  function governanceProcessImplementation() external view returns (address _impl);
 }

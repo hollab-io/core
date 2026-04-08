@@ -3,20 +3,15 @@ pragma solidity 0.8.28;
 
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
 import {IMeetingComponentsFactory} from 'interfaces/IMeetingComponentsFactory.sol';
-import {TacticalMeeting} from 'contracts/TacticalMeeting.sol';
-import {GovernanceMeeting} from 'contracts/GovernanceMeeting.sol';
+import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
-import {CircleRegistry} from 'contracts/CircleRegistry.sol';
-import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
 
 /**
  * @title MeetingComponentsFactory
- * @notice Deploys per-org TacticalMeeting, GovernanceMeeting, and ActionVoting clones
- *         in a single transaction.
+ * @notice Deploys per-org MeetingFactory and ActionVoting clones in a single transaction.
  *
  * @dev Each deploy() call:
- *      1. Clones all three implementation contracts via ERC-1167.
+ *      1. Clones both implementation contracts via ERC-1167.
  *      2. Initializes them with the org's existing contracts.
  *      3. Emits MeetingComponentsDeployed so off-chain indexers (e.g. Ponder) can
  *         auto-discover the per-org clone addresses without manual configuration.
@@ -28,11 +23,8 @@ contract MeetingComponentsFactory is IMeetingComponentsFactory {
                             STATE
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice TacticalMeeting implementation used for cloning
-  address public immutable tacticalMeetingImplementation;
-
-  /// @notice GovernanceMeeting implementation used for cloning
-  address public immutable governanceMeetingImplementation;
+  /// @notice MeetingFactory implementation used for cloning
+  address public immutable meetingFactoryImplementation;
 
   /// @notice ActionVoting implementation used for cloning
   address public immutable actionVotingImplementation;
@@ -41,15 +33,13 @@ contract MeetingComponentsFactory is IMeetingComponentsFactory {
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
-  /// @param _tacticalMeetingImpl    Deployed TacticalMeeting implementation
-  /// @param _governanceMeetingImpl  Deployed GovernanceMeeting implementation
+  /// @param _meetingFactoryImpl     Deployed MeetingFactory implementation
   /// @param _actionVotingImpl       Deployed ActionVoting implementation
-  constructor(address _tacticalMeetingImpl, address _governanceMeetingImpl, address _actionVotingImpl) {
-    if (_tacticalMeetingImpl == address(0) || _governanceMeetingImpl == address(0) || _actionVotingImpl == address(0)) {
+  constructor(address _meetingFactoryImpl, address _actionVotingImpl) {
+    if (_meetingFactoryImpl == address(0) || _actionVotingImpl == address(0)) {
       revert MeetingComponentsFactory_ZeroAddress();
     }
-    tacticalMeetingImplementation = _tacticalMeetingImpl;
-    governanceMeetingImplementation = _governanceMeetingImpl;
+    meetingFactoryImplementation = _meetingFactoryImpl;
     actionVotingImplementation = _actionVotingImpl;
   }
 
@@ -60,28 +50,23 @@ contract MeetingComponentsFactory is IMeetingComponentsFactory {
   /// @inheritdoc IMeetingComponentsFactory
   function deploy(
     uint256 _orgId,
-    address _circleRegistry,
-    address _roleRegistry,
-    address _governanceProcess,
+    address _orgFactory,
     address _govToken
   ) external returns (Deployment memory deployment) {
     // ── 1. Clone ────────────────────────────────────────────────────────────────
-    TacticalMeeting tacticalMeeting = TacticalMeeting(Clones.clone(tacticalMeetingImplementation));
-    GovernanceMeeting governanceMeeting = GovernanceMeeting(Clones.clone(governanceMeetingImplementation));
+    MeetingFactory meetingFactory = MeetingFactory(Clones.clone(meetingFactoryImplementation));
     ActionVoting actionVoting = ActionVoting(Clones.clone(actionVotingImplementation));
 
     // ── 2. Initialize ────────────────────────────────────────────────────────────
-    tacticalMeeting.initialize(CircleRegistry(_circleRegistry), RoleRegistry(_roleRegistry));
-    governanceMeeting.initialize(CircleRegistry(_circleRegistry), GovernanceProcess(_governanceProcess));
-    actionVoting.initialize(_circleRegistry, address(tacticalMeeting), _govToken);
+    meetingFactory.initialize(_orgFactory, address(0), address(0));
+    actionVoting.initialize(_orgFactory, address(meetingFactory), _govToken);
 
     // ── 3. Emit for indexer auto-discovery ───────────────────────────────────────
     deployment = Deployment({
-      tacticalMeeting: address(tacticalMeeting),
-      governanceMeeting: address(governanceMeeting),
+      meetingFactory: address(meetingFactory),
       actionVoting: address(actionVoting)
     });
 
-    emit MeetingComponentsDeployed(_orgId, address(tacticalMeeting), address(governanceMeeting), address(actionVoting));
+    emit MeetingComponentsDeployed(_orgId, address(meetingFactory), address(actionVoting));
   }
 }

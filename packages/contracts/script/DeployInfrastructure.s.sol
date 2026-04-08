@@ -4,14 +4,10 @@ pragma solidity 0.8.28;
 import {Script, console} from 'forge-std/Script.sol';
 import {DeployConfig} from './DeployConfig.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {CircleRegistry} from 'contracts/CircleRegistry.sol';
-import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
-import {TacticalMeeting} from 'contracts/TacticalMeeting.sol';
-import {GovernanceMeeting} from 'contracts/GovernanceMeeting.sol';
+import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
 import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
-import {HolacracyDataProvider} from 'helpers/HolacracyDataProvider.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {ENSSubdomainRegistrar} from 'ens/ENSSubdomainRegistrar.sol';
 
@@ -61,15 +57,11 @@ contract DeployInfrastructure is Script {
   struct Infrastructure {
     address ensRegistrar;
     address roleRegistryImpl;
-    address circleRegistryImpl;
-    address governanceProcessImpl;
-    address tacticalMeetingImpl;
-    address governanceMeetingImpl;
+    address meetingImpl;
     address actionVotingImpl;
     address meetingFactory;
     address govFactory;
     address orgFactory;
-    address dataProvider;
   }
 
   function run() external returns (Infrastructure memory infra) {
@@ -101,16 +93,11 @@ contract DeployInfrastructure is Script {
 
     // ── 2. Implementation contracts (clone sources) ─────────────────────────
     infra.roleRegistryImpl = address(new RoleRegistry());
-    infra.circleRegistryImpl = address(new CircleRegistry());
-    infra.governanceProcessImpl = address(new GovernanceProcess());
-    infra.tacticalMeetingImpl = address(new TacticalMeeting());
-    infra.governanceMeetingImpl = address(new GovernanceMeeting());
+    infra.meetingImpl = address(new MeetingFactory());
     infra.actionVotingImpl = address(new ActionVoting());
 
     // ── 3. MeetingComponentsFactory ─────────────────────────────────────────
-    infra.meetingFactory = address(
-      new MeetingComponentsFactory(infra.tacticalMeetingImpl, infra.governanceMeetingImpl, infra.actionVotingImpl)
-    );
+    infra.meetingFactory = address(new MeetingComponentsFactory(infra.meetingImpl, infra.actionVotingImpl));
 
     // ── 4. HolGovernorFactory ───────────────────────────────────────────────
     infra.govFactory = address(new HolGovernorFactory());
@@ -118,8 +105,6 @@ contract DeployInfrastructure is Script {
     // ── 4. OrganizationFactory ──────────────────────────────────────────────
     OrganizationFactory orgFactory = new OrganizationFactory(
       infra.roleRegistryImpl,
-      infra.circleRegistryImpl,
-      infra.governanceProcessImpl,
       infra.govFactory,
       infra.ensRegistrar
     );
@@ -129,9 +114,6 @@ contract DeployInfrastructure is Script {
     if (DeployConfig.hasENS(chainId)) {
       ENSSubdomainRegistrar(infra.ensRegistrar).authorize(infra.orgFactory);
     }
-
-    // ── 5. HolacracyDataProvider (stateless read helper) ────────────────────
-    infra.dataProvider = address(new HolacracyDataProvider());
 
     vm.stopBroadcast();
 
@@ -146,16 +128,12 @@ contract DeployInfrastructure is Script {
     string memory obj = 'infra';
     vm.serializeAddress(obj, 'ensRegistrar', _infra.ensRegistrar);
     vm.serializeAddress(obj, 'roleRegistryImpl', _infra.roleRegistryImpl);
-    vm.serializeAddress(obj, 'circleRegistryImpl', _infra.circleRegistryImpl);
-    vm.serializeAddress(obj, 'governanceProcessImpl', _infra.governanceProcessImpl);
-    vm.serializeAddress(obj, 'tacticalMeetingImpl', _infra.tacticalMeetingImpl);
-    vm.serializeAddress(obj, 'governanceMeetingImpl', _infra.governanceMeetingImpl);
+    vm.serializeAddress(obj, 'meetingImpl', _infra.meetingImpl);
     vm.serializeAddress(obj, 'actionVotingImpl', _infra.actionVotingImpl);
     vm.serializeAddress(obj, 'meetingFactory', _infra.meetingFactory);
     vm.serializeAddress(obj, 'govFactory', _infra.govFactory);
     vm.serializeAddress(obj, 'orgFactory', _infra.orgFactory);
-    vm.serializeUint(obj, 'chainId', _chainId);
-    string memory json = vm.serializeAddress(obj, 'dataProvider', _infra.dataProvider);
+    string memory json = vm.serializeUint(obj, 'chainId', _chainId);
     vm.writeJson(json, string.concat('./deployments/', vm.toString(_chainId), '-infrastructure.json'));
   }
 
@@ -169,17 +147,13 @@ contract DeployInfrastructure is Script {
     console.log('');
     console.log('--- Implementations (clone sources) ---');
     console.log('RoleRegistry:           ', _infra.roleRegistryImpl);
-    console.log('CircleRegistry:         ', _infra.circleRegistryImpl);
-    console.log('GovernanceProcess:      ', _infra.governanceProcessImpl);
-    console.log('TacticalMeeting:        ', _infra.tacticalMeetingImpl);
-    console.log('GovernanceMeeting:      ', _infra.governanceMeetingImpl);
+    console.log('MeetingFactory:         ', _infra.meetingImpl);
     console.log('ActionVoting:           ', _infra.actionVotingImpl);
     console.log('');
     console.log('--- Meeting factory ---');
     console.log('MeetingComponentsFactory:', _infra.meetingFactory);
     console.log('');
     console.log('--- Helpers ---');
-    console.log('HolacracyDataProvider:  ', _infra.dataProvider);
     console.log('ENSRegistrar:           ', _infra.ensRegistrar);
     console.log('');
     console.log('Artifacts saved to: deployments/', vm.toString(_chainId), '-infrastructure.json');

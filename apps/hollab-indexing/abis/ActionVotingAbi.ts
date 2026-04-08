@@ -16,15 +16,16 @@ export const ActionVotingAbi = [
     },
     {
         type: "function",
-        name: "circleRegistry",
+        name: "orgFactory",
         inputs: [],
-        outputs: [{ name: "", type: "address", internalType: "contract CircleRegistry" }],
+        outputs: [{ name: "", type: "address", internalType: "contract IOrganizationFactory" }],
         stateMutability: "view",
     },
     {
         type: "function",
         name: "createVote",
         inputs: [
+            { name: "_circleId", type: "uint256", internalType: "uint256" },
             { name: "_outputId", type: "uint256", internalType: "uint256" },
             { name: "_reason", type: "string", internalType: "string" },
             { name: "_duration", type: "uint256", internalType: "uint256" },
@@ -55,54 +56,12 @@ export const ActionVotingAbi = [
     },
     {
         type: "function",
-        name: "getCircleVotes",
-        inputs: [{ name: "_circleId", type: "uint256", internalType: "uint256" }],
-        outputs: [{ name: "_voteIds", type: "uint256[]", internalType: "uint256[]" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
         name: "getCollaboratorWeight",
         inputs: [
             { name: "_circleId", type: "uint256", internalType: "uint256" },
             { name: "_collaborator", type: "address", internalType: "address" },
         ],
         outputs: [{ name: "_weight", type: "uint256", internalType: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        name: "getVote",
-        inputs: [{ name: "_voteId", type: "uint256", internalType: "uint256" }],
-        outputs: [
-            {
-                name: "_vote",
-                type: "tuple",
-                internalType: "struct HolacracyTypes.ActionVote",
-                components: [
-                    { name: "id", type: "uint256", internalType: "uint256" },
-                    { name: "circleId", type: "uint256", internalType: "uint256" },
-                    { name: "outputId", type: "uint256", internalType: "uint256" },
-                    { name: "proposer", type: "address", internalType: "address" },
-                    { name: "reason", type: "string", internalType: "string" },
-                    { name: "snapshotBlock", type: "uint256", internalType: "uint256" },
-                    { name: "deadline", type: "uint256", internalType: "uint256" },
-                    { name: "forVotes", type: "uint256", internalType: "uint256" },
-                    { name: "againstVotes", type: "uint256", internalType: "uint256" },
-                    { name: "abstainVotes", type: "uint256", internalType: "uint256" },
-                    { name: "exists", type: "bool", internalType: "bool" },
-                ],
-            },
-        ],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        name: "getVoteStatus",
-        inputs: [{ name: "_voteId", type: "uint256", internalType: "uint256" }],
-        outputs: [
-            { name: "_status", type: "uint8", internalType: "enum HolacracyTypes.VoteStatus" },
-        ],
         stateMutability: "view",
     },
     {
@@ -147,8 +106,8 @@ export const ActionVotingAbi = [
         type: "function",
         name: "initialize",
         inputs: [
-            { name: "_circleRegistry", type: "address", internalType: "address" },
-            { name: "_tacticalMeeting", type: "address", internalType: "address" },
+            { name: "_orgFactory", type: "address", internalType: "address" },
+            { name: "_meetingFactory", type: "address", internalType: "address" },
             { name: "_govToken", type: "address", internalType: "address" },
         ],
         outputs: [],
@@ -183,13 +142,6 @@ export const ActionVotingAbi = [
         ],
         outputs: [],
         stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        name: "tacticalMeeting",
-        inputs: [],
-        outputs: [{ name: "", type: "address", internalType: "contract TacticalMeeting" }],
-        stateMutability: "view",
     },
     {
         type: "event",
@@ -253,6 +205,8 @@ export const ActionVotingAbi = [
             { name: "_outputId", type: "uint256", indexed: true, internalType: "uint256" },
             { name: "_proposer", type: "address", indexed: false, internalType: "address" },
             { name: "_deadline", type: "uint256", indexed: false, internalType: "uint256" },
+            { name: "_reason", type: "string", indexed: false, internalType: "string" },
+            { name: "_snapshotBlock", type: "uint256", indexed: false, internalType: "uint256" },
         ],
         anonymous: false,
     },
@@ -288,11 +242,6 @@ export const ActionVotingAbi = [
         type: "error",
         name: "ActionVoting_NotCircleLeadOrFacilitator",
         inputs: [{ name: "_circleId", type: "uint256", internalType: "uint256" }],
-    },
-    {
-        type: "error",
-        name: "ActionVoting_OutputNotFound",
-        inputs: [{ name: "_outputId", type: "uint256", internalType: "uint256" }],
     },
     {
         type: "error",

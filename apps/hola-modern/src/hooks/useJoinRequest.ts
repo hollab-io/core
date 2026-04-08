@@ -1,27 +1,30 @@
 /**
- * useJoinRequest — interact with the JoinRequest contract.
+ * useJoinRequest — interact with org-level join requests in OrganizationFactory.
  *
  * Outsiders call requestToJoin(orgId, message).
- * Org admins call approveWithTokens(requestId, requester, govToken)
- *   which batches approve() + ERC-20 transfer(requester, 100 tokens)
+ * Org admins call approveWithTokens(orgId, requester, govToken)
+ *   which batches approveJoinRequest(orgId, requester) + ERC-20 transfer(requester, 100 tokens)
  *   into a single ZeroDev UserOp (or two sequential EOA txs as fallback).
+ *
+ * Read operations (pending requests list) are served by the Ponder indexer.
+ * Only hasPendingRequest is checked on-chain (lightweight single-slot read).
  */
 import type { Abi, Address } from "viem";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { createIndexingClient } from "@hollab-io/indexing-client";
 import { useCallback } from "react";
-import { isAddress } from "viem";
+import { createPublicClient, http, isAddress } from "viem";
 
 import { useChain } from "../context/ChainContext";
-import { getIndexingClient } from "./useOrganizationsFromIndexer";
 import { useSendTransaction } from "./useSendTransaction";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 
 const TOKENS_PER_APPROVAL = 100n * 10n ** 18n; // 100 tokens
 
-// ── ABIs (inline — contract not yet in wagmi codegen) ─────────────────────────
+// ── ABIs ───────────────────────────────────────────────────────────────────────
 
-export const joinRequestAbi = [
+export const organizationFactoryJoinAbi = [
     {
         type: "function",
         name: "requestToJoin",
@@ -34,59 +37,23 @@ export const joinRequestAbi = [
     },
     {
         type: "function",
-        name: "approve",
+        name: "approveJoinRequest",
         stateMutability: "nonpayable",
-        inputs: [{ name: "requestId", type: "uint256" }],
+        inputs: [
+            { name: "orgId", type: "uint256" },
+            { name: "requester", type: "address" },
+        ],
         outputs: [],
     },
     {
         type: "function",
-        name: "reject",
+        name: "rejectJoinRequest",
         stateMutability: "nonpayable",
-        inputs: [{ name: "requestId", type: "uint256" }],
+        inputs: [
+            { name: "orgId", type: "uint256" },
+            { name: "requester", type: "address" },
+        ],
         outputs: [],
-    },
-    {
-        type: "function",
-        name: "getRequest",
-        stateMutability: "view",
-        inputs: [{ name: "requestId", type: "uint256" }],
-        outputs: [
-            {
-                name: "",
-                type: "tuple",
-                components: [
-                    { name: "id", type: "uint256" },
-                    { name: "requester", type: "address" },
-                    { name: "orgId", type: "uint256" },
-                    { name: "message", type: "string" },
-                    { name: "status", type: "uint8" },
-                    { name: "submittedAt", type: "uint256" },
-                    { name: "resolvedAt", type: "uint256" },
-                ],
-            },
-        ],
-    },
-    {
-        type: "function",
-        name: "getPendingOrgRequests",
-        stateMutability: "view",
-        inputs: [{ name: "orgId", type: "uint256" }],
-        outputs: [
-            {
-                name: "result",
-                type: "tuple[]",
-                components: [
-                    { name: "id", type: "uint256" },
-                    { name: "requester", type: "address" },
-                    { name: "orgId", type: "uint256" },
-                    { name: "message", type: "string" },
-                    { name: "status", type: "uint8" },
-                    { name: "submittedAt", type: "uint256" },
-                    { name: "resolvedAt", type: "uint256" },
-                ],
-            },
-        ],
     },
     {
         type: "function",
@@ -141,7 +108,7 @@ const erc20Abi = [
     },
 ] as const satisfies Abi;
 
-// ── Types ─────────────────────────────────────��───────────────────────────���────
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 export type JoinRequestStatus = 0 | 1 | 2; // Pending | Approved | Rejected
 
@@ -155,30 +122,34 @@ export type JoinRequestEntry = {
     resolvedAt: bigint;
 };
 
-// ── Hook ──────────────���───────────────────────────────────────────────────────
+// ── Hook ───────────────────────────────────────────────────────────────────────
 
 export function useJoinRequest() {
     const { primaryWallet } = useDynamicContext();
     const { send } = useSendTransaction();
     const { chainConfig } = useChain();
 
-    const joinRequestAddress = chainConfig.joinRequestAddress;
+    const organizationFactoryAddress = chainConfig.orgFactoryAddress;
+    const publicClient = createPublicClient({
+        chain: chainConfig.chain,
+        transport: http(chainConfig.chain.rpcUrls.default.http[0]),
+    });
     const account = () => (primaryWallet?.address ?? "0x") as Address;
 
-    // ── Write ───────────────────────────────────��─────────────────────────────
+    // ── Write ──────────────────────────────────────────────────────────────────
 
     const requestToJoin = async (params: {
         orgId: bigint;
         message: string;
     }): Promise<`0x${string}`> => {
-        if (joinRequestAddress === ZERO_ADDRESS) {
-            throw new Error("JoinRequest contract not deployed on this chain yet.");
+        if (organizationFactoryAddress === ZERO_ADDRESS) {
+            throw new Error("OrganizationFactory contract not deployed on this chain yet.");
         }
         return send(
             [
                 {
-                    to: joinRequestAddress,
-                    abi: joinRequestAbi as Abi,
+                    to: organizationFactoryAddress,
+                    abi: organizationFactoryJoinAbi as Abi,
                     functionName: "requestToJoin",
                     args: [params.orgId, params.message],
                 },
@@ -192,7 +163,7 @@ export function useJoinRequest() {
      * With ZeroDev: single UserOp. Without ZeroDev: two sequential EOA txs.
      */
     const approveWithTokens = async (params: {
-        requestId: bigint;
+        orgId: bigint;
         requester: Address;
         govTokenAddress: Address;
     }): Promise<`0x${string}`> => {
@@ -200,10 +171,10 @@ export function useJoinRequest() {
         return send(
             [
                 {
-                    to: joinRequestAddress,
-                    abi: joinRequestAbi as Abi,
-                    functionName: "approve",
-                    args: [params.requestId],
+                    to: organizationFactoryAddress,
+                    abi: organizationFactoryJoinAbi as Abi,
+                    functionName: "approveJoinRequest",
+                    args: [params.orgId, params.requester],
                 },
                 {
                     to: params.govTokenAddress,
@@ -216,50 +187,59 @@ export function useJoinRequest() {
         );
     };
 
-    const rejectRequest = async (params: { requestId: bigint }): Promise<`0x${string}`> =>
+    const rejectRequest = async (params: {
+        orgId: bigint;
+        requester: Address;
+    }): Promise<`0x${string}`> =>
         send(
             [
                 {
-                    to: joinRequestAddress,
-                    abi: joinRequestAbi as Abi,
-                    functionName: "reject",
-                    args: [params.requestId],
+                    to: organizationFactoryAddress,
+                    abi: organizationFactoryJoinAbi as Abi,
+                    functionName: "rejectJoinRequest",
+                    args: [params.orgId, params.requester],
                 },
             ],
             account(),
         );
 
-    // ── Read (via indexer) ────────────────────────────────────────────────────
+    // ── Read (indexer for lists, on-chain for lightweight checks) ─────────────
 
-    const getPendingRequests = useCallback(async (orgId: bigint): Promise<JoinRequestEntry[]> => {
-        const client = getIndexingClient();
-        if (!client) return [];
-        const result = await client.listPendingJoinRequestsByOrg(orgId.toString(), { limit: 100 });
-        return result.items.map((r) => ({
-            id: BigInt(r.requestId),
-            requester: r.requester as Address,
-            orgId: BigInt(r.orgId),
-            message: r.message,
-            status: r.status as JoinRequestStatus,
-            submittedAt: BigInt(r.submittedAt),
-            resolvedAt: BigInt(r.resolvedAt ?? 0),
-        }));
-    }, []);
+    const getPendingRequests = useCallback(
+        async (orgId: bigint): Promise<JoinRequestEntry[]> => {
+            if (!chainConfig.indexerUrl) return [];
+            try {
+                const client = createIndexingClient(chainConfig.indexerUrl);
+                const result = await client.listPendingJoinRequestsByOrg(orgId.toString());
+                return result.items.map((r) => ({
+                    id: BigInt(r.requestId),
+                    requester: r.requester as Address,
+                    orgId: BigInt(r.orgId),
+                    message: r.message,
+                    status: r.status as JoinRequestStatus,
+                    submittedAt: BigInt(r.submittedAt),
+                    resolvedAt: r.resolvedAt ? BigInt(r.resolvedAt) : 0n,
+                }));
+            } catch {
+                return [];
+            }
+        },
+        [chainConfig.indexerUrl],
+    );
 
     const walletAddress = primaryWallet?.address;
     const hasPendingRequest = useCallback(
         async (orgId: bigint): Promise<boolean> => {
             if (!walletAddress) return false;
-            const client = getIndexingClient();
-            if (!client) return false;
-            const result = await client.listPendingJoinRequestsByOrg(orgId.toString(), {
-                limit: 1,
-            });
-            return result.items.some(
-                (r) => r.requester.toLowerCase() === walletAddress.toLowerCase(),
-            );
+            if (organizationFactoryAddress === ZERO_ADDRESS) return false;
+            return (await publicClient.readContract({
+                address: organizationFactoryAddress,
+                abi: organizationFactoryJoinAbi as Abi,
+                functionName: "hasPendingRequest",
+                args: [walletAddress, orgId],
+            })) as boolean;
         },
-        [walletAddress],
+        [walletAddress, organizationFactoryAddress, publicClient],
     );
 
     return {

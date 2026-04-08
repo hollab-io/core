@@ -6,10 +6,7 @@ import {HolacracyTypes} from "libraries/HolacracyTypes.sol";
 import {IOrganizationFactory} from "interfaces/IOrganizationFactory.sol";
 import {OrganizationFactory} from "contracts/OrganizationFactory.sol";
 import {RoleRegistry} from "contracts/RoleRegistry.sol";
-import {CircleRegistry} from "contracts/CircleRegistry.sol";
-import {GovernanceProcess} from "contracts/GovernanceProcess.sol";
 import {HolGovernorFactory} from "contracts/governance/HolGovernorFactory.sol";
-import {HolacracyDataProvider} from "helpers/HolacracyDataProvider.sol";
 import {ENSSubdomainRegistrar} from "ens/ENSSubdomainRegistrar.sol";
 
 interface IENS {
@@ -36,7 +33,6 @@ interface IENS {
  *   VOTING_DELAY             — voting delay in seconds               (default: 1 day)
  *   VOTING_PERIOD            — voting period in seconds              (default: 1 week)
  *   QUORUM_NUMERATOR         — quorum % numerator out of 100         (default: 4)
- *   TREASURY_DELAY           — circle treasury timelock delay        (default: 1 day)
  *
  * Run:
  *   forge script script/DeploySepolia.s.sol \
@@ -75,8 +71,6 @@ contract DeploySepolia is Script {
 
         // ── 2. Implementation contracts (logic, deployed once) ────────────────────
         RoleRegistry roleRegistryImpl = new RoleRegistry();
-        CircleRegistry circleRegistryImpl = new CircleRegistry();
-        GovernanceProcess governanceProcessImpl = new GovernanceProcess();
 
         // ── 3. HolGovernorFactory ─────────────────────────────────────────────────
         HolGovernorFactory govFactory = new HolGovernorFactory();
@@ -84,18 +78,13 @@ contract DeploySepolia is Script {
         // ── 4. OrganizationFactory ────────────────────────────────────────────────
         OrganizationFactory orgFactory = new OrganizationFactory(
             address(roleRegistryImpl),
-            address(circleRegistryImpl),
-            address(governanceProcessImpl),
             address(govFactory),
             address(ensRegistrar)
         );
         // Authorize the factory to register subdomains on behalf of the deployer
         ensRegistrar.authorize(address(orgFactory));
 
-        // ── 5. HolacracyDataProvider (stateless, no constructor) ──────────────────
-        HolacracyDataProvider dataProvider = new HolacracyDataProvider();
-
-        // ── 6. Create the first organization ──────────────────────────────────────
+        // ── 5. Create the first organization ──────────────────────────────────────
         string memory orgSubname = vm.envOr("ORG_NAME", string("core"));
         string memory orgPurpose = vm.envOr("ORG_PURPOSE", string("Holacracy on-chain"));
         uint256 initialSupply = vm.envOr("INITIAL_SUPPLY", uint256(1_000_000e18));
@@ -117,8 +106,7 @@ contract DeploySepolia is Script {
                 votingDelay: uint48(vm.envOr("VOTING_DELAY", uint256(1 days))),
                 votingPeriod: uint32(vm.envOr("VOTING_PERIOD", uint256(1 weeks))),
                 proposalThreshold: 0,
-                quorumNumerator: vm.envOr("QUORUM_NUMERATOR", uint256(4)),
-                treasuryTimelockDelay: vm.envOr("TREASURY_DELAY", uint256(1 days))
+                quorumNumerator: vm.envOr("QUORUM_NUMERATOR", uint256(4))
             })
         );
 
@@ -134,11 +122,10 @@ contract DeploySepolia is Script {
         console.log("PONDER_RPC_URL_11155111=<your-sepolia-rpc>");
         console.log("START_BLOCK=<this-block-number>");
         console.log("");
-        console.log("HOLACRACY_DATA_PROVIDER_ADDRESS=", address(dataProvider));
         console.log("ORGANIZATION_FACTORY_ADDRESS=   ", address(orgFactory));
         console.log("HOL_GOVERNOR_FACTORY_ADDRESS=   ", address(govFactory));
         console.log("");
-        console.log("# CircleRegistry / RoleRegistry / GovernanceProcess / CircleTreasury are");
+        console.log("# RoleRegistry / GovernanceProcess are");
         console.log("# auto-discovered via OrgComponentsDeployed -- no addresses needed.");
         console.log("");
         console.log("=== All deployed addresses ===");
@@ -147,12 +134,9 @@ contract DeploySepolia is Script {
         console.log("ENSSubdomainRegistrar:  ", address(ensRegistrar));
         console.log("HolGovernorFactory:     ", address(govFactory));
         console.log("OrganizationFactory:    ", address(orgFactory));
-        console.log("HolacracyDataProvider:  ", address(dataProvider));
         console.log("");
         console.log("--- Implementations (not indexed) ---");
         console.log("RoleRegistry impl:      ", address(roleRegistryImpl));
-        console.log("CircleRegistry impl:    ", address(circleRegistryImpl));
-        console.log("GovernanceProcess impl: ", address(governanceProcessImpl));
         console.log("");
         console.log("--- Organization ---");
         console.log("ID:                    ", orgId);
@@ -164,6 +148,5 @@ contract DeploySepolia is Script {
         console.log("RoleRegistry:           ", org.roleRegistry);
         console.log("GovernanceProcess:      ", org.governanceProcess);
         console.log("Anchor circle ID:       ", org.anchorCircleId);
-        console.log("CircleTreasury:         ", org.treasury);
     }
 }

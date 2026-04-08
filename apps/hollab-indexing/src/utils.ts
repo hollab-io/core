@@ -1,33 +1,20 @@
 import type { Context } from "ponder:registry";
 import schema from "ponder:schema";
 
-import { HolacracyDataProviderAbi } from "../abis/HolacracyDataProviderAbi";
-
-const getOrgMembersAbi = [
-    {
-        type: "function",
-        name: "getOrgMembers",
-        stateMutability: "view",
-        inputs: [],
-        outputs: [{ name: "", type: "address[]" }],
-    },
-] as const;
-
 const ZERO_HASH =
     "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
-const dataProvider = () =>
-    (process.env.HOLACRACY_DATA_PROVIDER_ADDRESS ??
-        "0x0000000000000000000000000000000000000007") as `0x${string}`;
+function isZeroAddress(a: `0x${string}`): boolean {
+    return a.toLowerCase() === ZERO_ADDRESS;
+}
 
 // ─── Core refresh ─────────────────────────────────────────────────────────────
 
 /**
- * Called by every CircleRegistry / RoleRegistry event handler.
- * Looks up the org via registryIndex, then calls the DataProvider for a fresh
- * snapshot and upserts organisation, circles, roles, and policies.
+ * Called by every RoleRegistry event handler.
+ * Looks up the org via registryIndex, then refreshes the org snapshot.
  */
 export async function refreshOrgData(
     context: Context,
@@ -41,8 +28,8 @@ export async function refreshOrgData(
 }
 
 /**
- * Upserts a full org snapshot from the DataProvider.
- * Called directly from OrganizationCreated (where we already know factoryAddress + orgId).
+ * Upserts an org snapshot using direct contract reads (no DataProvider).
+ * Called from OrganizationCreated and role-change events.
  */
 export async function upsertOrgSnapshot(
     context: Context,
@@ -50,174 +37,128 @@ export async function upsertOrgSnapshot(
     orgId: bigint,
     timestamp: bigint,
 ) {
-    const [overview, circles, roles, policies] = await context.client.readContract({
-        abi: HolacracyDataProviderAbi,
-        address: dataProvider(),
-        functionName: "getOrganizationFullData",
-        args: [factoryAddress, orgId],
+    const orgFactoryAbi = [
+        {
+            type: "function",
+            name: "getOrganization",
+            stateMutability: "view",
+            inputs: [{ name: "_orgId", type: "uint256" }],
+            outputs: [
+                {
+                    name: "_org",
+                    type: "tuple",
+                    components: [
+                        { name: "id", type: "uint256" },
+                        { name: "name", type: "string" },
+                        { name: "subname", type: "string" },
+                        { name: "creator", type: "address" },
+                        { name: "roleRegistry", type: "address" },
+                        { name: "circleRegistry", type: "address" },
+                        { name: "governanceProcess", type: "address" },
+                        { name: "meetingFactory", type: "address" },
+                        { name: "accessManager", type: "address" },
+                        { name: "anchorCircleId", type: "uint256" },
+                        { name: "createdAt", type: "uint256" },
+                        { name: "governor", type: "address" },
+                        { name: "token", type: "address" },
+                        { name: "timelock", type: "address" },
+                    ],
+                },
+            ],
+        },
+    ] as const;
+
+    const tokenMetaAbi = [
+        {
+            type: "function",
+            name: "name",
+            stateMutability: "view",
+            inputs: [],
+            outputs: [{ type: "string" }],
+        },
+        {
+            type: "function",
+            name: "symbol",
+            stateMutability: "view",
+            inputs: [],
+            outputs: [{ type: "string" }],
+        },
+        {
+            type: "function",
+            name: "totalSupply",
+            stateMutability: "view",
+            inputs: [],
+            outputs: [{ type: "uint256" }],
+        },
+    ] as const;
+
+    const org = await context.client.readContract({
+        abi: orgFactoryAbi,
+        address: factoryAddress,
+        functionName: "getOrganization",
+        args: [orgId],
     });
 
-    const anchorPurpose = circles.find((c) => c.isAnchor)?.purpose ?? "";
+    let tokenName = "";
+    let tokenSymbol = "";
+    let tokenTotalSupply = 0n;
 
-    // ── Sync on-chain members (source of truth — avoids log-order race) ─────────
-    // Guard with try/catch: old CircleRegistry clones (pre-getOrgMembers) will revert.
-    let memberCount = 0n;
-    try {
-        const onChainMembers = (await context.client.readContract({
-            address: overview.circleRegistry,
-            abi: getOrgMembersAbi,
-            functionName: "getOrgMembers",
-        })) as readonly `0x${string}`[];
-
-        for (const addr of onChainMembers) {
-            await context.db
-                .insert(schema.orgMember)
-                .values({
-                    id: `${overview.circleRegistry}-${addr}`,
-                    registryAddress: overview.circleRegistry,
-                    orgId: overview.id,
-                    memberAddress: addr,
-                    addedAt: timestamp,
-                    txHash: ZERO_HASH,
-                })
-                .onConflictDoNothing();
+    if (!isZeroAddress(org.token)) {
+        try {
+            [tokenName, tokenSymbol, tokenTotalSupply] = await Promise.all([
+                context.client.readContract({
+                    abi: tokenMetaAbi,
+                    address: org.token,
+                    functionName: "name",
+                }),
+                context.client.readContract({
+                    abi: tokenMetaAbi,
+                    address: org.token,
+                    functionName: "symbol",
+                }),
+                context.client.readContract({
+                    abi: tokenMetaAbi,
+                    address: org.token,
+                    functionName: "totalSupply",
+                }),
+            ]);
+        } catch {
+            /* token might not be deployed yet */
         }
-
-        memberCount = BigInt(onChainMembers.length);
-    } catch {
-        // Old contract version — members will be tracked via OrgMemberAdded events instead
     }
 
-    // ── Organisation ────────────────────────────────────────────────────────────
     await context.db
         .insert(schema.organization)
         .values({
-            id: overview.id,
-            subname: overview.subname,
-            name: overview.name,
-            creator: overview.creator,
-            governor: overview.governor,
-            token: overview.token,
-            timelock: overview.timelock,
-            circleRegistry: overview.circleRegistry,
-            roleRegistry: overview.roleRegistry,
-            governanceProcess: overview.governanceProcess,
-            anchorCircleId: overview.id,
-            tokenName: overview.tokenName,
-            tokenSymbol: overview.tokenSymbol,
-            tokenTotalSupply: overview.tokenTotalSupply,
-            governorName: overview.governorName,
-            votingDelay: overview.votingDelay,
-            votingPeriod: overview.votingPeriod,
-            proposalThreshold: overview.proposalThreshold,
-            quorumNumerator: overview.quorumNumerator,
-            circleCount: overview.circleCount,
-            roleCount: overview.roleCount,
-            memberCount,
-            purpose: anchorPurpose,
-            createdAt: overview.createdAt,
+            id: org.id,
+            subname: org.subname,
+            name: org.name,
+            creator: org.creator,
+            governor: org.governor,
+            token: org.token,
+            timelock: org.timelock,
+            circleRegistry: org.circleRegistry,
+            roleRegistry: org.roleRegistry,
+            governanceProcess: org.governanceProcess,
+            anchorCircleId: 0n,
+            tokenName,
+            tokenSymbol,
+            tokenTotalSupply,
+            governorName: org.subname,
+            votingDelay: 0n,
+            votingPeriod: 0n,
+            proposalThreshold: 0n,
+            quorumNumerator: 0n,
+            circleCount: 0n,
+            roleCount: 0n,
+            memberCount: 0n,
+            purpose: "",
+            createdAt: org.createdAt,
             updatedAt: timestamp,
         })
         .onConflictDoUpdate((existing) => ({
             ...existing,
-            tokenTotalSupply: overview.tokenTotalSupply,
-            circleCount: overview.circleCount,
-            roleCount: overview.roleCount,
-            memberCount,
-            purpose: anchorPurpose,
+            tokenTotalSupply,
             updatedAt: timestamp,
         }));
-
-    // ── Circles ─────────────────────────────────────────────────────────────────
-    for (const c of circles) {
-        const id = `${overview.circleRegistry}-${c.id}`;
-        await context.db
-            .insert(schema.circle)
-            .values({
-                id,
-                circleId: c.id,
-                orgId: overview.id,
-                registryAddress: overview.circleRegistry,
-                name: c.name,
-                purpose: c.purpose,
-                isAnchor: c.isAnchor,
-                parentCircleId: c.parentCircleId,
-                roleId: c.roleId,
-                facilitator: c.facilitator === ZERO_ADDRESS ? ZERO_ADDRESS : c.facilitator,
-                secretary: c.secretary === ZERO_ADDRESS ? ZERO_ADDRESS : c.secretary,
-                circleRep: c.circleRep === ZERO_ADDRESS ? ZERO_ADDRESS : c.circleRep,
-                circleLeads: c.circleLeads,
-                roleIds: c.roleIds.map(String),
-                subCircleIds: c.subCircleIds.map(String),
-                policyIds: c.policyIds.map(String),
-                updatedAt: timestamp,
-            })
-            .onConflictDoUpdate({
-                name: c.name,
-                purpose: c.purpose,
-                facilitator: c.facilitator,
-                secretary: c.secretary,
-                circleRep: c.circleRep,
-                circleLeads: c.circleLeads,
-                roleIds: c.roleIds.map(String),
-                subCircleIds: c.subCircleIds.map(String),
-                policyIds: c.policyIds.map(String),
-                updatedAt: timestamp,
-            });
-    }
-
-    // ── Roles ───────────────────────────────────────────────────────────────────
-    for (const r of roles) {
-        const id = `${overview.roleRegistry}-${r.id}`;
-        await context.db
-            .insert(schema.role)
-            .values({
-                id,
-                roleId: r.id,
-                orgId: overview.id,
-                registryAddress: overview.roleRegistry,
-                circleId: r.circleId,
-                name: r.name,
-                purpose: r.purpose,
-                domains: r.domains,
-                accountabilities: r.accountabilities,
-                leads: r.leads,
-                isExpandedToCircle: r.isExpandedToCircle,
-                expandedCircleId: r.expandedCircleId,
-                updatedAt: timestamp,
-            })
-            .onConflictDoUpdate({
-                name: r.name,
-                purpose: r.purpose,
-                domains: r.domains,
-                accountabilities: r.accountabilities,
-                leads: r.leads,
-                isExpandedToCircle: r.isExpandedToCircle,
-                expandedCircleId: r.expandedCircleId,
-                updatedAt: timestamp,
-            });
-    }
-
-    // ── Policies ────────────────────────────────────────────────────────────────
-    for (const p of policies) {
-        const id = `${overview.circleRegistry}-${p.id}`;
-        await context.db
-            .insert(schema.policy)
-            .values({
-                id,
-                policyId: p.id,
-                orgId: overview.id,
-                registryAddress: overview.circleRegistry,
-                circleId: p.circleId,
-                name: p.name,
-                body: p.body,
-                updatedAt: timestamp,
-            })
-            .onConflictDoUpdate({
-                name: p.name,
-                body: p.body,
-                circleId: p.circleId,
-                updatedAt: timestamp,
-            });
-    }
 }

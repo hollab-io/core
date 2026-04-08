@@ -8,10 +8,6 @@ import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {CircleRegistry} from 'contracts/CircleRegistry.sol';
-import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
-import {CircleTreasury} from 'contracts/CircleTreasury.sol';
-import {TreasuryDeployer} from 'contracts/TreasuryDeployer.sol';
 
 /**
  * @title OrganizationFactory
@@ -20,7 +16,7 @@ import {TreasuryDeployer} from 'contracts/TreasuryDeployer.sol';
  *         (GovToken + Timelock + HolGovernor) via HolGovernorFactory, and an ENS
  *         subname pointing to the governor.
  *
- *         Meeting components (TacticalMeeting, GovernanceMeeting, ActionVoting) are
+ *         Meeting components (MeetingFactory, ActionVoting) are
  *         deployed separately via MeetingComponentsFactory — an org can have multiple
  *         sets of meeting components (e.g. one per circle).
  *
@@ -35,20 +31,11 @@ contract OrganizationFactory is IOrganizationFactory {
   /// @notice The RoleRegistry implementation used for cloning
   address public immutable roleRegistryImplementation;
 
-  /// @notice The CircleRegistry implementation used for cloning
-  address public immutable circleRegistryImplementation;
-
-  /// @notice The GovernanceProcess implementation used for cloning
-  address public immutable governanceProcessImplementation;
-
   /// @notice Factory used to deploy GovToken + TimelockController + HolGovernor per org
   HolGovernorFactory public immutable GOV_FACTORY;
 
   /// @notice ENS subdomain registrar — registers subnames under the parent node
   IENSSubdomainRegistrar public immutable ENS_REGISTRAR;
-
-  /// @notice Deploys CircleTreasury instances (keeps OrganizationFactory under EIP-170 size limit)
-  TreasuryDeployer public immutable TREASURY_DEPLOYER;
 
   /// @notice Auto-incrementing organization ID counter
   uint256 internal _orgCounter;
@@ -59,28 +46,33 @@ contract OrganizationFactory is IOrganizationFactory {
   /// @notice subname hash => org ID (for uniqueness checks and lookups)
   mapping(bytes32 => uint256) internal _subnameToOrgId;
 
+  /// @notice Auto-incrementing org join-request ID counter
+  uint256 internal _joinRequestCounter;
+
+  /// @notice orgId => requester => requestId (non-zero while pending)
+  mapping(uint256 => mapping(address => uint256)) internal _joinRequestIds;
+
+  /// @notice orgId => account => is org admin
+  mapping(uint256 => mapping(address => bool)) internal _orgAdmins;
+
+  /// @notice orgId => account => is org member
+  mapping(uint256 => mapping(address => bool)) internal _orgMembers;
+
   /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
   /// @param _roleRegistryImpl The RoleRegistry implementation address
-  /// @param _circleRegistryImpl The CircleRegistry implementation address
-  /// @param _governanceProcessImpl The GovernanceProcess implementation address
   /// @param _govFactory Deployed HolGovernorFactory used to create the governance suite
   /// @param _ensRegistrar ENSSubdomainRegistrar authorized to register subnames under the parent node
   constructor(
     address _roleRegistryImpl,
-    address _circleRegistryImpl,
-    address _governanceProcessImpl,
     address _govFactory,
     address _ensRegistrar
   ) {
     roleRegistryImplementation = _roleRegistryImpl;
-    circleRegistryImplementation = _circleRegistryImpl;
-    governanceProcessImplementation = _governanceProcessImpl;
     GOV_FACTORY = HolGovernorFactory(_govFactory);
     ENS_REGISTRAR = IENSSubdomainRegistrar(_ensRegistrar);
-    TREASURY_DEPLOYER = new TreasuryDeployer();
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -101,18 +93,12 @@ contract OrganizationFactory is IOrganizationFactory {
       revert OrganizationFactory_SubnameAlreadyTaken(_subname);
     }
 
-    // Clone holacracy contracts
+    // Clone remaining core contract(s)
     RoleRegistry _roleRegistry = RoleRegistry(Clones.clone(roleRegistryImplementation));
-    CircleRegistry _circleRegistry = CircleRegistry(Clones.clone(circleRegistryImplementation));
-    GovernanceProcess _governanceProcess = GovernanceProcess(Clones.clone(governanceProcessImplementation));
 
-    // Initialize all three
+    // Initialize role registry
     _roleRegistry.initialize();
-    _governanceProcess.initialize(_circleRegistry, _roleRegistry);
-    _circleRegistry.initialize(_roleRegistry, msg.sender, address(_governanceProcess));
-
-    // Create anchor circle with caller as first circle lead
-    uint256 _anchorCircleId = _circleRegistry.createAnchorCircle(_purpose);
+    _purpose;
 
     // Deploy AccessManager with org creator as initial admin
     address _accessManagerAddr = address(new AccessManager(msg.sender));
@@ -121,20 +107,8 @@ contract OrganizationFactory is IOrganizationFactory {
     // ENS registration is handled below, so subdomain is left empty here.
     HolGovernorFactory.Deployment memory _gov = GOV_FACTORY.deploy(_buildGovDeploymentConfig(_subname, _govConfig));
 
-    // Link the DAO governor and timelock to the holacracy governance process so that
-    // circle proposals can be escalated to a DAO vote via escalateToDAO().
-    _governanceProcess.setDAOGovernor(_gov.governor, _gov.timelock);
-
     // Register ENS subname — the subdomain resolves to the governor address.
     ENS_REGISTRAR.registerSubnode(keccak256(bytes(_subname)), _gov.governor);
-
-    // Deploy anchor circle treasury only when a non-zero delay is requested.
-    CircleTreasury _treasury;
-    if (_govConfig.treasuryTimelockDelay != 0) {
-      _treasury = CircleTreasury(
-        payable(TREASURY_DEPLOYER.deployTreasury(_circleRegistry, _anchorCircleId, _govConfig.treasuryTimelockDelay))
-      );
-    }
 
     // Store organization record
     _orgId = ++_orgCounter;
@@ -145,23 +119,97 @@ contract OrganizationFactory is IOrganizationFactory {
       _org.subname = _subname;
       _org.creator = msg.sender;
       _org.roleRegistry = address(_roleRegistry);
-      _org.circleRegistry = address(_circleRegistry);
-      _org.governanceProcess = address(_governanceProcess);
+      _org.circleRegistry = address(0);
+      _org.governanceProcess = address(0);
       _org.accessManager = _accessManagerAddr;
-      _org.anchorCircleId = _anchorCircleId;
+      _org.anchorCircleId = 0;
       _org.createdAt = block.timestamp;
       _org.governor = _gov.governor;
       _org.token = _gov.token;
       _org.timelock = _gov.timelock;
-      _org.treasury = address(_treasury);
     }
 
     _subnameToOrgId[_subnameHash] = _orgId;
+    _seedOrgAccess(_orgId, msg.sender);
 
     emit OrganizationCreated(_orgId, _subname, msg.sender);
-    emit OrgComponentsDeployed(
-      _orgId, address(_circleRegistry), address(_roleRegistry), address(_governanceProcess), address(_treasury)
-    );
+    emit OrgComponentsDeployed(_orgId, address(0), address(_roleRegistry), address(0));
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function requestToJoin(uint256 orgId, string calldata message) external returns (uint256 requestId) {
+    if (_organizations[orgId].id == 0) revert OrganizationFactory_OrgNotFound(orgId);
+    if (_joinRequestIds[orgId][msg.sender] != 0) {
+      revert OrganizationFactory_JoinRequestAlreadyPending(msg.sender, orgId);
+    }
+
+    requestId = ++_joinRequestCounter;
+    _joinRequestIds[orgId][msg.sender] = requestId;
+
+    emit JoinRequested(requestId, msg.sender, orgId, message);
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function approveJoinRequest(uint256 orgId, address requester) external {
+    uint256 requestId = _joinRequestIds[orgId][requester];
+    if (requestId == 0) revert OrganizationFactory_JoinRequestNotFound(requester, orgId);
+
+    _assertOrgAdmin(orgId);
+    delete _joinRequestIds[orgId][requester];
+
+    if (!_orgMembers[orgId][requester]) {
+      _orgMembers[orgId][requester] = true;
+      emit OrgMemberAdded(orgId, requester);
+    }
+
+    emit JoinApproved(requestId, requester, orgId);
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function rejectJoinRequest(uint256 orgId, address requester) external {
+    uint256 requestId = _joinRequestIds[orgId][requester];
+    if (requestId == 0) revert OrganizationFactory_JoinRequestNotFound(requester, orgId);
+
+    _assertOrgAdmin(orgId);
+    delete _joinRequestIds[orgId][requester];
+
+    emit JoinRejected(requestId, requester, orgId);
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function addOrgAdmin(uint256 orgId, address account) external {
+    _assertOrgAdmin(orgId);
+    if (!_orgAdmins[orgId][account]) {
+      _orgAdmins[orgId][account] = true;
+      emit OrgAdminAdded(orgId, account);
+    }
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function removeOrgAdmin(uint256 orgId, address account) external {
+    _assertOrgAdmin(orgId);
+    if (_orgAdmins[orgId][account]) {
+      _orgAdmins[orgId][account] = false;
+      emit OrgAdminRemoved(orgId, account);
+    }
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function addOrgMember(uint256 orgId, address account) external {
+    _assertOrgAdmin(orgId);
+    if (!_orgMembers[orgId][account]) {
+      _orgMembers[orgId][account] = true;
+      emit OrgMemberAdded(orgId, account);
+    }
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function removeOrgMember(uint256 orgId, address account) external {
+    _assertOrgAdmin(orgId);
+    if (_orgMembers[orgId][account]) {
+      _orgMembers[orgId][account] = false;
+      emit OrgMemberRemoved(orgId, account);
+    }
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -185,6 +233,44 @@ contract OrganizationFactory is IOrganizationFactory {
   /// @inheritdoc IOrganizationFactory
   function organizationCount() external view returns (uint256 _count) {
     _count = _orgCounter;
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function getOrganizations(
+    uint256 _offset,
+    uint256 _limit
+  ) external view returns (HolacracyTypes.Organization[] memory _orgs) {
+    uint256 _count = _orgCounter;
+    if (_limit == 0 || _offset >= _count) {
+      return new HolacracyTypes.Organization[](0);
+    }
+
+    uint256 _startId = _offset + 1;
+    uint256 _endExclusive = _startId + _limit;
+    uint256 _maxExclusive = _count + 1;
+    if (_endExclusive > _maxExclusive) _endExclusive = _maxExclusive;
+
+    uint256 _size = _endExclusive - _startId;
+    _orgs = new HolacracyTypes.Organization[](_size);
+
+    for (uint256 _i; _i < _size; ++_i) {
+      _orgs[_i] = _organizations[_startId + _i];
+    }
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function hasPendingRequest(address requester, uint256 orgId) external view returns (bool) {
+    return _joinRequestIds[orgId][requester] != 0;
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function isOrgAdmin(uint256 orgId, address account) external view returns (bool) {
+    return _orgAdmins[orgId][account];
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function isOrgMember(uint256 orgId, address account) external view returns (bool) {
+    return _orgMembers[orgId][account];
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -237,5 +323,18 @@ contract OrganizationFactory is IOrganizationFactory {
         revert OrganizationFactory_InvalidSubname(_subname);
       }
     }
+  }
+
+  function _assertOrgAdmin(uint256 orgId) internal view {
+    HolacracyTypes.Organization memory org = _organizations[orgId];
+    if (org.id == 0) revert OrganizationFactory_OrgNotFound(orgId);
+    if (!_orgAdmins[orgId][msg.sender]) revert OrganizationFactory_JoinRequestUnauthorized(msg.sender, orgId);
+  }
+
+  function _seedOrgAccess(uint256 orgId, address creator) internal {
+    _orgAdmins[orgId][creator] = true;
+    _orgMembers[orgId][creator] = true;
+    emit OrgAdminAdded(orgId, creator);
+    emit OrgMemberAdded(orgId, creator);
   }
 }

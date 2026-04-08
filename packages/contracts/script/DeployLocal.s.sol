@@ -7,16 +7,11 @@ import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {CircleRegistry} from 'contracts/CircleRegistry.sol';
-import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
-import {TacticalMeeting} from 'contracts/TacticalMeeting.sol';
-import {GovernanceMeeting} from 'contracts/GovernanceMeeting.sol';
+import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
 import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
-import {HolacracyDataProvider} from 'helpers/HolacracyDataProvider.sol';
-import {JoinRequest} from 'contracts/JoinRequest.sol';
-import {TensionBoard} from 'contracts/TensionBoard.sol';
+
 
 /// @notice Stub ENS subdomain registrar for local development — records calls without ENS logic
 contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
@@ -56,16 +51,12 @@ contract DeployLocal is Script {
 
     // ── 2. Implementation contracts (clone sources) ─────────────────────────
     RoleRegistry roleRegistryImpl = new RoleRegistry();
-    CircleRegistry circleRegistryImpl = new CircleRegistry();
-    GovernanceProcess governanceProcessImpl = new GovernanceProcess();
-    TacticalMeeting tacticalMeetingImpl = new TacticalMeeting();
-    GovernanceMeeting governanceMeetingImpl = new GovernanceMeeting();
+    MeetingFactory meetingImpl = new MeetingFactory();
     ActionVoting actionVotingImpl = new ActionVoting();
 
     // ── 3. MeetingComponentsFactory ─────────────────────────────────────────
-    MeetingComponentsFactory meetingFactory = new MeetingComponentsFactory(
-      address(tacticalMeetingImpl), address(governanceMeetingImpl), address(actionVotingImpl)
-    );
+    MeetingComponentsFactory meetingFactory =
+      new MeetingComponentsFactory(address(meetingImpl), address(actionVotingImpl));
 
     // ── 4. HolGovernorFactory ───────────────────────────────────────────────
     HolGovernorFactory govFactory = new HolGovernorFactory();
@@ -73,20 +64,11 @@ contract DeployLocal is Script {
     // ── 5. OrganizationFactory ──────────────────────────────────────────────
     OrganizationFactory factory = new OrganizationFactory(
       address(roleRegistryImpl),
-      address(circleRegistryImpl),
-      address(governanceProcessImpl),
       address(govFactory),
       address(ensRegistrar)
     );
 
-    // ── 6. JoinRequest & TensionBoard ───────────────────────────────────────
-    JoinRequest joinRequest = new JoinRequest(address(factory));
-    TensionBoard tensionBoard = new TensionBoard(address(factory));
-
-    // ── 7. HolacracyDataProvider (stateless read helper) ────────────────────
-    HolacracyDataProvider dataProvider = new HolacracyDataProvider();
-
-    // ── 8. Create a sample organization with fast governance for testing ─────
+    // ── 6. Create a sample organization with fast governance for testing ─────
     address[] memory holders = new address[](1);
     holders[0] = deployer;
     uint256[] memory amounts = new uint256[](1);
@@ -104,8 +86,7 @@ contract DeployLocal is Script {
         votingDelay: 1,
         votingPeriod: 50,
         proposalThreshold: 0,
-        quorumNumerator: 4,
-        treasuryTimelockDelay: 1 days
+        quorumNumerator: 4
       })
     );
 
@@ -120,9 +101,6 @@ contract DeployLocal is Script {
     console.log('MeetingComponentsFactory: ', address(meetingFactory));
     console.log('');
     console.log('--- Standalone Contracts ---');
-    console.log('JoinRequest:              ', address(joinRequest));
-    console.log('TensionBoard:             ', address(tensionBoard));
-    console.log('HolacracyDataProvider:    ', address(dataProvider));
     console.log('MockENSRegistrar:         ', address(ensRegistrar));
     console.log('');
 
@@ -136,16 +114,12 @@ contract DeployLocal is Script {
     console.log('Governor:             ', org.governor);
     console.log('GovToken:             ', org.token);
     console.log('Timelock:             ', org.timelock);
-    console.log('CircleTreasury:       ', org.treasury);
 
     // ── Write JSON artifact for tooling ──────────────────────────────────────
     string memory obj = 'local';
     vm.serializeAddress(obj, 'orgFactory', address(factory));
     vm.serializeAddress(obj, 'govFactory', address(govFactory));
     vm.serializeAddress(obj, 'meetingFactory', address(meetingFactory));
-    vm.serializeAddress(obj, 'joinRequest', address(joinRequest));
-    vm.serializeAddress(obj, 'tensionBoard', address(tensionBoard));
-    vm.serializeAddress(obj, 'dataProvider', address(dataProvider));
     vm.serializeAddress(obj, 'ensRegistrar', address(ensRegistrar));
     vm.serializeUint(obj, 'chainId', block.chainid);
     string memory json = vm.serializeUint(obj, 'sampleOrgId', orgId);

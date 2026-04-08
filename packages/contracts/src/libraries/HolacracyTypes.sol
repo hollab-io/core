@@ -157,7 +157,7 @@ library HolacracyTypes {
     address roleRegistry;
     address circleRegistry;
     address governanceProcess;
-    address tacticalMeeting;
+    address meetingFactory;
     address accessManager;
     uint256 anchorCircleId;
     uint256 createdAt;
@@ -165,29 +165,6 @@ library HolacracyTypes {
     address governor;
     address token;
     address timelock;
-    // Anchor circle treasury
-    address treasury;
-  }
-
-  /// @notice A tactical meeting convened within a circle
-  struct TacticalMeeting {
-    uint256 id;
-    uint256 circleId;
-    address convenedBy;
-    uint256 createdAt;
-    uint256 completedAt;
-    bool exists;
-  }
-
-  /// @notice An output recorded during a tactical meeting
-  struct MeetingOutput {
-    uint256 id;
-    uint256 meetingId;
-    OutputType outputType;
-    string description;
-    address assignedTo;
-    uint256 roleId;
-    uint256 createdAt;
   }
 
   /// @notice A recurring checklist item attached to a role
@@ -203,31 +180,6 @@ library HolacracyTypes {
     uint256 id;
     uint256 roleId;
     string label;
-    bool exists;
-  }
-
-  /// @notice A governance meeting convened within a circle
-  struct GovernanceMeeting {
-    uint256 id;
-    uint256 circleId;
-    address convenedBy;
-    uint256 createdAt;
-    uint256 completedAt;
-    bool exists;
-  }
-
-  /// @notice A vote on a tactical meeting output
-  struct ActionVote {
-    uint256 id;
-    uint256 circleId;
-    uint256 outputId;
-    address proposer;
-    string reason;
-    uint256 snapshotBlock;
-    uint256 deadline;
-    uint256 forVotes;
-    uint256 againstVotes;
-    uint256 abstainVotes;
     bool exists;
   }
 
