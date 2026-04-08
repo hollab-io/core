@@ -8,7 +8,6 @@ import ChainSwitcher from "../components/ChainSwitcher";
 import DynamicAuthControl from "../components/DynamicAuthControl";
 import ThemeToggle from "../components/ThemeToggle";
 import { useOrganizationFactory } from "../hooks/useOrganizationFactory";
-import { getIndexingClient } from "../hooks/useOrganizationsFromIndexer";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 import JoinOrganizationPanel from "./JoinOrganizationPanel";
 
@@ -17,6 +16,7 @@ const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 type Props = {
     organizations: Organization[];
+    discoverOrganizations: Organization[];
     /** Select an existing org — goes straight to dashboard */
     onSelect: (id: string) => void;
     /** Select a freshly-created org — goes through member onboarding */
@@ -141,6 +141,7 @@ function OrgCard({
 
 export default function OrganizationsHome({
     organizations,
+    discoverOrganizations,
     onSelect,
     onSelectNew,
     onPreview,
@@ -153,35 +154,16 @@ export default function OrganizationsHome({
     const [discoverOrgs, setDiscoverOrgs] = useState<Organization[]>([]);
 
     useEffect(() => {
-        const client = getIndexingClient();
-        if (!client) return;
-
         const myOrgIds = new Set(organizations.map((o) => o.id));
 
-        const load = async () => {
-            // Fetch all orgs + user's memberships in parallel
-            const [allOrgs, memberships] = await Promise.all([
-                client.listOrganizations({ limit: 100 }),
-                authenticatedWalletAddress
-                    ? client.listOrgMembersByAddress(authenticatedWalletAddress, { limit: 500 })
-                    : Promise.resolve({ items: [] }),
-            ]);
-
-            memberships.items.forEach((m) => myOrgIds.add(m.orgId));
-
-            setDiscoverOrgs(
-                allOrgs.items.filter(
-                    (o) =>
-                        !myOrgIds.has(o.id) &&
-                        o.creator.toLowerCase() !== authenticatedWalletAddress?.toLowerCase(),
-                ),
-            );
-        };
-
-        load().catch(() => {
-            /* silent */
-        });
-    }, [organizations, authenticatedWalletAddress]);
+        setDiscoverOrgs(
+            discoverOrganizations.filter(
+                (o) =>
+                    !myOrgIds.has(o.id) &&
+                    o.creator.toLowerCase() !== authenticatedWalletAddress?.toLowerCase(),
+            ),
+        );
+    }, [organizations, discoverOrganizations, authenticatedWalletAddress]);
 
     const [showCreate, setShowCreate] = useState(false);
     const [showJoin, setShowJoin] = useState(false);

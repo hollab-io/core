@@ -6,6 +6,7 @@ import type { AppTabId } from "./config/navigation";
 import ChainSwitcher from "./components/ChainSwitcher";
 import DynamicAuthControl from "./components/DynamicAuthControl";
 import ThemeToggle from "./components/ThemeToggle";
+import { useChain } from "./context/ChainContext";
 import { useTheme } from "./context/ThemeContext";
 import { useCirclesFromIndexer } from "./hooks/useCirclesFromIndexer";
 import { useGovernanceMeetingsFromIndexer } from "./hooks/useGovernanceMeetingsFromIndexer";
@@ -37,6 +38,7 @@ const NAV = [
 ] as const;
 
 function App() {
+    const { chainConfig } = useChain();
     const { isDark } = useTheme();
     const {
         activeOrganizationId,
@@ -46,9 +48,14 @@ function App() {
         syncIndexedMembers,
         syncIndexedRoles,
     } = useWorkspaceSnapshot();
-    const { organizations, pollUntil } = useOrganizationsFromIndexer(authenticatedWalletAddress);
+    const { organizations, allOrganizations, pollUntil } = useOrganizationsFromIndexer(
+        authenticatedWalletAddress,
+    );
     const activeOrg = organizations.find((o) => o.id === activeOrganizationId) ?? null;
-    const { members: indexedMembers } = useOrgMembersFromIndexer(activeOrg?.circleRegistry);
+    const { members: indexedMembers } = useOrgMembersFromIndexer(
+        chainConfig.orgFactoryAddress,
+        activeOrg?.id,
+    );
     const { circles: indexedCircles } = useCirclesFromIndexer(activeOrganizationId);
     const { roles: indexedRoles } = useRolesFromIndexer(activeOrganizationId);
     const {
@@ -168,6 +175,7 @@ function App() {
                 <main className="custom-scrollbar relative z-10 min-w-0 flex-1 overflow-auto">
                     <OrganizationsHome
                         organizations={organizations}
+                        discoverOrganizations={allOrganizations}
                         onSelect={setActiveOrganizationId}
                         onSelectNew={setActiveOrganizationId}
                         onPreview={handlePreview}
@@ -410,7 +418,6 @@ function App() {
             />
             <GovernanceMeetingRoom
                 governanceMeetingAddress={governanceMeetingAddress}
-                circleRegistryAddress={activeOrg?.circleRegistry as `0x${string}` | undefined}
                 indexedGovernanceMeetings={indexedGovernanceMeetings}
             />
         </div>

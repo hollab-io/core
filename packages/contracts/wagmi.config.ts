@@ -8,22 +8,15 @@ export default defineConfig({
     foundry({
       project: ".",
       include: [
-        "CircleRegistry.sol/**",
-        "CircleTreasury.sol/**",
-        "GovernanceProcess.sol/**",
         "OrganizationFactory.sol/**",
         "RoleRegistry.sol/**",
-        "TreasuryDeployer.sol/**",
         "GovComponentDeployer.sol/**",
         "GovToken.sol/**",
         "HolGovernor.sol/**",
         "HolGovernorFactory.sol/**",
-        "TacticalMeeting.sol/**",
-        "GovernanceMeeting.sol/**",
+        "MeetingFactory.sol/**",
         "ActionVoting.sol/**",
         "MeetingComponentsFactory.sol/**",
-        "JoinRequest.sol/**",
-        "TensionBoard.sol/**",
       ],
       // Read local (31337) addresses from broadcast/run-latest.json
       includeBroadcasts: true,

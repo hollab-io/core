@@ -163,28 +163,13 @@ export const vote = onchainTable("vote", (t) => ({
     txHash: t.hex().notNull(),
 }));
 
-// ─── Treasury ─────────────────────────────────────────────────────────────────
-
-export const treasuryDeposit = onchainTable("treasury_deposit", (t) => ({
-    id: t.text().primaryKey(), // "<txHash>-<logIndex>"
-    treasuryAddress: t.hex().notNull(),
-    sender: t.hex().notNull(),
-    token: t.hex(), // null = native ETH
-    amount: t.bigint().notNull(),
-    depositedAt: t.bigint().notNull(),
-    txHash: t.hex().notNull(),
-}));
-
 // ─── Meeting component sets ───────────────────────────────────────────────────
-// One row per MeetingComponentsFactory.deploy() call — tracks which set of
-// {TacticalMeeting, GovernanceMeeting, ActionVoting} clones belongs to which org.
-// An org can have multiple sets (e.g. one per circle).
+// One row per MeetingComponentsFactory.deploy() — {MeetingFactory, ActionVoting} per org.
 
 export const meetingComponentSet = onchainTable("meeting_component_set", (t) => ({
     id: t.text().primaryKey(), // "<orgId>-<txHash>"
     orgId: t.bigint().notNull(),
-    tacticalMeeting: t.hex().notNull(),
-    governanceMeeting: t.hex().notNull(),
+    meetingFactory: t.hex().notNull(),
     actionVoting: t.hex().notNull(),
     deployedAt: t.bigint().notNull(),
     txHash: t.hex().notNull(),
@@ -301,28 +286,6 @@ export const joinRequest = onchainTable("join_request", (t) => ({
     orgId: t.bigint().notNull(),
     message: t.text().notNull(),
     status: t.integer().notNull(), // 0=Pending 1=Approved 2=Rejected
-    submittedAt: t.bigint().notNull(),
-    resolvedAt: t.bigint(),
-    txHash: t.hex().notNull(),
-}));
-
-// ─── Tension board ──────────────────────────────────────────────────────────
-// Anyone (including non-members) can submit tensions for circles.
-// status: 0=Open 1=Championed 2=Dismissed 3=Processed
-// target: 0=Tactical 1=Governance
-
-export const tension = onchainTable("tension", (t) => ({
-    id: t.text().primaryKey(), // "<contractAddress>-<tensionId>"
-    tensionId: t.bigint().notNull(),
-    contractAddress: t.hex().notNull(),
-    author: t.hex().notNull(),
-    orgId: t.bigint().notNull(),
-    circleId: t.bigint().notNull(),
-    target: t.integer().notNull(), // 0=Tactical 1=Governance
-    title: t.text().notNull(),
-    description: t.text().notNull(),
-    status: t.integer().notNull(), // 0=Open 1=Championed 2=Dismissed 3=Processed
-    champion: t.hex(),
     submittedAt: t.bigint().notNull(),
     resolvedAt: t.bigint(),
     txHash: t.hex().notNull(),

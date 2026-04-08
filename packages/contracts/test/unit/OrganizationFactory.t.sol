@@ -2,9 +2,7 @@
 pragma solidity 0.8.28;
 
 import {OrganizationFactory, IOrganizationFactory} from 'contracts/OrganizationFactory.sol';
-import {CircleRegistry, ICircleRegistry} from 'contracts/CircleRegistry.sol';
 import {RoleRegistry, IRoleRegistry} from 'contracts/RoleRegistry.sol';
-import {GovernanceProcess, IGovernanceProcess} from 'contracts/GovernanceProcess.sol';
 import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
@@ -47,13 +45,9 @@ contract UnitOrganizationFactory is Test {
     _govFactory = new HolGovernorFactory();
 
     address roleRegistryImpl = address(new RoleRegistry());
-    address circleRegistryImpl = address(new CircleRegistry());
-    address governanceProcessImpl = address(new GovernanceProcess());
 
     _factory = new OrganizationFactory(
       roleRegistryImpl,
-      circleRegistryImpl,
-      governanceProcessImpl,
       address(_govFactory),
       address(_mockRegistrar)
     );
@@ -78,8 +72,7 @@ contract UnitOrganizationFactory is Test {
       votingDelay: 1,
       votingPeriod: 50,
       proposalThreshold: 0,
-      quorumNumerator: 4,
-      treasuryTimelockDelay: 0
+      quorumNumerator: 4
     });
   }
 
@@ -108,9 +101,9 @@ contract UnitOrganizationFactory is Test {
     assertEq(_org.creator, _creator1);
     assertGt(_org.createdAt, 0);
     assertTrue(_org.roleRegistry != address(0));
-    assertTrue(_org.circleRegistry != address(0));
-    assertTrue(_org.governanceProcess != address(0));
-    assertEq(_org.anchorCircleId, 1);
+    assertEq(_org.circleRegistry, address(0));
+    assertEq(_org.governanceProcess, address(0));
+    assertEq(_org.anchorCircleId, 0);
   }
 
   function test_CreateOrganizationClonesAreIsolated() external {
@@ -127,23 +120,17 @@ contract UnitOrganizationFactory is Test {
 
     // it deploys separate contract instances
     assertTrue(_org1.roleRegistry != _org2.roleRegistry);
-    assertTrue(_org1.circleRegistry != _org2.circleRegistry);
-    assertTrue(_org1.governanceProcess != _org2.governanceProcess);
+    assertEq(_org1.circleRegistry, address(0));
+    assertEq(_org2.circleRegistry, address(0));
+    assertEq(_org1.governanceProcess, address(0));
+    assertEq(_org2.governanceProcess, address(0));
     assertTrue(_org1.governor != _org2.governor);
     assertTrue(_org1.token != _org2.token);
     assertTrue(_org1.timelock != _org2.timelock);
 
-    // it gives each org its own anchor circle
-    CircleRegistry _cr1 = CircleRegistry(_org1.circleRegistry);
-    CircleRegistry _cr2 = CircleRegistry(_org2.circleRegistry);
-
-    HolacracyTypes.Circle memory _circle1 = _cr1.getCircle(_org1.anchorCircleId);
-    HolacracyTypes.Circle memory _circle2 = _cr2.getCircle(_org2.anchorCircleId);
-
-    assertEq(_circle1.name, '');
-    assertEq(_circle1.purpose, 'Purpose one');
-    assertEq(_circle2.name, '');
-    assertEq(_circle2.purpose, 'Purpose two');
+    // anchor circles are removed in org-scoped architecture
+    assertEq(_org1.anchorCircleId, 0);
+    assertEq(_org2.anchorCircleId, 0);
   }
 
   function test_CreateOrganizationAnchorCircle() external {
@@ -151,20 +138,9 @@ contract UnitOrganizationFactory is Test {
     uint256 _orgId = _factory.createOrganization('myorg', 'Build great things', _defaultGovConfig());
 
     HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
-    CircleRegistry _cr = CircleRegistry(_org.circleRegistry);
-
-    // it creates an anchor circle with correct data
-    HolacracyTypes.Circle memory _circle = _cr.getCircle(_org.anchorCircleId);
-    assertEq(_circle.name, '');
-    assertEq(_circle.purpose, 'Build great things');
-    assertTrue(_circle.isAnchor);
-    assertTrue(_circle.exists);
-
-    // it makes the creator the circle lead
-    assertTrue(_cr.isCircleLead(_org.anchorCircleId, _creator1));
-    address[] memory _leads = _cr.getCircleLeads(_org.anchorCircleId);
-    assertEq(_leads.length, 1);
-    assertEq(_leads[0], _creator1);
+    // anchor circles are removed in org-scoped architecture
+    assertEq(_org.circleRegistry, address(0));
+    assertEq(_org.anchorCircleId, 0);
   }
 
   function test_CreateOrganizationRegistersENSSubname() external {
@@ -353,11 +329,34 @@ contract UnitOrganizationFactory is Test {
     assertEq(_org.id, 0);
   }
 
+  function test_GetOrganizationsPaginated() external {
+    vm.startPrank(_creator1);
+    _factory.createOrganization('orgone', 'One', _defaultGovConfig());
+    _factory.createOrganization('orgtwo', 'Two', _defaultGovConfig());
+    _factory.createOrganization('orgthree', 'Three', _defaultGovConfig());
+    vm.stopPrank();
+
+    HolacracyTypes.Organization[] memory _page = _factory.getOrganizations(0, 2);
+    assertEq(_page.length, 2);
+    assertEq(_page[0].id, 1);
+    assertEq(_page[1].id, 2);
+
+    HolacracyTypes.Organization[] memory _tail = _factory.getOrganizations(2, 5);
+    assertEq(_tail.length, 1);
+    assertEq(_tail[0].id, 3);
+  }
+
+  function test_GetOrganizationsWhenOffsetOutOfBounds() external {
+    vm.prank(_creator1);
+    _factory.createOrganization('myorg', 'Build my DAO', _defaultGovConfig());
+
+    HolacracyTypes.Organization[] memory _page = _factory.getOrganizations(5, 10);
+    assertEq(_page.length, 0);
+  }
+
   function test_ImplementationAddresses() external view {
     // it returns non-zero implementation addresses
     assertTrue(_factory.roleRegistryImplementation() != address(0));
-    assertTrue(_factory.circleRegistryImplementation() != address(0));
-    assertTrue(_factory.governanceProcessImplementation() != address(0));
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -373,54 +372,32 @@ contract UnitOrganizationFactory is Test {
     vm.expectRevert(IRoleRegistry.RoleRegistry_AlreadyInitialized.selector);
     RoleRegistry(_org.roleRegistry).initialize();
 
-    // it prevents re-initialization of CircleRegistry clone
-    vm.expectRevert(ICircleRegistry.CircleRegistry_AlreadyInitialized.selector);
-    CircleRegistry(_org.circleRegistry).initialize(RoleRegistry(address(0)), address(0), address(0));
-
-    // it prevents re-initialization of GovernanceProcess clone
-    vm.expectRevert(IGovernanceProcess.GovernanceProcess_AlreadyInitialized.selector);
-    GovernanceProcess(_org.governanceProcess).initialize(CircleRegistry(address(0)), RoleRegistry(address(0)));
+    // governance process is disabled in simplified architecture
+    assertEq(_org.governanceProcess, address(0));
   }
 
   /*///////////////////////////////////////////////////////////////
-                    GOVERNANCE PROCESS INTEGRATION
+                    GOVERNANCE PROCESS REMOVAL
   //////////////////////////////////////////////////////////////*/
 
-  function test_GovernanceProcessLinkedCorrectly() external {
+  function test_GovernanceProcessDisabled() external {
     vm.prank(_creator1);
     uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultGovConfig());
     HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
 
-    CircleRegistry _cr = CircleRegistry(_org.circleRegistry);
-    GovernanceProcess _gp = GovernanceProcess(_org.governanceProcess);
-
-    // it links governance process to circle registry
-    assertEq(_cr.governanceProcess(), address(_gp));
-
-    // it links circle registry to governance process
-    assertEq(address(_gp.circleRegistry()), address(_cr));
-
-    // it links role registry to governance process
-    assertEq(address(_gp.roleRegistry()), _org.roleRegistry);
-
-    // it links role registry to circle registry
-    assertEq(address(_cr.roleRegistry()), _org.roleRegistry);
-
-    // it sets deployer correctly
-    assertEq(_cr.deployer(), _creator1);
+    // governance process is intentionally not deployed or linked
+    assertEq(_org.governanceProcess, address(0));
+    assertEq(_org.circleRegistry, address(0));
   }
 
-  function test_GovernanceProcessDAOLinkedCorrectly() external {
+  function test_GovernanceProcessDAOLinkDisabled() external {
     vm.prank(_creator1);
     uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultGovConfig());
     HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
 
-    GovernanceProcess _gp = GovernanceProcess(_org.governanceProcess);
-
-    // it links daoGovernor on the governance process to the deployed governor
-    assertEq(_gp.daoGovernor(), _org.governor);
-
-    // it links timelockController on the governance process to the deployed timelock
-    assertEq(_gp.timelockController(), _org.timelock);
+    // governance process no longer participates in DAO linking
+    assertEq(_org.governanceProcess, address(0));
+    assertTrue(_org.governor != address(0));
+    assertTrue(_org.timelock != address(0));
   }
 }

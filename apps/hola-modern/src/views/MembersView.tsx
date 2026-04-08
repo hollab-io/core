@@ -3,8 +3,9 @@ import { ArrowRight, BadgeCheck, Loader2, Mail, Plus, Users, Wallet } from "luci
 import { useEffect, useMemo, useState } from "react";
 import { isAddress } from "viem";
 
-import { useCircleRegistry } from "../hooks/useCircleRegistry";
+import { useChain } from "../context/ChainContext";
 import { getIndexingClient } from "../hooks/useOrganizationsFromIndexer";
+import { useOrgMemberActions } from "../hooks/useOrgMemberActions";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 const SPRING = "cubic-bezier(0.32,0.72,0,1)";
@@ -29,9 +30,10 @@ const INPUT_CLS = `w-full rounded-xl
 type Props = { org: Organization };
 
 export default function MembersView({ org }: Props) {
+    const { chainConfig } = useChain();
     const { authenticatedWalletAddress, circleMap, inviteMember, organization, snapshot } =
         useWorkspaceSnapshot();
-    const { addOrgMembers } = useCircleRegistry();
+    const { addOrgMembers } = useOrgMemberActions();
 
     const [inviteName, setInviteName] = useState("");
     const [inviteWallet, setInviteWallet] = useState("");
@@ -44,18 +46,17 @@ export default function MembersView({ org }: Props) {
     const [onChainAddresses, setOnChainAddresses] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        if (!org.circleRegistry) return;
         const client = getIndexingClient();
         if (!client) return;
         client
-            .listOrgMembers(org.circleRegistry, { limit: 500 })
+            .listOrgMembersByOrg(chainConfig.orgFactoryAddress, org.id, { limit: 500 })
             .then((r) =>
                 setOnChainAddresses(new Set(r.items.map((m) => m.memberAddress.toLowerCase()))),
             )
             .catch(() => {
                 /* silent — indexer may not have caught up yet */
             });
-    }, [org.circleRegistry]);
+    }, [chainConfig.orgFactoryAddress, org.id]);
 
     const members = useMemo(() => {
         const rolesByPartnerId = new Map<string, string[]>();
@@ -121,7 +122,8 @@ export default function MembersView({ org }: Props) {
 
         try {
             const hash = await addOrgMembers({
-                circleRegistryAddress: org.circleRegistry as `0x${string}`,
+                orgFactoryAddress: chainConfig.orgFactoryAddress,
+                orgId: BigInt(org.id),
                 memberAddresses: [addr as `0x${string}`],
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
             });

@@ -9,9 +9,9 @@ export type {
     OrgClientConfig,
 } from "./org.types.js";
 export type {
+    ContentRefEvent,
     IndexedEvent,
     ProposalEvent,
-    TreasuryEvent,
     RoleChange,
     CircleChange,
     EventIndexerConfig,

@@ -7,23 +7,9 @@ import type {
     EventIndexerConfig,
     ProposalEvent,
     RoleChange,
-    TreasuryEvent,
 } from "../types/events.types.js";
-import {
-    circleRegistryEvents,
-    circleTreasuryEvents,
-    contentRefEvents,
-    governanceProcessEvents,
-    roleRegistryEvents,
-    timelockControllerEvents,
-} from "../lib/chain/abis.js";
-import {
-    decodeCircleRegistryEvent,
-    decodeContentRefEvent,
-    decodeGovernanceProcessEvent,
-    decodeRoleRegistryEvent,
-    decodeTreasuryEvent,
-} from "../lib/chain/eventDecoder.js";
+import { contentRefEvents, roleRegistryEvents } from "../lib/chain/abis.js";
+import { decodeContentRefEvent, decodeRoleRegistryEvent } from "../lib/chain/eventDecoder.js";
 import { buildStreamId } from "../lib/storage/schema.js";
 
 const DEFAULT_CHUNK_SIZE = 2000;
@@ -40,8 +26,6 @@ export class EventIndexer implements IEventIndexer {
     private unwatchFns: UnwatchFn[] = [];
     private running = false;
 
-    private proposalHandlers: ((event: ProposalEvent) => void)[] = [];
-    private treasuryHandlers: ((event: TreasuryEvent) => void)[] = [];
     private roleHandlers: ((event: RoleChange) => void)[] = [];
     private contentRefHandlers: ((event: ContentRefEvent) => void)[] = [];
 
@@ -66,10 +50,7 @@ export class EventIndexer implements IEventIndexer {
             await this.syncHistorical(fromBlock);
         }
 
-        this.watchCircleRegistry();
         this.watchRoleRegistry();
-        this.watchGovernanceProcess();
-        this.watchTreasury();
         this.watchContentRefs();
     }
 
@@ -90,13 +71,8 @@ export class EventIndexer implements IEventIndexer {
     }
 
     /** @inheritdoc */
-    onProposalSubmitted(handler: (event: ProposalEvent) => void): void {
-        this.proposalHandlers.push(handler);
-    }
-
-    /** @inheritdoc */
-    onTreasuryScheduled(handler: (event: TreasuryEvent) => void): void {
-        this.treasuryHandlers.push(handler);
+    onProposalSubmitted(_handler: (event: ProposalEvent) => void): void {
+        /* GovernanceProcess contract removed — handler never invoked */
     }
 
     /** @inheritdoc */
@@ -104,7 +80,7 @@ export class EventIndexer implements IEventIndexer {
         this.roleHandlers.push(handler);
     }
 
-    /** Register a handler for ContentRefSet events */
+    /** @inheritdoc */
     onContentRefSet(handler: (event: ContentRefEvent) => void): void {
         this.contentRefHandlers.push(handler);
     }
@@ -123,84 +99,29 @@ export class EventIndexer implements IEventIndexer {
     }
 
     private async fetchAndProcessChunk(fromBlock: bigint, toBlock: bigint): Promise<void> {
-        const contentRefAddresses = [
-            this.config.contracts.roleRegistry,
-            this.config.contracts.circleRegistry,
-            this.config.contracts.governanceProcess,
-        ];
+        const roleAddr = this.config.contracts.roleRegistry;
 
-        const [circleLogs, roleLogs, govLogs, treasuryLogs, timelockLogs, ...contentRefLogs] =
-            await Promise.all([
-                this.publicClient.getContractEvents({
-                    address: this.config.contracts.circleRegistry,
-                    abi: circleRegistryEvents,
-                    fromBlock,
-                    toBlock,
-                }),
-                this.publicClient.getContractEvents({
-                    address: this.config.contracts.roleRegistry,
-                    abi: roleRegistryEvents,
-                    fromBlock,
-                    toBlock,
-                }),
-                this.publicClient.getContractEvents({
-                    address: this.config.contracts.governanceProcess,
-                    abi: governanceProcessEvents,
-                    fromBlock,
-                    toBlock,
-                }),
-                this.publicClient.getContractEvents({
-                    address: this.config.contracts.circleTreasury,
-                    abi: circleTreasuryEvents,
-                    fromBlock,
-                    toBlock,
-                }),
-                this.publicClient.getContractEvents({
-                    address: this.config.contracts.circleTreasury,
-                    abi: timelockControllerEvents,
-                    fromBlock,
-                    toBlock,
-                }),
-                ...contentRefAddresses.map((addr) =>
-                    this.publicClient.getContractEvents({
-                        address: addr,
-                        abi: contentRefEvents,
-                        fromBlock,
-                        toBlock,
-                    }),
-                ),
-            ]);
+        const [roleLogs, contentRefLogs] = await Promise.all([
+            this.publicClient.getContractEvents({
+                address: roleAddr,
+                abi: roleRegistryEvents,
+                fromBlock,
+                toBlock,
+            }),
+            this.publicClient.getContractEvents({
+                address: roleAddr,
+                abi: contentRefEvents,
+                fromBlock,
+                toBlock,
+            }),
+        ]);
 
-        for (const log of circleLogs) {
-            this.processCircleRegistryLog(log);
-        }
         for (const log of roleLogs) {
             this.processRoleRegistryLog(log);
         }
-        for (const log of govLogs) {
-            this.processGovernanceLog(log);
+        for (const log of contentRefLogs) {
+            this.processContentRefLog(log);
         }
-        for (const log of [...treasuryLogs, ...timelockLogs]) {
-            this.processTreasuryLog(log);
-        }
-        for (const logs of contentRefLogs) {
-            for (const log of logs) {
-                this.processContentRefLog(log);
-            }
-        }
-    }
-
-    private watchCircleRegistry(): void {
-        const unwatch = this.publicClient.watchContractEvent({
-            address: this.config.contracts.circleRegistry,
-            abi: circleRegistryEvents,
-            onLogs: (logs) => {
-                for (const log of logs) {
-                    this.processCircleRegistryLog(log);
-                }
-            },
-        });
-        this.unwatchFns.push(unwatch);
     }
 
     private watchRoleRegistry(): void {
@@ -216,59 +137,17 @@ export class EventIndexer implements IEventIndexer {
         this.unwatchFns.push(unwatch);
     }
 
-    private watchGovernanceProcess(): void {
+    private watchContentRefs(): void {
         const unwatch = this.publicClient.watchContractEvent({
-            address: this.config.contracts.governanceProcess,
-            abi: governanceProcessEvents,
+            address: this.config.contracts.roleRegistry,
+            abi: contentRefEvents,
             onLogs: (logs) => {
                 for (const log of logs) {
-                    this.processGovernanceLog(log);
+                    this.processContentRefLog(log);
                 }
             },
         });
         this.unwatchFns.push(unwatch);
-    }
-
-    private watchTreasury(): void {
-        const unwatchTreasury = this.publicClient.watchContractEvent({
-            address: this.config.contracts.circleTreasury,
-            abi: circleTreasuryEvents,
-            onLogs: (logs) => {
-                for (const log of logs) {
-                    this.processTreasuryLog(log);
-                }
-            },
-        });
-        const unwatchTimelock = this.publicClient.watchContractEvent({
-            address: this.config.contracts.circleTreasury,
-            abi: timelockControllerEvents,
-            onLogs: (logs) => {
-                for (const log of logs) {
-                    this.processTreasuryLog(log);
-                }
-            },
-        });
-        this.unwatchFns.push(unwatchTreasury, unwatchTimelock);
-    }
-
-    private watchContentRefs(): void {
-        const addresses = [
-            this.config.contracts.roleRegistry,
-            this.config.contracts.circleRegistry,
-            this.config.contracts.governanceProcess,
-        ];
-        for (const addr of addresses) {
-            const unwatch = this.publicClient.watchContractEvent({
-                address: addr,
-                abi: contentRefEvents,
-                onLogs: (logs) => {
-                    for (const log of logs) {
-                        this.processContentRefLog(log);
-                    }
-                },
-            });
-            this.unwatchFns.push(unwatch);
-        }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -290,20 +169,6 @@ export class EventIndexer implements IEventIndexer {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private processCircleRegistryLog(log: any): void {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const event = decodeCircleRegistryEvent(log);
-        if (!event) return;
-
-        void this.storageClient.appendLog(this.streamId, {
-            type: `circle:${event.type}`,
-            data: event as unknown as Record<string, unknown>,
-            timestamp: event.timestamp,
-            txHash: event.transactionHash,
-        });
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private processRoleRegistryLog(log: any): void {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         const event = decodeRoleRegistryEvent(log);
@@ -315,42 +180,6 @@ export class EventIndexer implements IEventIndexer {
 
         void this.storageClient.appendLog(this.streamId, {
             type: `role:${event.type}`,
-            data: event as unknown as Record<string, unknown>,
-            timestamp: event.timestamp,
-            txHash: event.transactionHash,
-        });
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private processGovernanceLog(log: any): void {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const event = decodeGovernanceProcessEvent(log);
-        if (!event) return;
-
-        for (const handler of this.proposalHandlers) {
-            handler(event);
-        }
-
-        void this.storageClient.appendLog(this.streamId, {
-            type: `governance:${event.type}`,
-            data: event as unknown as Record<string, unknown>,
-            timestamp: event.timestamp,
-            txHash: event.transactionHash,
-        });
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private processTreasuryLog(log: any): void {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        const event = decodeTreasuryEvent(log);
-        if (!event) return;
-
-        for (const handler of this.treasuryHandlers) {
-            handler(event);
-        }
-
-        void this.storageClient.appendLog(this.streamId, {
-            type: `treasury:${event.type}`,
             data: event as unknown as Record<string, unknown>,
             timestamp: event.timestamp,
             txHash: event.transactionHash,

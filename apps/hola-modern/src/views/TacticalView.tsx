@@ -189,12 +189,6 @@ export default function TacticalView({
                                         try {
                                             await deployMeetingComponents({
                                                 orgId: BigInt(activeOrg.id),
-                                                circleRegistry:
-                                                    activeOrg.circleRegistry as `0x${string}`,
-                                                roleRegistry:
-                                                    activeOrg.roleRegistry as `0x${string}`,
-                                                governanceProcess:
-                                                    activeOrg.governanceProcess as `0x${string}`,
                                                 govToken: activeOrg.token as `0x${string}`,
                                                 walletAddress:
                                                     authenticatedWalletAddress as `0x${string}`,

@@ -8,38 +8,28 @@ import type {
     WriteContractReturnType,
 } from "viem";
 import {
-    circleRegistryAbi,
-    circleTreasuryAbi,
     govComponentDeployerAbi,
-    governanceMeetingAbi,
-    governanceProcessAbi,
     govTokenAbi,
     holGovernorAbi,
     holGovernorFactoryAbi,
     meetingComponentsFactoryAbi,
+    meetingFactoryAbi,
     organizationFactoryAbi,
     roleRegistryAbi,
-    tacticalMeetingAbi,
-    treasuryDeployerAbi,
 } from "@hollab-io/contracts/actions";
 import { simulateContract, writeContract } from "viem/actions";
 
 // Re-export ABIs so consumers of viem-extension don't need to depend on
 // @hollab-io/contracts directly.
 export {
-    circleRegistryAbi,
-    circleTreasuryAbi,
     govComponentDeployerAbi,
-    governanceMeetingAbi,
-    governanceProcessAbi,
     govTokenAbi,
     holGovernorAbi,
     holGovernorFactoryAbi,
     meetingComponentsFactoryAbi,
+    meetingFactoryAbi,
     organizationFactoryAbi,
     roleRegistryAbi,
-    tacticalMeetingAbi,
-    treasuryDeployerAbi,
 };
 
 type WriteMutability = "nonpayable" | "payable";
@@ -71,31 +61,20 @@ function makeContractActions<const TAbi extends Abi>(abi: TAbi) {
  * @example
  * const client = createWalletClient({ ... }).extend(holLabContractActions())
  *
- * await client.circleRegistry.write({
+ * await client.organizationFactory.write({
  *   address: '0x...',
- *   functionName: 'addCircleLead',
- *   args: [circleId, leadAddress],
- * })
- *
- * const { result } = await client.circleRegistry.simulate({
- *   address: '0x...',
- *   functionName: 'createAnchorCircle',
- *   args: ['purpose'],
+ *   functionName: 'addOrgMember',
+ *   args: [orgId, member],
  * })
  */
 export function holLabContractActions() {
     return (client: Client) => ({
-        circleRegistry: makeContractActions(circleRegistryAbi)(client),
-        circleTreasury: makeContractActions(circleTreasuryAbi)(client),
         govComponentDeployer: makeContractActions(govComponentDeployerAbi)(client),
         govToken: makeContractActions(govTokenAbi)(client),
-        governanceMeeting: makeContractActions(governanceMeetingAbi)(client),
-        governanceProcess: makeContractActions(governanceProcessAbi)(client),
         holGovernor: makeContractActions(holGovernorAbi)(client),
         holGovernorFactory: makeContractActions(holGovernorFactoryAbi)(client),
+        meetingFactory: makeContractActions(meetingFactoryAbi)(client),
         organizationFactory: makeContractActions(organizationFactoryAbi)(client),
         roleRegistry: makeContractActions(roleRegistryAbi)(client),
-        tacticalMeeting: makeContractActions(tacticalMeetingAbi)(client),
-        treasuryDeployer: makeContractActions(treasuryDeployerAbi)(client),
     });
 }

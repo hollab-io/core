@@ -7,26 +7,30 @@ import { getIndexingClient } from "./useOrganizationsFromIndexer";
 export type { OrgMember };
 
 /**
- * Fetches on-chain org members from the indexer for a given circleRegistry address.
- * Returns wallet-level records (no names/avatars — those come from localStorage enrichment).
+ * Fetches on-chain org members from the indexer (OrganizationFactory + orgId scope).
  */
-export function useOrgMembersFromIndexer(registryAddress: string | undefined) {
+export function useOrgMembersFromIndexer(
+    orgFactoryAddress: string | undefined,
+    orgId: string | undefined,
+) {
     const queryClient = useQueryClient();
 
     const { data: members = [], isLoading: loading } = useQuery({
-        queryKey: ["orgMembers", registryAddress],
+        queryKey: ["orgMembers", orgFactoryAddress, orgId],
         queryFn: async () => {
             const client = getIndexingClient();
-            if (!client || !registryAddress) return [];
-            const result = await client.listOrgMembers(registryAddress);
+            if (!client || !orgFactoryAddress || !orgId) return [];
+            const result = await client.listOrgMembersByOrg(orgFactoryAddress, orgId);
             return result.items;
         },
-        enabled: Boolean(registryAddress),
+        enabled: Boolean(orgFactoryAddress && orgId),
     });
 
     const refetch = useCallback(() => {
-        return queryClient.invalidateQueries({ queryKey: ["orgMembers", registryAddress] });
-    }, [queryClient, registryAddress]);
+        return queryClient.invalidateQueries({
+            queryKey: ["orgMembers", orgFactoryAddress, orgId],
+        });
+    }, [queryClient, orgFactoryAddress, orgId]);
 
     return { members, loading, refetch };
 }

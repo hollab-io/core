@@ -149,16 +149,6 @@ export type Vote = {
     txHash: HexStr;
 };
 
-export type TreasuryDeposit = {
-    id: string;
-    treasuryAddress: HexStr;
-    sender: HexStr;
-    token: HexStr | null;
-    amount: BigIntStr;
-    depositedAt: BigIntStr;
-    txHash: HexStr;
-};
-
 // ─── Tactical meetings ────────────────────────────────────────────────────────
 
 export type TacticalMeeting = {
@@ -270,8 +260,7 @@ export type ActionVoteCast = {
 export type MeetingComponentSet = {
     id: string;
     orgId: BigIntStr;
-    tacticalMeeting: HexStr;
-    governanceMeeting: HexStr;
+    meetingFactory: HexStr;
     actionVoting: HexStr;
     deployedAt: BigIntStr;
     txHash: HexStr;
@@ -301,31 +290,6 @@ export type JoinRequest = {
     orgId: BigIntStr;
     message: string;
     status: JoinRequestStatus;
-    submittedAt: BigIntStr;
-    resolvedAt: BigIntStr | null;
-    txHash: HexStr;
-};
-
-// ─── Tension board ──────────────────────────────────────────────────────────
-
-/** 0=Open 1=Championed 2=Dismissed 3=Processed */
-export type TensionStatus = 0 | 1 | 2 | 3;
-
-/** 0=Tactical 1=Governance */
-export type TensionTarget = 0 | 1;
-
-export type Tension = {
-    id: string;
-    tensionId: BigIntStr;
-    contractAddress: HexStr;
-    author: HexStr;
-    orgId: BigIntStr;
-    circleId: BigIntStr;
-    target: TensionTarget;
-    title: string;
-    description: string;
-    status: TensionStatus;
-    champion: HexStr | null;
     submittedAt: BigIntStr;
     resolvedAt: BigIntStr | null;
     txHash: HexStr;

@@ -1,7 +1,7 @@
+import { organizationFactoryAbi } from "@hollab-io/contracts/actions";
 import { ponder } from "ponder:registry";
 import schema from "ponder:schema";
 
-import { OrganizationFactoryAbi } from "../abis/OrganizationFactoryAbi";
 import { upsertOrgSnapshot } from "./utils";
 
 ponder.on("OrganizationFactory:OrganizationCreated", async ({ event, context }) => {
@@ -10,15 +10,16 @@ ponder.on("OrganizationFactory:OrganizationCreated", async ({ event, context }) 
 
     // Read component addresses to populate registryIndex before the snapshot call
     const org = await context.client.readContract({
-        abi: OrganizationFactoryAbi,
+        abi: organizationFactoryAbi,
         address: factoryAddress,
         functionName: "getOrganization",
         args: [_orgId],
     });
 
-    // Register all three clone addresses so structural event handlers can resolve
-    // orgId + factoryAddress from just the contract address they receive.
+    const zero = "0x0000000000000000000000000000000000000000" as `0x${string}`;
+    // Register per-org clone addresses so RoleRegistry handlers can resolve orgId + factory.
     for (const addr of [org.circleRegistry, org.roleRegistry, org.governanceProcess] as const) {
+        if (addr === zero) continue;
         await context.db
             .insert(schema.registryIndex)
             .values({ registryAddress: addr, orgId: _orgId, factoryAddress })

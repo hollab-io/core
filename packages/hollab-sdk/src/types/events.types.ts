@@ -19,17 +19,6 @@ export interface ProposalEvent extends IndexedEvent {
     proposer?: string;
 }
 
-/** Treasury-related event */
-export interface TreasuryEvent extends IndexedEvent {
-    type: "Deposited" | "TokenDeposited" | "CallScheduled" | "CallExecuted" | "Cancelled";
-    operationId?: string;
-    sender?: string;
-    token?: string;
-    amount?: bigint;
-    target?: string;
-    value?: bigint;
-}
-
 /** Role change event */
 export interface RoleChange extends IndexedEvent {
     type: "RoleCreated" | "RoleUpdated" | "RoleRemoved" | "RoleLeadAssigned" | "RoleLeadUnassigned";
@@ -75,10 +64,7 @@ export interface EventIndexerConfig {
     rpcUrl: string;
     /** Contract addresses to index */
     contracts: {
-        circleRegistry: `0x${string}`;
         roleRegistry: `0x${string}`;
-        governanceProcess: `0x${string}`;
-        circleTreasury: `0x${string}`;
     };
     /** Organization ID to scope events */
     orgId: bigint;

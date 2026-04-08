@@ -1,5 +1,5 @@
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { tacticalMeetingAbi } from "@hollab-io/viem-extension";
+import { meetingFactoryAbi } from "@hollab-io/viem-extension";
 import { useCallback } from "react";
 
 import { useSendTransaction } from "./useSendTransaction";
@@ -13,6 +13,9 @@ export const OutputType = {
 } as const;
 
 export type OutputTypeValue = (typeof OutputType)[keyof typeof OutputType];
+
+/** IMeetingFactory.MeetingKind.Tactical */
+const MEETING_KIND_TACTICAL = 0;
 
 export function useTacticalMeeting() {
     const { primaryWallet } = useDynamicContext();
@@ -31,9 +34,9 @@ export function useTacticalMeeting() {
                     {
                         to: params.tacticalMeetingAddress,
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        abi: tacticalMeetingAbi as any,
-                        functionName: "conveneMeeting",
-                        args: [params.circleId],
+                        abi: meetingFactoryAbi as any,
+                        functionName: "startMeeting",
+                        args: [params.circleId, MEETING_KIND_TACTICAL],
                     },
                 ],
                 account(),
@@ -46,6 +49,7 @@ export function useTacticalMeeting() {
         async (params: {
             tacticalMeetingAddress: `0x${string}`;
             meetingId: bigint;
+            circleId: bigint;
             walletAddress: `0x${string}`;
         }): Promise<`0x${string}`> =>
             send(
@@ -53,9 +57,9 @@ export function useTacticalMeeting() {
                     {
                         to: params.tacticalMeetingAddress,
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        abi: tacticalMeetingAbi as any,
-                        functionName: "completeMeeting",
-                        args: [params.meetingId],
+                        abi: meetingFactoryAbi as any,
+                        functionName: "endMeeting",
+                        args: [params.meetingId, params.circleId, MEETING_KIND_TACTICAL],
                     },
                 ],
                 account(),
@@ -68,6 +72,7 @@ export function useTacticalMeeting() {
         async (params: {
             tacticalMeetingAddress: `0x${string}`;
             meetingId: bigint;
+            circleId: bigint;
             outputType: OutputTypeValue;
             description: string;
             assignedTo: `0x${string}`;
@@ -79,10 +84,11 @@ export function useTacticalMeeting() {
                     {
                         to: params.tacticalMeetingAddress,
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        abi: tacticalMeetingAbi as any,
+                        abi: meetingFactoryAbi as any,
                         functionName: "recordOutput",
                         args: [
                             params.meetingId,
+                            params.circleId,
                             params.outputType,
                             params.description,
                             params.assignedTo,

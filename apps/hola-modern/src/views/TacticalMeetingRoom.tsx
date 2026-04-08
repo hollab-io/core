@@ -1,7 +1,7 @@
 import type { MeetingOutput, TacticalMeeting } from "@hollab-io/indexing-client";
 import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { tacticalMeetingAbi } from "@hollab-io/contracts/actions";
+import { meetingFactoryAbi } from "@hollab-io/contracts/actions";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     Bot,
@@ -214,6 +214,8 @@ export default function TacticalMeetingRoom({
         try {
             const walletAddr = authenticatedWalletAddress as `0x${string}`;
             const meetingIdBigInt = BigInt(activeMeeting.meetingId);
+            const circleIdBigInt = BigInt(activeMeeting.circleId);
+            const meetingKindTactical = 0;
 
             // Build calls array
             const calls: { to: `0x${string}`; data: `0x${string}` }[] = [];
@@ -222,10 +224,11 @@ export default function TacticalMeetingRoom({
                 calls.push({
                     to: tacticalMeetingAddress,
                     data: encodeFunctionData({
-                        abi: tacticalMeetingAbi,
+                        abi: meetingFactoryAbi,
                         functionName: "recordOutput",
                         args: [
                             meetingIdBigInt,
+                            circleIdBigInt,
                             po.outputType,
                             po.description,
                             (po.assignedTo || walletAddr) as `0x${string}`,
@@ -238,9 +241,9 @@ export default function TacticalMeetingRoom({
             calls.push({
                 to: tacticalMeetingAddress,
                 data: encodeFunctionData({
-                    abi: tacticalMeetingAbi,
-                    functionName: "completeMeeting",
-                    args: [meetingIdBigInt],
+                    abi: meetingFactoryAbi,
+                    functionName: "endMeeting",
+                    args: [meetingIdBigInt, circleIdBigInt, meetingKindTactical],
                 }),
             });
 
@@ -270,6 +273,7 @@ export default function TacticalMeetingRoom({
                     await recordOutput({
                         tacticalMeetingAddress,
                         meetingId: meetingIdBigInt,
+                        circleId: circleIdBigInt,
                         outputType: po.outputType as 0 | 1 | 2 | 3,
                         description: po.description,
                         assignedTo: (po.assignedTo || walletAddr) as `0x${string}`,
@@ -280,6 +284,7 @@ export default function TacticalMeetingRoom({
                 await completeMeetingOnChain({
                     tacticalMeetingAddress,
                     meetingId: meetingIdBigInt,
+                    circleId: circleIdBigInt,
                     walletAddress: walletAddr,
                 });
             }

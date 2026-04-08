@@ -1,8 +1,11 @@
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { governanceMeetingAbi } from "@hollab-io/viem-extension";
+import { meetingFactoryAbi } from "@hollab-io/viem-extension";
 import { useCallback } from "react";
 
 import { useSendTransaction } from "./useSendTransaction";
+
+/** IMeetingFactory.MeetingKind.Governance */
+const MEETING_KIND_GOVERNANCE = 1;
 
 export function useGovernanceMeeting() {
     const { primaryWallet } = useDynamicContext();
@@ -21,9 +24,9 @@ export function useGovernanceMeeting() {
                     {
                         to: params.governanceMeetingAddress,
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        abi: governanceMeetingAbi as any,
-                        functionName: "conveneMeeting",
-                        args: [params.circleId],
+                        abi: meetingFactoryAbi as any,
+                        functionName: "startMeeting",
+                        args: [params.circleId, MEETING_KIND_GOVERNANCE],
                     },
                 ],
                 account(),
@@ -36,6 +39,7 @@ export function useGovernanceMeeting() {
         async (params: {
             governanceMeetingAddress: `0x${string}`;
             meetingId: bigint;
+            circleId: bigint;
             walletAddress: `0x${string}`;
         }): Promise<`0x${string}`> =>
             send(
@@ -43,9 +47,9 @@ export function useGovernanceMeeting() {
                     {
                         to: params.governanceMeetingAddress,
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        abi: governanceMeetingAbi as any,
-                        functionName: "completeMeeting",
-                        args: [params.meetingId],
+                        abi: meetingFactoryAbi as any,
+                        functionName: "endMeeting",
+                        args: [params.meetingId, params.circleId, MEETING_KIND_GOVERNANCE],
                     },
                 ],
                 account(),
@@ -58,6 +62,7 @@ export function useGovernanceMeeting() {
         async (params: {
             governanceMeetingAddress: `0x${string}`;
             meetingId: bigint;
+            circleId: bigint;
             proposalId: bigint;
             walletAddress: `0x${string}`;
         }): Promise<`0x${string}`> =>
@@ -66,9 +71,9 @@ export function useGovernanceMeeting() {
                     {
                         to: params.governanceMeetingAddress,
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        abi: governanceMeetingAbi as any,
+                        abi: meetingFactoryAbi as any,
                         functionName: "linkProposal",
-                        args: [params.meetingId, params.proposalId],
+                        args: [params.meetingId, params.circleId, params.proposalId],
                     },
                 ],
                 account(),

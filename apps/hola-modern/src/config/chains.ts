@@ -18,8 +18,6 @@ export type ChainConfig = {
     enabled: boolean;
     orgFactoryAddress: Address;
     meetingFactoryAddress: Address;
-    joinRequestAddress: Address;
-    tensionBoardAddress: Address;
     indexerUrl: string;
 };
 
@@ -31,9 +29,6 @@ const localhostConfig: ChainConfig = {
     enabled: hasLocal,
     orgFactoryAddress: addr(organizationFactoryAddress, foundry.id),
     meetingFactoryAddress: addr(meetingComponentsFactoryAddress, foundry.id),
-    // JoinRequest & TensionBoard — read from env until wagmi generates addresses
-    joinRequestAddress: (import.meta.env.VITE_LOCAL_JOIN_REQUEST_ADDRESS ?? ZERO) as Address,
-    tensionBoardAddress: (import.meta.env.VITE_LOCAL_TENSION_BOARD_ADDRESS ?? ZERO) as Address,
     indexerUrl: import.meta.env.VITE_INDEXER_URL_LOCAL ?? "http://localhost:42069",
 };
 
@@ -44,8 +39,6 @@ const sepoliaConfig: ChainConfig = {
     enabled: true,
     orgFactoryAddress: addr(organizationFactoryAddress, sepolia.id),
     meetingFactoryAddress: addr(meetingComponentsFactoryAddress, sepolia.id),
-    joinRequestAddress: ZERO, // Not yet deployed on Sepolia
-    tensionBoardAddress: ZERO,
     indexerUrl: import.meta.env.VITE_INDEXER_URL_SEPOLIA ?? import.meta.env.VITE_INDEXER_URL ?? "",
 };
 
@@ -56,8 +49,6 @@ const mainnetConfig: ChainConfig = {
     enabled: false, // Coming soon
     orgFactoryAddress: addr(organizationFactoryAddress, mainnet.id),
     meetingFactoryAddress: addr(meetingComponentsFactoryAddress, mainnet.id),
-    joinRequestAddress: (import.meta.env.VITE_JOIN_REQUEST_ADDRESS ?? ZERO) as Address,
-    tensionBoardAddress: (import.meta.env.VITE_TENSION_BOARD_ADDRESS ?? ZERO) as Address,
     indexerUrl: import.meta.env.VITE_INDEXER_URL_MAINNET ?? import.meta.env.VITE_INDEXER_URL ?? "",
 };
 

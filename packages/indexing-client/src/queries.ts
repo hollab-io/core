@@ -45,10 +45,6 @@ export const VOTE_FIELDS = `
     id proposalId governorAddress voter support weight reason castAt txHash
 `;
 
-export const TREASURY_DEPOSIT_FIELDS = `
-    id treasuryAddress sender token amount depositedAt txHash
-`;
-
 export const TACTICAL_MEETING_FIELDS = `
     id meetingId contractAddress circleId orgId convenedBy createdAt completedAt txHash
 `;
@@ -212,15 +208,6 @@ export const LIST_VOTES_BY_PROPOSAL = `
     }
 `;
 
-export const LIST_DEPOSITS_BY_TREASURY = `
-    query ListDepositsByTreasury($treasuryAddress: String!, $limit: Int, $after: String, $before: String) {
-        treasuryDeposits(where: { treasuryAddress: $treasuryAddress }, limit: $limit, after: $after, before: $before, orderBy: "depositedAt", orderDirection: "desc") {
-            items { ${TREASURY_DEPOSIT_FIELDS} }
-            ${PAGE_INFO}
-        }
-    }
-`;
-
 // ─── Tactical meetings ────────────────────────────────────────────────────────
 
 export const LIST_TACTICAL_MEETINGS_BY_CIRCLE = `
@@ -309,7 +296,7 @@ export const LIST_GOVERNANCE_MEETING_LINKS = `
 // ─── Meeting components ──────────────────────────────────────────────────────
 
 export const MEETING_COMPONENT_SET_FIELDS = `
-    id orgId tacticalMeeting governanceMeeting actionVoting deployedAt txHash
+    id orgId meetingFactory actionVoting deployedAt txHash
 `;
 
 export const LIST_MEETING_COMPONENTS_BY_ORG = `
@@ -347,6 +334,15 @@ export const LIST_ORG_MEMBERS = `
     }
 `;
 
+export const LIST_ORG_MEMBERS_BY_ORG = `
+    query ListOrgMembersByOrg($registryAddress: String!, $orgId: BigInt!, $limit: Int, $after: String, $before: String) {
+        orgMembers(where: { registryAddress: $registryAddress, orgId: $orgId }, limit: $limit, after: $after, before: $before, orderBy: "addedAt", orderDirection: "asc") {
+            items { ${ORG_MEMBER_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
 export const LIST_ORG_MEMBERS_BY_ADDRESS = `
     query ListOrgMembersByAddress($memberAddress: String!, $limit: Int, $after: String, $before: String) {
         orgMembers(where: { memberAddress: $memberAddress }, limit: $limit, after: $after, before: $before) {
@@ -366,30 +362,6 @@ export const LIST_PENDING_JOIN_REQUESTS_BY_ORG = `
     query ListPendingJoinRequestsByOrg($orgId: BigInt!, $limit: Int, $after: String, $before: String) {
         joinRequests(where: { orgId: $orgId, status: 0 }, limit: $limit, after: $after, before: $before, orderBy: "submittedAt", orderDirection: "asc") {
             items { ${JOIN_REQUEST_FIELDS} }
-            ${PAGE_INFO}
-        }
-    }
-`;
-
-// ─── Tension board ──────────────────────────────────────────────────────────
-
-export const TENSION_FIELDS = `
-    id tensionId contractAddress author orgId circleId target title description status champion submittedAt resolvedAt txHash
-`;
-
-export const LIST_OPEN_TENSIONS_BY_ORG = `
-    query ListOpenTensionsByOrg($orgId: BigInt!, $limit: Int, $after: String, $before: String) {
-        tensions(where: { orgId: $orgId, status: 0 }, limit: $limit, after: $after, before: $before, orderBy: "submittedAt", orderDirection: "desc") {
-            items { ${TENSION_FIELDS} }
-            ${PAGE_INFO}
-        }
-    }
-`;
-
-export const LIST_TENSIONS_BY_ORG = `
-    query ListTensionsByOrg($orgId: BigInt!, $limit: Int, $after: String, $before: String) {
-        tensions(where: { orgId: $orgId }, limit: $limit, after: $after, before: $before, orderBy: "submittedAt", orderDirection: "desc") {
-            items { ${TENSION_FIELDS} }
             ${PAGE_INFO}
         }
     }

@@ -1,4 +1,4 @@
-import type { ProposalEvent, RoleChange, TreasuryEvent } from "../types/events.types.js";
+import type { ContentRefEvent, ProposalEvent, RoleChange } from "../types/events.types.js";
 
 /**
  * Watches on-chain governance events and mirrors them to 0G Storage.
@@ -16,9 +16,9 @@ export interface IEventIndexer {
     /** Register a handler for proposal events. */
     onProposalSubmitted(handler: (event: ProposalEvent) => void): void;
 
-    /** Register a handler for treasury events. */
-    onTreasuryScheduled(handler: (event: TreasuryEvent) => void): void;
-
     /** Register a handler for role change events. */
     onRoleChanged(handler: (event: RoleChange) => void): void;
+
+    /** Register a handler for ContentRefSet events */
+    onContentRefSet(handler: (event: ContentRefEvent) => void): void;
 }

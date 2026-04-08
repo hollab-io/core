@@ -63,7 +63,6 @@ export function useOrganizationFactory() {
                             votingPeriod: 50400,
                             proposalThreshold: 0n,
                             quorumNumerator: 4n,
-                            treasuryTimelockDelay: 0n,
                         },
                     ],
                 },

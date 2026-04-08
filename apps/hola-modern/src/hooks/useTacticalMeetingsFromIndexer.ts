@@ -28,13 +28,13 @@ export function useTacticalMeetingsFromIndexer(orgId: string | null) {
             const componentsResult = await client.listMeetingComponentsByOrg(orgId);
             const comp = componentsResult.items[0] ?? null;
 
-            if (!comp?.tacticalMeeting) {
+            if (!comp?.meetingFactory) {
                 return { components: comp, meetings: [], outputs: [] };
             }
 
             const [meetingsResult, outputsResult] = await Promise.all([
-                client.listTacticalMeetingsByContract(comp.tacticalMeeting),
-                client.listMeetingOutputsByContract(comp.tacticalMeeting),
+                client.listTacticalMeetingsByContract(comp.meetingFactory),
+                client.listMeetingOutputsByContract(comp.meetingFactory),
             ]);
 
             return {
@@ -58,12 +58,12 @@ export function useTacticalMeetingsFromIndexer(orgId: string | null) {
         (prevCount: number, timeoutMs = 60_000): Promise<TacticalMeeting[]> => {
             const client = getIndexingClient();
             return new Promise((resolve, reject) => {
-                if (!client || !components?.tacticalMeeting) {
+                if (!client || !components?.meetingFactory) {
                     reject(new Error("Indexer not configured"));
                     return;
                 }
                 const deadline = Date.now() + timeoutMs;
-                const contractAddr = components.tacticalMeeting;
+                const contractAddr = components.meetingFactory;
 
                 const tick = async () => {
                     try {
@@ -97,10 +97,10 @@ export function useTacticalMeetingsFromIndexer(orgId: string | null) {
     const fetchOutputs = useCallback(
         async (meetingId: string): Promise<MeetingOutput[]> => {
             const client = getIndexingClient();
-            if (!client || !components?.tacticalMeeting) return [];
+            if (!client || !components?.meetingFactory) return [];
             try {
                 const result = await client.listMeetingOutputs(
-                    components.tacticalMeeting,
+                    components.meetingFactory,
                     meetingId,
                 );
                 return result.items;
@@ -111,9 +111,10 @@ export function useTacticalMeetingsFromIndexer(orgId: string | null) {
         [components],
     );
 
+    const mf = components?.meetingFactory as `0x${string}` | undefined;
     return {
-        tacticalMeetingAddress: components?.tacticalMeeting as `0x${string}` | undefined,
-        governanceMeetingAddress: components?.governanceMeeting as `0x${string}` | undefined,
+        tacticalMeetingAddress: mf,
+        governanceMeetingAddress: mf,
         actionVotingAddress: components?.actionVoting as `0x${string}` | undefined,
         meetings,
         outputs,

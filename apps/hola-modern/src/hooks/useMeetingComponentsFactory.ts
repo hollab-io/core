@@ -14,9 +14,6 @@ export function useMeetingComponentsFactory() {
     const deployMeetingComponents = useCallback(
         async (params: {
             orgId: bigint;
-            circleRegistry: `0x${string}`;
-            roleRegistry: `0x${string}`;
-            governanceProcess: `0x${string}`;
             govToken: `0x${string}`;
             walletAddress: `0x${string}`;
         }): Promise<`0x${string}`> => {
@@ -39,13 +36,7 @@ export function useMeetingComponentsFactory() {
                 functionName: "deploy",
                 account: params.walletAddress,
                 chain: chainConfig.chain,
-                args: [
-                    params.orgId,
-                    params.circleRegistry,
-                    params.roleRegistry,
-                    params.governanceProcess,
-                    params.govToken,
-                ],
+                args: [params.orgId, chainConfig.orgFactoryAddress, params.govToken],
             });
 
             return txHash;

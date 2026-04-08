@@ -31,10 +31,7 @@ function createMockStorageClient(): IStorageClient {
 const config: EventIndexerConfig = {
     rpcUrl: "http://localhost:8545",
     contracts: {
-        circleRegistry: "0x1111111111111111111111111111111111111111",
         roleRegistry: "0x2222222222222222222222222222222222222222",
-        governanceProcess: "0x3333333333333333333333333333333333333333",
-        circleTreasury: "0x4444444444444444444444444444444444444444",
     },
     orgId: 1n,
     chunkSize: 500,
@@ -59,14 +56,13 @@ describe("EventIndexer", () => {
     describe("start/stop lifecycle", () => {
         it("starts watching events", async () => {
             await indexer.start();
-            // circle, role, governance, treasury, timelock + 3 contentRef watchers = 8
-            expect(mockPublicClient.watchContractEvent).toHaveBeenCalledTimes(8);
+            expect(mockPublicClient.watchContractEvent).toHaveBeenCalledTimes(2);
         });
 
         it("does not double-start", async () => {
             await indexer.start();
             await indexer.start();
-            expect(mockPublicClient.watchContractEvent).toHaveBeenCalledTimes(8);
+            expect(mockPublicClient.watchContractEvent).toHaveBeenCalledTimes(2);
         });
 
         it("stop calls unwatch functions", async () => {
@@ -76,7 +72,7 @@ describe("EventIndexer", () => {
             await indexer.start();
             await indexer.stop();
 
-            expect(unwatch).toHaveBeenCalledTimes(8);
+            expect(unwatch).toHaveBeenCalledTimes(2);
         });
     });
 
@@ -86,8 +82,8 @@ describe("EventIndexer", () => {
 
             await indexer.start(0n);
 
-            // 0-499, 500-999, 1000-1200 = 3 chunks × 8 contract event calls
-            expect(mockPublicClient.getContractEvents).toHaveBeenCalledTimes(24);
+            // 0-499, 500-999, 1000-1200 = 3 chunks × 2 contract event calls (role + contentRef)
+            expect(mockPublicClient.getContractEvents).toHaveBeenCalledTimes(6);
         });
 
         it("handles single chunk", async () => {
@@ -95,8 +91,7 @@ describe("EventIndexer", () => {
 
             await indexer.start(0n);
 
-            // 1 chunk × 8 contract event calls
-            expect(mockPublicClient.getContractEvents).toHaveBeenCalledTimes(8);
+            expect(mockPublicClient.getContractEvents).toHaveBeenCalledTimes(2);
         });
     });
 
@@ -111,39 +106,6 @@ describe("EventIndexer", () => {
     });
 
     describe("event handlers", () => {
-        it("calls proposal handlers for governance events", async () => {
-            const handler = vi.fn();
-            indexer.onProposalSubmitted(handler);
-
-            mockPublicClient.getContractEvents.mockImplementation(
-                (params: { abi: readonly { name: string }[] }) => {
-                    if (params.abi[0]?.name === "ProposalSubmitted") {
-                        return [
-                            {
-                                eventName: "ProposalSubmitted",
-                                args: {
-                                    _proposalId: 1n,
-                                    _circleId: 2n,
-                                    _proposer: "0xAlice",
-                                },
-                                blockNumber: 50n,
-                                transactionHash: "0xabc",
-                                logIndex: 0,
-                            },
-                        ];
-                    }
-                    return [];
-                },
-            );
-
-            mockPublicClient.getBlockNumber.mockResolvedValue(100n);
-            await indexer.syncOrg(1n, 0n);
-
-            expect(handler).toHaveBeenCalledWith(
-                expect.objectContaining({ type: "ProposalSubmitted", proposalId: 1n }),
-            );
-        });
-
         it("calls role handlers for role events", async () => {
             const handler = vi.fn();
             indexer.onRoleChanged(handler);
@@ -174,38 +136,6 @@ describe("EventIndexer", () => {
 
             expect(handler).toHaveBeenCalledWith(
                 expect.objectContaining({ type: "RoleCreated", roleId: 5n }),
-            );
-        });
-
-        it("calls treasury handlers for treasury events", async () => {
-            const handler = vi.fn();
-            indexer.onTreasuryScheduled(handler);
-
-            mockPublicClient.getContractEvents.mockImplementation(
-                (params: { abi: readonly { name: string }[] }) => {
-                    if (params.abi[0]?.name === "Deposited") {
-                        return [
-                            {
-                                eventName: "Deposited",
-                                args: {
-                                    _sender: "0xBob",
-                                    _amount: 1000n,
-                                },
-                                blockNumber: 50n,
-                                transactionHash: "0xghi",
-                                logIndex: 0,
-                            },
-                        ];
-                    }
-                    return [];
-                },
-            );
-
-            mockPublicClient.getBlockNumber.mockResolvedValue(100n);
-            await indexer.syncOrg(1n, 0n);
-
-            expect(handler).toHaveBeenCalledWith(
-                expect.objectContaining({ type: "Deposited", sender: "0xBob" }),
             );
         });
     });

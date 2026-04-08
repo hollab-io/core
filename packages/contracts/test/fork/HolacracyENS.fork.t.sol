@@ -6,8 +6,6 @@ import {ENSSubdomainRegistrar} from 'ens/ENSSubdomainRegistrar.sol';
 import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
 import {OrganizationFactory, IOrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {CircleRegistry} from 'contracts/CircleRegistry.sol';
-import {GovernanceProcess} from 'contracts/GovernanceProcess.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 interface IENS {
@@ -72,14 +70,10 @@ contract HolacracyENSForkTest is Test {
     // 2. Deploy HolGovernorFactory and implementation contracts.
     HolGovernorFactory govFactory = new HolGovernorFactory();
     address roleRegistryImpl = address(new RoleRegistry());
-    address circleRegistryImpl = address(new CircleRegistry());
-    address governanceProcessImpl = address(new GovernanceProcess());
 
     // 3. Deploy OrganizationFactory and authorize it on the ENS registrar.
     OrganizationFactory orgFactory = new OrganizationFactory(
       roleRegistryImpl,
-      circleRegistryImpl,
-      governanceProcessImpl,
       address(govFactory),
       address(registrar)
     );
@@ -105,8 +99,7 @@ contract HolacracyENSForkTest is Test {
         votingDelay: uint48(1),
         votingPeriod: uint32(50),
         proposalThreshold: 0,
-        quorumNumerator: 4,
-        treasuryTimelockDelay: 0
+        quorumNumerator: 4
       })
     );
 
@@ -134,10 +127,10 @@ contract HolacracyENSForkTest is Test {
     // 7. Verify organization data is correctly stored.
     assertEq(orgId, 1, 'first org should have id 1');
     assertEq(org.creator, _domainOwner, 'creator should be domain owner');
-    assertEq(org.anchorCircleId, 1, 'anchor circle id should be 1');
+    assertEq(org.anchorCircleId, 0, 'anchor circle id should be disabled');
     assertTrue(org.roleRegistry != address(0), 'role registry should be deployed');
-    assertTrue(org.circleRegistry != address(0), 'circle registry should be deployed');
-    assertTrue(org.governanceProcess != address(0), 'governance process should be deployed');
+    assertEq(org.circleRegistry, address(0), 'circle registry should be disabled');
+    assertEq(org.governanceProcess, address(0), 'governance process should be disabled');
     assertTrue(org.governor != address(0), 'governor should be deployed');
     assertTrue(org.token != address(0), 'token should be deployed');
     assertTrue(org.timelock != address(0), 'timelock should be deployed');

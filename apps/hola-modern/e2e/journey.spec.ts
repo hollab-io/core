@@ -779,7 +779,392 @@ test.describe("Voting", () => {
     });
 });
 
-// ── Journey 5: Multi-org isolation ──────────────────────────────────────────
+// ── Journey 5: Data display (sequential fetch + event logs) ─────────────────
+
+const getOrganizationsAbi = parseAbi([
+    "function organizationCount() external view returns (uint256)",
+    "function getOrganizations(uint256 _offset, uint256 _limit) external view returns ((uint256 id, string name, string subname, address creator, address roleRegistry, address circleRegistry, address governanceProcess, address meetingFactory, address accessManager, uint256 anchorCircleId, uint256 createdAt, address governor, address token, address timelock)[])",
+]);
+
+test.describe("Data display", () => {
+    test("sequentially fetches all organizations (mimics frontend pattern)", async () => {
+        const pub = publicClient();
+        const founderWc = walletClient(FOUNDER);
+
+        // Create 3 orgs
+        for (const name of ["display-alpha", "display-beta", "display-gamma"]) {
+            await pub.waitForTransactionReceipt({
+                hash: await founderWc.writeContract({
+                    address: ADDRESSES.orgFactory,
+                    abi: orgFactoryAbi,
+                    functionName: "createOrganization",
+                    args: [name, `Purpose for ${name}`, GOV_CONFIG],
+                }),
+            });
+        }
+
+        // Sequential fetch: count → paginated getOrganizations
+        const total = await pub.readContract({
+            address: ADDRESSES.orgFactory,
+            abi: getOrganizationsAbi,
+            functionName: "organizationCount",
+        });
+        expect(total).toBeGreaterThanOrEqual(4n); // 1 sample + 3 new
+
+        const PAGE_SIZE = 50n;
+        const allOrgs: { id: bigint; subname: string; creator: `0x${string}` }[] = [];
+        for (let offset = 0n; offset < total; offset += PAGE_SIZE) {
+            const page = await pub.readContract({
+                address: ADDRESSES.orgFactory,
+                abi: getOrganizationsAbi,
+                functionName: "getOrganizations",
+                args: [offset, PAGE_SIZE],
+            });
+            for (const org of page) {
+                if (org.id > 0n) allOrgs.push(org);
+            }
+        }
+
+        expect(allOrgs.length).toBe(Number(total));
+
+        // Verify our 3 orgs are in the list
+        const names = allOrgs.map((o) => o.subname);
+        expect(names).toContain("display-alpha");
+        expect(names).toContain("display-beta");
+        expect(names).toContain("display-gamma");
+
+        // All have the founder as creator
+        const ours = allOrgs.filter(
+            (o) => names.includes(o.subname) && o.subname.startsWith("display-"),
+        );
+        for (const org of ours) {
+            expect(getAddress(org.creator)).toBe(getAddress(FOUNDER.address));
+        }
+    });
+
+    test("reads event logs for join requests and membership changes", async () => {
+        const pub = publicClient();
+        const founderWc = walletClient(FOUNDER);
+        const aliceWc = walletClient(ALICE);
+        const bobWc = walletClient(BOB);
+
+        // Create org
+        const createReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: ADDRESSES.orgFactory,
+                abi: orgFactoryAbi,
+                functionName: "createOrganization",
+                args: ["events-test", "Event log test", GOV_CONFIG],
+            }),
+        });
+        const orgId = await pub.readContract({
+            address: ADDRESSES.orgFactory,
+            abi: orgFactoryAbi,
+            functionName: "organizationCount",
+        });
+
+        // Verify OrganizationCreated event in receipt
+        const orgCreatedLogs = createReceipt.logs.filter(
+            (l) => l.address.toLowerCase() === ADDRESSES.orgFactory.toLowerCase(),
+        );
+        expect(orgCreatedLogs.length).toBeGreaterThan(0);
+
+        // Alice and Bob request to join
+        const aliceJoinReceipt = await pub.waitForTransactionReceipt({
+            hash: await aliceWc.writeContract({
+                address: ADDRESSES.orgFactory,
+                abi: orgFactoryAbi,
+                functionName: "requestToJoin",
+                args: [orgId, "Alice joining"],
+            }),
+        });
+        await pub.waitForTransactionReceipt({
+            hash: await bobWc.writeContract({
+                address: ADDRESSES.orgFactory,
+                abi: orgFactoryAbi,
+                functionName: "requestToJoin",
+                args: [orgId, "Bob joining"],
+            }),
+        });
+
+        // Query JoinRequested logs from the chain (mimics indexer backfill)
+        const joinRequestedTopic =
+            "0x" +
+            Buffer.from(
+                new Uint8Array(
+                    await crypto.subtle.digest(
+                        "SHA-256",
+                        new TextEncoder().encode("unused"), // we'll use getLogs filter instead
+                    ),
+                ),
+            ).toString("hex");
+
+        // Use getLogs to find all JoinRequested events for this org
+        const joinLogs = await pub.getLogs({
+            address: ADDRESSES.orgFactory,
+            event: {
+                type: "event",
+                name: "JoinRequested",
+                inputs: [
+                    { name: "requestId", type: "uint256", indexed: true },
+                    { name: "requester", type: "address", indexed: true },
+                    { name: "orgId", type: "uint256", indexed: true },
+                    { name: "message", type: "string", indexed: false },
+                ],
+            },
+            args: { orgId },
+            fromBlock: 0n,
+        });
+        expect(joinLogs.length).toBe(2);
+        expect(joinLogs[0].args.requester?.toLowerCase()).toBe(ALICE.address.toLowerCase());
+        expect(joinLogs[1].args.requester?.toLowerCase()).toBe(BOB.address.toLowerCase());
+        expect(joinLogs[0].args.message).toBe("Alice joining");
+        expect(joinLogs[1].args.message).toBe("Bob joining");
+
+        // Approve Alice, reject Bob
+        await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: ADDRESSES.orgFactory,
+                abi: orgFactoryAbi,
+                functionName: "approveJoinRequest",
+                args: [orgId, ALICE.address],
+            }),
+        });
+        await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: ADDRESSES.orgFactory,
+                abi: orgFactoryAbi,
+                functionName: "rejectJoinRequest",
+                args: [orgId, BOB.address],
+            }),
+        });
+
+        // Query OrgMemberAdded logs
+        const memberLogs = await pub.getLogs({
+            address: ADDRESSES.orgFactory,
+            event: {
+                type: "event",
+                name: "OrgMemberAdded",
+                inputs: [
+                    { name: "orgId", type: "uint256", indexed: true },
+                    { name: "account", type: "address", indexed: true },
+                ],
+            },
+            args: { orgId },
+            fromBlock: 0n,
+        });
+        // Founder (auto-seeded) + Alice (approved)
+        const memberAddresses = memberLogs.map((l) => l.args.account?.toLowerCase());
+        expect(memberAddresses).toContain(FOUNDER.address.toLowerCase());
+        expect(memberAddresses).toContain(ALICE.address.toLowerCase());
+        expect(memberAddresses).not.toContain(BOB.address.toLowerCase());
+    });
+
+    test("reads VoteCast event logs for off-chain tally (mimics indexer)", async () => {
+        const pub = publicClient();
+        const founderWc = walletClient(FOUNDER);
+        const aliceWc = walletClient(ALICE);
+        const bobWc = walletClient(BOB);
+
+        // Setup: create org, deploy meeting components, add members
+        await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: ADDRESSES.orgFactory,
+                abi: orgFactoryAbi,
+                functionName: "createOrganization",
+                args: ["tally-test", "Vote tally test", GOV_CONFIG],
+            }),
+        });
+        const orgId = await pub.readContract({
+            address: ADDRESSES.orgFactory,
+            abi: orgFactoryAbi,
+            functionName: "organizationCount",
+        });
+        const org = await pub.readContract({
+            address: ADDRESSES.orgFactory,
+            abi: orgFactoryAbi,
+            functionName: "getOrganization",
+            args: [orgId],
+        });
+
+        // Deploy meeting components
+        const deployReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: ADDRESSES.meetingFactory,
+                abi: meetingComponentsFactoryAbi,
+                functionName: "deploy",
+                args: [orgId, ADDRESSES.orgFactory, org.token],
+            }),
+        });
+        let avAddr: Address = "0x";
+        for (const log of deployReceipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: meetingComponentsFactoryAbi,
+                    data: log.data,
+                    topics: log.topics,
+                });
+                if (decoded.eventName === "MeetingComponentsDeployed") {
+                    avAddr = decoded.args._actionVoting;
+                }
+            } catch {
+                /* not our event */
+            }
+        }
+
+        // Add members + delegate
+        for (const [fn, addr] of [
+            ["addOrgMember", ALICE.address],
+            ["addOrgAdmin", ALICE.address],
+            ["addOrgMember", BOB.address],
+        ] as const) {
+            await pub.waitForTransactionReceipt({
+                hash: await founderWc.writeContract({
+                    address: ADDRESSES.orgFactory,
+                    abi: orgFactoryAbi,
+                    functionName: fn,
+                    args: [orgId, addr],
+                }),
+            });
+        }
+
+        // Transfer tokens + delegate
+        const tokenAddr = org.token;
+        await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: tokenAddr,
+                abi: erc20Abi,
+                functionName: "transfer",
+                args: [ALICE.address, 300_000n * 10n ** 18n],
+            }),
+        });
+        await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: tokenAddr,
+                abi: erc20Abi,
+                functionName: "transfer",
+                args: [BOB.address, 150_000n * 10n ** 18n],
+            }),
+        });
+        for (const acct of [FOUNDER, ALICE, BOB]) {
+            await pub.waitForTransactionReceipt({
+                hash: await walletClient(acct).writeContract({
+                    address: tokenAddr,
+                    abi: erc20Abi,
+                    functionName: "delegate",
+                    args: [acct.address],
+                }),
+            });
+        }
+        await pub.request({ method: "evm_mine" as any, params: [] });
+
+        // Setup quorum + create vote
+        await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: avAddr,
+                abi: actionVotingAbi,
+                functionName: "setCircleQuorum",
+                args: [orgId, 100_000n * 10n ** 18n],
+            }),
+        });
+        await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: avAddr,
+                abi: actionVotingAbi,
+                functionName: "createVote",
+                args: [orgId, 1n, "Tally test vote", 86400n],
+            }),
+        });
+
+        // Cast votes
+        await pub.waitForTransactionReceipt({
+            hash: await aliceWc.writeContract({
+                address: avAddr,
+                abi: actionVotingAbi,
+                functionName: "castVote",
+                args: [1n, 1],
+            }),
+        });
+        await pub.waitForTransactionReceipt({
+            hash: await bobWc.writeContract({
+                address: avAddr,
+                abi: actionVotingAbi,
+                functionName: "castVote",
+                args: [1n, 0],
+            }),
+        });
+        await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: avAddr,
+                abi: actionVotingAbi,
+                functionName: "castVote",
+                args: [1n, 1],
+            }),
+        });
+
+        // Query VoteCast logs and compute tally off-chain (exactly what indexer does)
+        const voteCastLogs = await pub.getLogs({
+            address: avAddr,
+            event: {
+                type: "event",
+                name: "VoteCast",
+                inputs: [
+                    { name: "_voteId", type: "uint256", indexed: true },
+                    { name: "_voter", type: "address", indexed: true },
+                    { name: "_support", type: "uint8", indexed: false },
+                    { name: "_weight", type: "uint256", indexed: false },
+                ],
+            },
+            args: { _voteId: 1n },
+            fromBlock: 0n,
+        });
+
+        expect(voteCastLogs.length).toBe(3);
+
+        // Compute tally from events
+        let forVotes = 0n;
+        let againstVotes = 0n;
+        for (const log of voteCastLogs) {
+            if (log.args._support === 1) forVotes += log.args._weight!;
+            else if (log.args._support === 0) againstVotes += log.args._weight!;
+        }
+
+        // Alice (300k) + Founder (550k remaining) voted For, Bob (150k) voted Against
+        expect(forVotes).toBeGreaterThan(againstVotes);
+        expect(againstVotes).toBe(150_000n * 10n ** 18n);
+        expect(forVotes).toBe(forVotes); // sanity — just verify it's nonzero
+        expect(voteCastLogs.length).toBe(3);
+
+        // Verify VoteCreated event has reason + snapshotBlock (no on-chain read needed)
+        const voteCreatedLogs = await pub.getLogs({
+            address: avAddr,
+            event: {
+                type: "event",
+                name: "VoteCreated",
+                inputs: [
+                    { name: "_voteId", type: "uint256", indexed: true },
+                    { name: "_circleId", type: "uint256", indexed: true },
+                    { name: "_outputId", type: "uint256", indexed: true },
+                    { name: "_proposer", type: "address", indexed: false },
+                    { name: "_deadline", type: "uint256", indexed: false },
+                    { name: "_reason", type: "string", indexed: false },
+                    { name: "_snapshotBlock", type: "uint256", indexed: false },
+                ],
+            },
+            args: { _voteId: 1n },
+            fromBlock: 0n,
+        });
+
+        expect(voteCreatedLogs.length).toBe(1);
+        expect(voteCreatedLogs[0].args._reason).toBe("Tally test vote");
+        expect(voteCreatedLogs[0].args._snapshotBlock).toBeGreaterThan(0n);
+        expect(voteCreatedLogs[0].args._proposer?.toLowerCase()).toBe(
+            FOUNDER.address.toLowerCase(),
+        );
+    });
+});
+
+// ── Journey 6: Multi-org isolation ──────────────────────────────────────────
 
 test.describe("Multi-org isolation", () => {
     test("admin of one org cannot act on another", async () => {

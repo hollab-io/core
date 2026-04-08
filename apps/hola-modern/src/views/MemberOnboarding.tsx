@@ -18,7 +18,7 @@ import { createPublicClient, http, isAddress } from "viem";
 import { normalize } from "viem/ens";
 
 import { useChain } from "../context/ChainContext";
-import { useCircleRegistry } from "../hooks/useCircleRegistry";
+import { useOrgMemberActions } from "../hooks/useOrgMemberActions";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -175,7 +175,7 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
     const inputRef = useRef<HTMLInputElement>(null);
 
     const { primaryWallet } = useDynamicContext();
-    const { addOrgMembers } = useCircleRegistry();
+    const { addOrgMembers } = useOrgMemberActions();
 
     const resolvedCount = entries.filter((e) => e.status === "resolved").length;
 
@@ -194,7 +194,8 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
 
         try {
             await addOrgMembers({
-                circleRegistryAddress: org.circleRegistry as `0x${string}`,
+                orgFactoryAddress: chainConfig.orgFactoryAddress,
+                orgId: BigInt(org.id),
                 memberAddresses: resolvedAddresses,
                 walletAddress: primaryWallet.address as `0x${string}`,
             });

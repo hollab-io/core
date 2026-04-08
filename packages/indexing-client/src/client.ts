@@ -21,8 +21,6 @@ import type {
     Proposal,
     Role,
     TacticalMeeting,
-    Tension,
-    TreasuryDeposit,
     Vote,
 } from "./types.js";
 import {
@@ -37,7 +35,6 @@ import {
     LIST_CHECKLIST_ITEMS_BY_ROLE,
     LIST_CIRCLES_BY_ORG,
     LIST_DAO_PROPOSALS_BY_GOVERNOR,
-    LIST_DEPOSITS_BY_TREASURY,
     LIST_GOVERNANCE_MEETING_LINKS,
     LIST_GOVERNANCE_MEETINGS_BY_CIRCLE,
     LIST_GOVERNANCE_MEETINGS_BY_CONTRACT,
@@ -46,9 +43,9 @@ import {
     LIST_MEETING_OUTPUTS_BY_CONTRACT,
     LIST_METRICS_BY_ROLE,
     LIST_OBJECTIONS_BY_PROPOSAL,
-    LIST_OPEN_TENSIONS_BY_ORG,
     LIST_ORG_MEMBERS,
     LIST_ORG_MEMBERS_BY_ADDRESS,
+    LIST_ORG_MEMBERS_BY_ORG,
     LIST_ORGANIZATIONS,
     LIST_ORGANIZATIONS_BY_CREATOR,
     LIST_PENDING_JOIN_REQUESTS_BY_ORG,
@@ -58,7 +55,6 @@ import {
     LIST_ROLES_BY_ORG,
     LIST_TACTICAL_MEETINGS_BY_CIRCLE,
     LIST_TACTICAL_MEETINGS_BY_CONTRACT,
-    LIST_TENSIONS_BY_ORG,
     LIST_VOTES_BY_PROPOSAL,
 } from "./queries.js";
 
@@ -223,18 +219,6 @@ export function createIndexingClient(url: string) {
             return data.votes;
         },
 
-        // ── Treasury ────────────────────────────────────────────────────────────
-        async listDepositsByTreasury(
-            treasuryAddress: string,
-            opts: PaginationOptions = {},
-        ): Promise<PaginatedResult<TreasuryDeposit>> {
-            const data = await gql.request<{ treasuryDeposits: PaginatedResult<TreasuryDeposit> }>(
-                LIST_DEPOSITS_BY_TREASURY,
-                { treasuryAddress, ...opts },
-            );
-            return data.treasuryDeposits;
-        },
-
         // ── Tactical meetings ───────────────────────────────────────────────────
         async listTacticalMeetingsByCircle(
             contractAddress: string,
@@ -385,6 +369,18 @@ export function createIndexingClient(url: string) {
             return data.orgMembers;
         },
 
+        async listOrgMembersByOrg(
+            registryAddress: string,
+            orgId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<OrgMember>> {
+            const data = await gql.request<{ orgMembers: PaginatedResult<OrgMember> }>(
+                LIST_ORG_MEMBERS_BY_ORG,
+                { registryAddress: registryAddress.toLowerCase(), orgId, ...opts },
+            );
+            return data.orgMembers;
+        },
+
         async listOrgMembersByAddress(
             memberAddress: string,
             opts: PaginationOptions = {},
@@ -406,29 +402,6 @@ export function createIndexingClient(url: string) {
                 { orgId, ...opts },
             );
             return data.joinRequests;
-        },
-
-        // ── Tension board ──────────────────────────────────────────────────────
-        async listOpenTensionsByOrg(
-            orgId: string,
-            opts: PaginationOptions = {},
-        ): Promise<PaginatedResult<Tension>> {
-            const data = await gql.request<{ tensions: PaginatedResult<Tension> }>(
-                LIST_OPEN_TENSIONS_BY_ORG,
-                { orgId, ...opts },
-            );
-            return data.tensions;
-        },
-
-        async listTensionsByOrg(
-            orgId: string,
-            opts: PaginationOptions = {},
-        ): Promise<PaginatedResult<Tension>> {
-            const data = await gql.request<{ tensions: PaginatedResult<Tension> }>(
-                LIST_TENSIONS_BY_ORG,
-                { orgId, ...opts },
-            );
-            return data.tensions;
         },
     };
 }

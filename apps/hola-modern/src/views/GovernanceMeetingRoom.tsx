@@ -1,6 +1,6 @@
 import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { circleRegistryAbi, governanceMeetingAbi } from "@hollab-io/viem-extension";
+import { meetingFactoryAbi } from "@hollab-io/viem-extension";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowLeft,
@@ -1448,10 +1448,11 @@ function GovernanceMeetingHistoryList({
 
 export default function GovernanceMeetingRoom({
     governanceMeetingAddress,
-    circleRegistryAddress,
+    circleRegistryAddress: _circleRegistryAddress,
     indexedGovernanceMeetings,
 }: {
     governanceMeetingAddress?: `0x${string}`;
+    /** @deprecated Circle registry removed — kept for call-site compatibility */
     circleRegistryAddress?: `0x${string}`;
     indexedGovernanceMeetings?: GovernanceMeeting[];
 }) {
@@ -1541,8 +1542,6 @@ export default function GovernanceMeetingRoom({
         if (!activeGovernanceMeeting) return;
 
         const hasOnChain = governanceMeetingAddress && authenticatedWalletAddress;
-        const hasCircleRegistry =
-            circleRegistryAddress && /^\d+$/.test(activeGovernanceMeeting.circleId);
 
         if (!hasOnChain) {
             closeGovernanceMeeting();
@@ -1554,151 +1553,23 @@ export default function GovernanceMeetingRoom({
 
         try {
             const walletAddr = authenticatedWalletAddress as `0x${string}`;
-            // Use the real on-chain meetingId for contract calls, not the offset local ID
             const onChainId =
                 activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id;
             const meetingIdBigInt = /^\d+$/.test(onChainId) ? BigInt(onChainId) : BigInt(0);
+            const circleIdForMeeting = BigInt(activeGovernanceMeeting.circleId);
+            const meetingKindGovernance = 1;
 
-            // Build calls array: governance actions + completeMeeting
-            const calls: { to: `0x${string}`; data: `0x${string}` }[] = [];
+            const calls: { to: `0x${string}`; data: `0x${string}` }[] = [
+                {
+                    to: governanceMeetingAddress,
+                    data: encodeFunctionData({
+                        abi: meetingFactoryAbi,
+                        functionName: "endMeeting",
+                        args: [meetingIdBigInt, circleIdForMeeting, meetingKindGovernance],
+                    }),
+                },
+            ];
 
-            // Encode each pending governance action
-            if (hasCircleRegistry) {
-                const circleIdBigInt = BigInt(activeGovernanceMeeting.circleId);
-
-                for (const action of pendingActions) {
-                    switch (action.changeType) {
-                        case "create-role":
-                        case "amend-role":
-                            if (action.roleName) {
-                                calls.push({
-                                    to: circleRegistryAddress,
-                                    data: encodeFunctionData({
-                                        abi: circleRegistryAbi,
-                                        functionName: "createRoleInCircle",
-                                        args: [
-                                            circleIdBigInt,
-                                            action.roleName,
-                                            action.roleDescription ?? "",
-                                            action.roleDomain
-                                                ? action.roleDomain
-                                                      .split(",")
-                                                      .map((s) => s.trim())
-                                                      .filter(Boolean)
-                                                : [],
-                                            action.roleAccountabilities
-                                                ? action.roleAccountabilities
-                                                      .split("\n")
-                                                      .filter(Boolean)
-                                                : [],
-                                        ],
-                                    }),
-                                });
-                            }
-                            break;
-
-                        case "remove-role":
-                            if (action.existingTargetId && /^\d+$/.test(action.existingTargetId)) {
-                                calls.push({
-                                    to: circleRegistryAddress,
-                                    data: encodeFunctionData({
-                                        abi: circleRegistryAbi,
-                                        functionName: "removeRoleFromCircle",
-                                        args: [circleIdBigInt, BigInt(action.existingTargetId)],
-                                    }),
-                                });
-                            }
-                            break;
-
-                        case "create-policy":
-                        case "amend-policy":
-                            if (action.policyTitle) {
-                                calls.push({
-                                    to: circleRegistryAddress,
-                                    data: encodeFunctionData({
-                                        abi: circleRegistryAbi,
-                                        functionName: "addPolicy",
-                                        args: [
-                                            circleIdBigInt,
-                                            action.policyTitle,
-                                            action.policyBody ?? "",
-                                        ],
-                                    }),
-                                });
-                            }
-                            break;
-
-                        case "remove-policy":
-                            if (action.existingTargetId && /^\d+$/.test(action.existingTargetId)) {
-                                calls.push({
-                                    to: circleRegistryAddress,
-                                    data: encodeFunctionData({
-                                        abi: circleRegistryAbi,
-                                        functionName: "removePolicy",
-                                        args: [circleIdBigInt, BigInt(action.existingTargetId)],
-                                    }),
-                                });
-                            }
-                            break;
-
-                        case "move-role":
-                            // Remove from current circle, create in destination
-                            if (
-                                action.existingTargetId &&
-                                /^\d+$/.test(action.existingTargetId) &&
-                                action.destinationCircleId &&
-                                /^\d+$/.test(action.destinationCircleId)
-                            ) {
-                                calls.push({
-                                    to: circleRegistryAddress,
-                                    data: encodeFunctionData({
-                                        abi: circleRegistryAbi,
-                                        functionName: "removeRoleFromCircle",
-                                        args: [circleIdBigInt, BigInt(action.existingTargetId)],
-                                    }),
-                                });
-                                if (action.roleName) {
-                                    calls.push({
-                                        to: circleRegistryAddress,
-                                        data: encodeFunctionData({
-                                            abi: circleRegistryAbi,
-                                            functionName: "createRoleInCircle",
-                                            args: [
-                                                BigInt(action.destinationCircleId),
-                                                action.roleName,
-                                                action.roleDescription ?? "",
-                                                action.roleDomain
-                                                    ? action.roleDomain
-                                                          .split(",")
-                                                          .map((s) => s.trim())
-                                                          .filter(Boolean)
-                                                    : [],
-                                                action.roleAccountabilities
-                                                    ? action.roleAccountabilities
-                                                          .split("\n")
-                                                          .filter(Boolean)
-                                                    : [],
-                                            ],
-                                        }),
-                                    });
-                                }
-                            }
-                            break;
-                    }
-                }
-            }
-
-            // Always add completeMeeting as the final call
-            calls.push({
-                to: governanceMeetingAddress,
-                data: encodeFunctionData({
-                    abi: governanceMeetingAbi,
-                    functionName: "completeMeeting",
-                    args: [meetingIdBigInt],
-                }),
-            });
-
-            // Try EIP-5792 batch first
             let batched = false;
             if (primaryWallet && isEthereumWallet(primaryWallet)) {
                 try {
@@ -1720,28 +1591,11 @@ export default function GovernanceMeetingRoom({
                 }
             }
 
-            // Sequential fallback
             if (!batched) {
-                if (hasCircleRegistry && pendingActions.length > 0) {
-                    // Can't batch — send governance actions sequentially via useSendTransaction pattern
-                    if (primaryWallet && isEthereumWallet(primaryWallet)) {
-                        const walletClient = await primaryWallet.getWalletClient();
-                        for (const call of calls.slice(0, -1)) {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            await (walletClient as any).sendTransaction({
-                                to: call.to,
-                                data: call.data,
-                                account: walletAddr,
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                chain: (walletClient as any).chain,
-                            });
-                        }
-                    }
-                }
-                // Complete meeting via the hook (last call)
                 await completeMeetingOnChain({
                     governanceMeetingAddress,
                     meetingId: meetingIdBigInt,
+                    circleId: circleIdForMeeting,
                     walletAddress: walletAddr,
                 });
             }
@@ -1757,11 +1611,9 @@ export default function GovernanceMeetingRoom({
     }, [
         activeGovernanceMeeting,
         authenticatedWalletAddress,
-        circleRegistryAddress,
         closeGovernanceMeeting,
         completeMeetingOnChain,
         governanceMeetingAddress,
-        pendingActions,
         primaryWallet,
     ]);
 
@@ -1781,6 +1633,7 @@ export default function GovernanceMeetingRoom({
                     meetingId: BigInt(
                         activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id,
                     ),
+                    circleId: BigInt(activeGovernanceMeeting.circleId),
                     proposalId: BigInt(proposalId),
                     walletAddress: authenticatedWalletAddress as `0x${string}`,
                 });

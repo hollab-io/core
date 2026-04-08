@@ -22,8 +22,8 @@ import { normalize } from "viem/ens";
 
 import type { JoinRequestEntry } from "../hooks/useJoinRequest";
 import { useChain } from "../context/ChainContext";
-import { useCircleRegistry } from "../hooks/useCircleRegistry";
 import { useJoinRequest } from "../hooks/useJoinRequest";
+import { useOrgMemberActions } from "../hooks/useOrgMemberActions";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 import OrganizationChart from "./OrganizationChart";
 
@@ -155,7 +155,8 @@ function AddMembersPanel({
 }: {
     org: Organization;
     addOrgMembers: (params: {
-        circleRegistryAddress: `0x${string}`;
+        orgFactoryAddress: `0x${string}`;
+        orgId: bigint;
         memberAddresses: `0x${string}`[];
         walletAddress: `0x${string}`;
     }) => Promise<`0x${string}`>;
@@ -282,7 +283,8 @@ function AddMembersPanel({
                 .map((e) => e.address as `0x${string}`);
 
             await addOrgMembers({
-                circleRegistryAddress: org.circleRegistry as `0x${string}`,
+                orgFactoryAddress: chainConfig.orgFactoryAddress,
+                orgId: BigInt(org.id),
                 memberAddresses: addresses,
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
             });
@@ -306,7 +308,8 @@ function AddMembersPanel({
         authenticatedWalletAddress,
         entries,
         addOrgMembers,
-        org.circleRegistry,
+        chainConfig.orgFactoryAddress,
+        org.id,
         inviteMember,
         onClose,
     ]);
@@ -425,7 +428,7 @@ function shortenWallet(address: string) {
 // ─── Main view ───────────────────────────────────────────────────────────────
 export default function StructureView({ org, isDarkMode, autoOpenInvite, onInviteOpened }: Props) {
     const { authenticatedWalletAddress, snapshot, organization } = useWorkspaceSnapshot();
-    const { addOrgMembers } = useCircleRegistry();
+    const { addOrgMembers } = useOrgMemberActions();
     const { getPendingRequests, approveWithTokens, rejectRequest } = useJoinRequest();
     const [tab, setTab] = useState<"members" | "chart" | "requests">("members");
     const [showAddMembers, setShowAddMembers] = useState(false);
@@ -486,7 +489,7 @@ export default function StructureView({ org, isDarkMode, autoOpenInvite, onInvit
         setRequestActionError(null);
         try {
             await approveWithTokens({
-                requestId: req.id,
+                orgId: BigInt(org.id),
                 requester: req.requester,
                 govTokenAddress: org.token as `0x${string}`,
             });
@@ -502,7 +505,7 @@ export default function StructureView({ org, isDarkMode, autoOpenInvite, onInvit
         setRejectingId(req.id);
         setRequestActionError(null);
         try {
-            await rejectRequest({ requestId: req.id });
+            await rejectRequest({ orgId: BigInt(org.id), requester: req.requester });
             setJoinRequests((prev) => prev.filter((r) => r.id !== req.id));
         } catch (err) {
             setRequestActionError(err instanceof Error ? err.message : "Transaction failed");
