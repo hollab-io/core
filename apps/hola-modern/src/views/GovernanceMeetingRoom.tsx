@@ -1,17 +1,13 @@
-import { isEthereumWallet } from "@dynamic-labs/ethereum";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { meetingFactoryAbi } from "@hollab-io/viem-extension";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowLeft,
     ArrowRight,
-    Bot,
     CalendarDays,
     Check,
     ChevronRight,
     FileText,
     Loader2,
-    MessageSquare,
     MinusCircle,
     MoveRight,
     Plus,
@@ -24,8 +20,15 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { encodeFunctionData } from "viem";
+import { useWalletClient } from "wagmi";
 
 import type { GovernanceMeeting } from "../hooks/useGovernanceMeetingsFromIndexer";
+import {
+    encodeAmendRole,
+    encodeCreateRole,
+    encodeRemoveRole,
+    ChangeType as OnChainChangeType,
+} from "../hooks/useExecuteGovernance";
 import { useGovernanceMeeting } from "../hooks/useGovernanceMeeting";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
@@ -222,6 +225,64 @@ const shortDateFmt = new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
 });
+
+/**
+ * Convert a pending governance action into an on-chain executeGovernance call.
+ * Returns null for unsupported change types (policies, move-role — not yet on-chain).
+ */
+function buildGovernanceCall(
+    action: PendingGovernanceAction,
+    meetingFactoryAddress: `0x${string}`,
+    orgId: bigint,
+): { to: `0x${string}`; data: `0x${string}` } | null {
+    let changeType: number;
+    let encodedData: `0x${string}`;
+
+    if (action.changeType === "create-role") {
+        changeType = OnChainChangeType.CreateRole;
+        encodedData = encodeCreateRole({
+            circleId: BigInt(action.circleId || "0"),
+            name: action.roleName ?? "",
+            purpose: action.roleDescription ?? "",
+            domains: action.roleDomain ? [action.roleDomain] : [],
+            accountabilities: action.roleAccountabilities
+                ? action.roleAccountabilities
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                : [],
+        });
+    } else if (action.changeType === "amend-role" && action.existingTargetId) {
+        changeType = OnChainChangeType.AmendRole;
+        encodedData = encodeAmendRole({
+            roleId: BigInt(action.existingTargetId),
+            name: action.roleName ?? "",
+            purpose: action.roleDescription ?? "",
+            domains: action.roleDomain ? [action.roleDomain] : [],
+            accountabilities: action.roleAccountabilities
+                ? action.roleAccountabilities
+                      .split("\n")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                : [],
+        });
+    } else if (action.changeType === "remove-role" && action.existingTargetId) {
+        changeType = OnChainChangeType.RemoveRole;
+        encodedData = encodeRemoveRole(BigInt(action.existingTargetId));
+    } else {
+        // Policies and move-role not yet supported on-chain
+        return null;
+    }
+
+    return {
+        to: meetingFactoryAddress,
+        data: encodeFunctionData({
+            abi: meetingFactoryAbi,
+            functionName: "executeGovernance",
+            args: [orgId, changeType, encodedData],
+        }),
+    };
+}
 
 function buildEmptyDraft(circleId: string, roleId: string): ProposalDraft {
     return {
@@ -1448,15 +1509,14 @@ function GovernanceMeetingHistoryList({
 
 export default function GovernanceMeetingRoom({
     governanceMeetingAddress,
-    circleRegistryAddress: _circleRegistryAddress,
     indexedGovernanceMeetings,
+    orgId,
 }: {
     governanceMeetingAddress?: `0x${string}`;
-    /** @deprecated Circle registry removed — kept for call-site compatibility */
-    circleRegistryAddress?: `0x${string}`;
     indexedGovernanceMeetings?: GovernanceMeeting[];
+    orgId?: string;
 }) {
-    const { primaryWallet } = useDynamicContext();
+    const { data: walletClient } = useWalletClient();
     const {
         activeGovernanceMeeting,
         authenticatedWalletAddress,
@@ -1556,24 +1616,30 @@ export default function GovernanceMeetingRoom({
             const onChainId =
                 activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id;
             const meetingIdBigInt = /^\d+$/.test(onChainId) ? BigInt(onChainId) : BigInt(0);
-            const circleIdForMeeting = BigInt(activeGovernanceMeeting.circleId);
+            const orgIdForMeeting = BigInt(orgId ?? activeGovernanceMeeting.orgId ?? "0");
             const meetingKindGovernance = 1;
 
-            const calls: { to: `0x${string}`; data: `0x${string}` }[] = [
-                {
-                    to: governanceMeetingAddress,
-                    data: encodeFunctionData({
-                        abi: meetingFactoryAbi,
-                        functionName: "endMeeting",
-                        args: [meetingIdBigInt, circleIdForMeeting, meetingKindGovernance],
-                    }),
-                },
-            ];
+            // Build governance execution calls from adopted proposals
+            const calls: { to: `0x${string}`; data: `0x${string}` }[] = [];
+
+            for (const action of pendingActions) {
+                const call = buildGovernanceCall(action, governanceMeetingAddress, orgIdForMeeting);
+                if (call) calls.push(call);
+            }
+
+            // End the meeting after all governance changes are executed
+            calls.push({
+                to: governanceMeetingAddress,
+                data: encodeFunctionData({
+                    abi: meetingFactoryAbi,
+                    functionName: "endMeeting",
+                    args: [meetingIdBigInt, orgIdForMeeting, meetingKindGovernance],
+                }),
+            });
 
             let batched = false;
-            if (primaryWallet && isEthereumWallet(primaryWallet)) {
+            if (walletClient) {
                 try {
-                    const walletClient = await primaryWallet.getWalletClient();
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     await (walletClient as any).request({
                         method: "wallet_sendCalls",
@@ -1592,12 +1658,15 @@ export default function GovernanceMeetingRoom({
             }
 
             if (!batched) {
-                await completeMeetingOnChain({
-                    governanceMeetingAddress,
-                    meetingId: meetingIdBigInt,
-                    circleId: circleIdForMeeting,
-                    walletAddress: walletAddr,
-                });
+                // Execute governance actions + endMeeting sequentially
+                for (const call of calls) {
+                    await walletClient!.sendTransaction({
+                        to: call.to,
+                        data: call.data,
+                        account: walletAddr,
+                        chain: undefined,
+                    });
+                }
             }
 
             setPendingActions([]);
@@ -1612,9 +1681,10 @@ export default function GovernanceMeetingRoom({
         activeGovernanceMeeting,
         authenticatedWalletAddress,
         closeGovernanceMeeting,
-        completeMeetingOnChain,
         governanceMeetingAddress,
-        primaryWallet,
+        orgId,
+        pendingActions,
+        walletClient,
     ]);
 
     const handleLinkProposal = useCallback(
@@ -1633,7 +1703,7 @@ export default function GovernanceMeetingRoom({
                     meetingId: BigInt(
                         activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id,
                     ),
-                    circleId: BigInt(activeGovernanceMeeting.circleId),
+                    orgId: BigInt(orgId ?? activeGovernanceMeeting.orgId ?? "0"),
                     proposalId: BigInt(proposalId),
                     walletAddress: authenticatedWalletAddress as `0x${string}`,
                 });
@@ -2097,37 +2167,6 @@ export default function GovernanceMeetingRoom({
                                                 </div>
                                             </section>
                                         )}
-
-                                        {/* AI Copilot */}
-                                        <section className="rounded-2xl border border-[#3481FF]/15 bg-gradient-to-b from-[#3481FF]/[0.08] to-transparent p-5">
-                                            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#6aabff]">
-                                                <Bot size={13} />
-                                                AI copilot
-                                            </div>
-                                            <p className="mt-2 text-[12px] leading-relaxed text-slate-400">
-                                                Assist with governance processing, objection
-                                                analysis, and publication-ready meeting minutes.
-                                            </p>
-                                            <div className="mt-3 flex flex-wrap gap-2">
-                                                {[
-                                                    {
-                                                        label: "Analyze tensions",
-                                                        icon: MessageSquare,
-                                                    },
-                                                    { label: "Test objections", icon: ShieldAlert },
-                                                    { label: "Draft minutes", icon: ScrollText },
-                                                ].map((s) => (
-                                                    <button
-                                                        key={s.label}
-                                                        type="button"
-                                                        className="flex items-center gap-1.5 rounded-full border border-[#3481FF]/15 bg-[#3481FF]/[0.06] px-3 py-1.5 text-[11px] font-medium text-[#6aabff] transition-colors hover:bg-[#3481FF]/15"
-                                                    >
-                                                        <s.icon size={11} />
-                                                        {s.label}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </section>
                                     </motion.div>
                                 ) : (
                                     <motion.div

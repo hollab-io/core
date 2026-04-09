@@ -12,13 +12,7 @@ library DeployConfig {
     return _chainId == 1 || _chainId == 11_155_111;
   }
 
-  // ── Default governance parameters ─────────────────────────────────────────
+  // ── Default token parameters ──────────────────────────────────────────────
 
-  uint256 internal constant DEFAULT_TIMELOCK_DELAY = 2 days;
-  uint48 internal constant DEFAULT_VOTING_DELAY = uint48(1 days);
-  uint32 internal constant DEFAULT_VOTING_PERIOD = uint32(1 weeks);
-  uint256 internal constant DEFAULT_PROPOSAL_THRESHOLD = 0;
-  uint256 internal constant DEFAULT_QUORUM_NUMERATOR = 4;
   uint256 internal constant DEFAULT_INITIAL_SUPPLY = 1_000_000e18;
-  uint256 internal constant DEFAULT_TREASURY_DELAY = 1 days;
 }

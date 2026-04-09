@@ -1,9 +1,6 @@
 import type { Context } from "ponder:registry";
 import schema from "ponder:schema";
 
-const ZERO_HASH =
-    "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`;
-
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
 function isZeroAddress(a: `0x${string}`): boolean {
@@ -59,9 +56,7 @@ export async function upsertOrgSnapshot(
                         { name: "accessManager", type: "address" },
                         { name: "anchorCircleId", type: "uint256" },
                         { name: "createdAt", type: "uint256" },
-                        { name: "governor", type: "address" },
                         { name: "token", type: "address" },
-                        { name: "timelock", type: "address" },
                     ],
                 },
             ],
@@ -134,9 +129,7 @@ export async function upsertOrgSnapshot(
             subname: org.subname,
             name: org.name,
             creator: org.creator,
-            governor: org.governor,
             token: org.token,
-            timelock: org.timelock,
             circleRegistry: org.circleRegistry,
             roleRegistry: org.roleRegistry,
             governanceProcess: org.governanceProcess,
@@ -144,11 +137,6 @@ export async function upsertOrgSnapshot(
             tokenName,
             tokenSymbol,
             tokenTotalSupply,
-            governorName: org.subname,
-            votingDelay: 0n,
-            votingPeriod: 0n,
-            proposalThreshold: 0n,
-            quorumNumerator: 0n,
             circleCount: 0n,
             roleCount: 0n,
             memberCount: 0n,

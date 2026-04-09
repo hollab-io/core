@@ -4,10 +4,9 @@
 const PAGE_INFO = `pageInfo { startCursor endCursor hasPreviousPage hasNextPage }`;
 
 export const ORGANIZATION_FIELDS = `
-    id subname name creator governor token timelock
+    id subname name creator token
     circleRegistry roleRegistry governanceProcess
     anchorCircleId tokenName tokenSymbol tokenTotalSupply
-    governorName votingDelay votingPeriod proposalThreshold quorumNumerator
     circleCount roleCount memberCount purpose createdAt updatedAt
 `;
 
@@ -28,21 +27,12 @@ export const POLICY_FIELDS = `
 
 export const PROPOSAL_FIELDS = `
     id proposalId processAddress circleId proposer proposerRoleId
-    tension status daoProposalId submittedAt resolvedAt txHash
+    tension status submittedAt resolvedAt txHash
 `;
 
 export const OBJECTION_FIELDS = `
     id objectionId processAddress proposalId objector
     status raisedAt resolvedAt txHash
-`;
-
-export const DAO_PROPOSAL_FIELDS = `
-    id proposalId governorAddress proposer description
-    voteStart voteEnd status etaSeconds createdAt txHash
-`;
-
-export const VOTE_FIELDS = `
-    id proposalId governorAddress voter support weight reason castAt txHash
 `;
 
 export const TACTICAL_MEETING_FIELDS = `
@@ -107,12 +97,6 @@ export const GET_POLICY = `
 export const GET_PROPOSAL = `
     query GetProposal($id: String!) {
         proposal(id: $id) { ${PROPOSAL_FIELDS} }
-    }
-`;
-
-export const GET_DAO_PROPOSAL = `
-    query GetDaoProposal($id: String!) {
-        daoProposal(id: $id) { ${DAO_PROPOSAL_FIELDS} }
     }
 `;
 
@@ -185,24 +169,6 @@ export const LIST_OBJECTIONS_BY_PROPOSAL = `
     query ListObjectionsByProposal($processAddress: String!, $proposalId: String!, $limit: Int, $after: String, $before: String) {
         objections(where: { processAddress: $processAddress, proposalId: $proposalId }, limit: $limit, after: $after, before: $before) {
             items { ${OBJECTION_FIELDS} }
-            ${PAGE_INFO}
-        }
-    }
-`;
-
-export const LIST_DAO_PROPOSALS_BY_GOVERNOR = `
-    query ListDaoProposalsByGovernor($governorAddress: String!, $limit: Int, $after: String, $before: String) {
-        daoProposals(where: { governorAddress: $governorAddress }, limit: $limit, after: $after, before: $before, orderBy: "createdAt", orderDirection: "desc") {
-            items { ${DAO_PROPOSAL_FIELDS} }
-            ${PAGE_INFO}
-        }
-    }
-`;
-
-export const LIST_VOTES_BY_PROPOSAL = `
-    query ListVotesByProposal($governorAddress: String!, $proposalId: String!, $limit: Int, $after: String, $before: String) {
-        votes(where: { governorAddress: $governorAddress, proposalId: $proposalId }, limit: $limit, after: $after, before: $before) {
-            items { ${VOTE_FIELDS} }
             ${PAGE_INFO}
         }
     }

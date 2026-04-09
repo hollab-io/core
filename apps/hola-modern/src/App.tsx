@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { AppTabId } from "./config/navigation";
 import ChainSwitcher from "./components/ChainSwitcher";
-import DynamicAuthControl from "./components/DynamicAuthControl";
 import ThemeToggle from "./components/ThemeToggle";
+import WalletAuthControl from "./components/WalletAuthControl";
 import { useChain } from "./context/ChainContext";
 import { useTheme } from "./context/ThemeContext";
 import { useCirclesFromIndexer } from "./hooks/useCirclesFromIndexer";
@@ -63,7 +63,7 @@ function App() {
         }
     }, [routeOrgId, activeOrganizationId, setActiveOrganizationId]);
 
-    const { organizations, allOrganizations, pollUntil } = useOrganizationsFromIndexer(
+    const { organizations, allOrganizations } = useOrganizationsFromIndexer(
         authenticatedWalletAddress,
     );
     const activeOrg = useMemo(
@@ -81,7 +81,6 @@ function App() {
         governanceMeetingAddress,
         meetings: indexedMeetings,
         outputs: indexedOutputs,
-        pollForNewMeeting,
         refetch: refetchMeetings,
         fetchOutputs,
     } = useTacticalMeetingsFromIndexer(routeOrgId);
@@ -170,7 +169,7 @@ function App() {
                         </p>
                         <div className="flex-1" />
                         <ThemeToggle />
-                        <DynamicAuthControl />
+                        <WalletAuthControl />
                     </header>
                     <main className="custom-scrollbar relative z-10 min-w-0 flex-1 overflow-auto">
                         <ConstitutionView />
@@ -194,7 +193,6 @@ function App() {
                         onSelect={(id) => setOrgId(id)}
                         onSelectNew={(id) => setOrgId(id)}
                         onPreview={(id) => navigate({ page: "join", orgId: id })}
-                        pollUntil={pollUntil}
                     />
                 </main>
             </div>
@@ -210,8 +208,6 @@ function App() {
                     <TacticalView
                         tacticalMeetingAddress={tacticalMeetingAddress}
                         indexedMeetings={indexedMeetings}
-                        pollForNewMeeting={pollForNewMeeting}
-                        refetchMeetings={refetchMeetings}
                         activeOrg={activeOrg}
                     />
                 );
@@ -221,7 +217,7 @@ function App() {
                         governanceMeetingAddress={governanceMeetingAddress}
                         indexedGovernanceMeetings={indexedGovernanceMeetings}
                         pollForNewGovernanceMeeting={pollForNewGovernanceMeeting}
-                        refetchMeetingComponents={refetchMeetings}
+                        activeOrg={activeOrg}
                     />
                 );
             case "actions":
@@ -302,7 +298,7 @@ function App() {
                 {/* Right: theme + chain + auth */}
                 <ThemeToggle />
                 <ChainSwitcher />
-                <DynamicAuthControl />
+                <WalletAuthControl />
             </header>
 
             {/* ── Guest join banner ── */}
@@ -432,10 +428,12 @@ function App() {
                 allOutputs={indexedOutputs}
                 fetchOutputs={fetchOutputs}
                 refetchMeetings={refetchMeetings}
+                orgId={activeOrg?.id}
             />
             <GovernanceMeetingRoom
                 governanceMeetingAddress={governanceMeetingAddress}
                 indexedGovernanceMeetings={indexedGovernanceMeetings}
+                orgId={activeOrg?.id}
             />
         </div>
     );

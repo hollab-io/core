@@ -6,25 +6,20 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 /**
  * @title IOrganizationFactory
  * @notice Deploys Holacracy organizations as ERC-1167 minimal proxy clones,
- *         deploys an on-chain governance suite (GovToken + Timelock + HolGovernor),
- *         and registers an ENS subname pointing to the governor under hollab.eth.
+ *         deploys a governance token (ERC20Votes) for ActionVoting,
+ *         and registers an ENS subname under hollab.eth.
  */
 interface IOrganizationFactory {
   /*///////////////////////////////////////////////////////////////
                             TYPES
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Parameters for the on-chain governance suite deployed with each organization
-  struct GovernanceConfig {
+  /// @notice Parameters for the governance token deployed with each organization
+  struct TokenConfig {
     string tokenName;
     string tokenSymbol;
     address[] initialHolders;
     uint256[] initialAmounts;
-    uint256 timelockDelay;
-    uint48 votingDelay;
-    uint32 votingPeriod;
-    uint256 proposalThreshold;
-    uint256 quorumNumerator;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -78,15 +73,15 @@ interface IOrganizationFactory {
                             LOGIC
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Creates a new Holacracy organization with an on-chain governance suite
+  /// @notice Creates a new Holacracy organization with a governance token
   /// @param _subname The ENS subname to register (e.g. "myorg" for myorg.hollab.eth)
   /// @param _purpose The purpose of the organization's anchor circle
-  /// @param _govConfig Parameters for the GovToken + Timelock + HolGovernor deployment
+  /// @param _tokenConfig Parameters for the GovToken deployment
   /// @return _orgId The ID of the created organization
   function createOrganization(
     string calldata _subname,
     string calldata _purpose,
-    GovernanceConfig calldata _govConfig
+    TokenConfig calldata _tokenConfig
   ) external returns (uint256 _orgId);
   function requestToJoin(uint256 orgId, string calldata message) external returns (uint256 requestId);
   function approveJoinRequest(uint256 orgId, address requester) external;

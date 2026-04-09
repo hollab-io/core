@@ -9,7 +9,7 @@ import {Nonces} from 'lib/openzeppelin-contracts/contracts/utils/Nonces.sol';
 /// @title GovToken
 /// @notice ERC20 token with voting power delegation, used as the governance token.
 ///         A designated minter address can mint new tokens and transfer the minter
-///         role to another address (e.g. a TimelockController after initial setup).
+///         role to another address (e.g. the org creator after initial minting).
 contract GovToken is ERC20, ERC20Permit, ERC20Votes {
     address public minter;
 

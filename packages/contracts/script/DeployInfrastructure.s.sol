@@ -7,7 +7,6 @@ import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
-import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {ENSSubdomainRegistrar} from 'ens/ENSSubdomainRegistrar.sol';
 
@@ -20,7 +19,7 @@ interface IENS {
  * @title DeployInfrastructure
  * @notice Deploys the complete HolLab infrastructure to any EVM chain.
  *         This is a one-time deployment per chain. Organizations are created
- *         separately via CreateOrganization.
+ *         separately via OrganizationFactory.createOrganization().
  *
  * Secrets:
  *   Use an encrypted keystore (recommended):
@@ -60,12 +59,10 @@ contract DeployInfrastructure is Script {
     address meetingImpl;
     address actionVotingImpl;
     address meetingFactory;
-    address govFactory;
     address orgFactory;
   }
 
   function run() external returns (Infrastructure memory infra) {
-    // Support both keystore (`--account`) and env var fallback for CI
     address deployer = msg.sender;
     uint256 chainId = block.chainid;
 
@@ -99,13 +96,9 @@ contract DeployInfrastructure is Script {
     // ── 3. MeetingComponentsFactory ─────────────────────────────────────────
     infra.meetingFactory = address(new MeetingComponentsFactory(infra.meetingImpl, infra.actionVotingImpl));
 
-    // ── 4. HolGovernorFactory ───────────────────────────────────────────────
-    infra.govFactory = address(new HolGovernorFactory());
-
     // ── 4. OrganizationFactory ──────────────────────────────────────────────
     OrganizationFactory orgFactory = new OrganizationFactory(
       infra.roleRegistryImpl,
-      infra.govFactory,
       infra.ensRegistrar
     );
     infra.orgFactory = address(orgFactory);
@@ -131,7 +124,6 @@ contract DeployInfrastructure is Script {
     vm.serializeAddress(obj, 'meetingImpl', _infra.meetingImpl);
     vm.serializeAddress(obj, 'actionVotingImpl', _infra.actionVotingImpl);
     vm.serializeAddress(obj, 'meetingFactory', _infra.meetingFactory);
-    vm.serializeAddress(obj, 'govFactory', _infra.govFactory);
     vm.serializeAddress(obj, 'orgFactory', _infra.orgFactory);
     string memory json = vm.serializeUint(obj, 'chainId', _chainId);
     vm.writeJson(json, string.concat('./deployments/', vm.toString(_chainId), '-infrastructure.json'));
@@ -143,7 +135,6 @@ contract DeployInfrastructure is Script {
     console.log('');
     console.log('--- Factories ---');
     console.log('OrganizationFactory:    ', _infra.orgFactory);
-    console.log('HolGovernorFactory:     ', _infra.govFactory);
     console.log('');
     console.log('--- Implementations (clone sources) ---');
     console.log('RoleRegistry:           ', _infra.roleRegistryImpl);

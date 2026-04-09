@@ -3,8 +3,8 @@ import { motion } from "framer-motion";
 import { ArrowRight, FileText, Loader2, Play, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { useMeetingComponentsFactory } from "../hooks/useMeetingComponentsFactory";
-import { useTacticalMeeting } from "../hooks/useTacticalMeeting";
+import { useDeployMeetingComponents } from "../hooks/useMeetingComponentsFactory";
+import { useConveneTacticalMeeting } from "../hooks/useTacticalMeeting";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -22,24 +22,20 @@ const PHASES = [
 type Props = {
     tacticalMeetingAddress?: `0x${string}`;
     indexedMeetings: TacticalMeeting[];
-    pollForNewMeeting: (prevCount: number) => Promise<TacticalMeeting[]>;
-    refetchMeetings: () => Promise<void>;
     activeOrg: Organization | null;
 };
 
 export default function TacticalView({
     tacticalMeetingAddress,
     indexedMeetings,
-    pollForNewMeeting,
-    refetchMeetings,
     activeOrg,
 }: Props) {
     const { openMeeting, authenticatedWalletAddress } = useWorkspaceSnapshot();
-    const { conveneMeeting } = useTacticalMeeting();
-    const { deployMeetingComponents, factoryConfigured } = useMeetingComponentsFactory();
-    const [isConvening, setIsConvening] = useState(false);
-    const [isDeploying, setIsDeploying] = useState(false);
+    const convene = useConveneTacticalMeeting();
+    const deploy = useDeployMeetingComponents();
     const [conveneError, setConveneError] = useState<string | null>(null);
+    const isConvening = convene.isPending;
+    const isDeploying = deploy.isPending;
 
     const inProgress = useMemo(
         () => indexedMeetings.filter((m) => !m.completedAt),
@@ -52,30 +48,25 @@ export default function TacticalView({
 
     const hasActiveHuddle = inProgress.length > 0;
 
-    const handleStartHuddle = async () => {
+    const handleStartHuddle = () => {
         if (!tacticalMeetingAddress || !authenticatedWalletAddress || hasActiveHuddle) return;
 
-        setIsConvening(true);
         setConveneError(null);
-        try {
-            await conveneMeeting({
+        convene.mutate(
+            {
                 tacticalMeetingAddress,
-                circleId: 1n,
+                orgId: BigInt(activeOrg!.id),
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
-            });
-
-            const prevCount = indexedMeetings.length;
-            const updated = await pollForNewMeeting(prevCount);
-
-            const newest = updated[0];
-            if (newest) {
-                openMeeting(newest.id);
-            }
-        } catch (err) {
-            setConveneError(err instanceof Error ? err.message : "Failed to start huddle");
-        } finally {
-            setIsConvening(false);
-        }
+            },
+            {
+                onSuccess: ({ meeting }) => {
+                    openMeeting(meeting.id);
+                },
+                onError: (err) => {
+                    setConveneError(err.message);
+                },
+            },
+        );
     };
 
     return (
@@ -173,45 +164,29 @@ export default function TacticalView({
                                     if (!authenticatedWalletAddress) return;
 
                                     if (!tacticalMeetingAddress) {
-                                        if (!activeOrg || !factoryConfigured) return;
-                                        setIsDeploying(true);
+                                        if (!activeOrg || !deploy.factoryConfigured) return;
                                         setConveneError(null);
-                                        try {
-                                            // Re-check the indexer first — the contract may
-                                            // already be deployed but the cache is stale.
-                                            await refetchMeetings();
-                                        } catch {
-                                            // indexer unavailable — fall through to deploy
-                                        }
-                                        // After refetch the parent will re-render with the
-                                        // updated tacticalMeetingAddress if it exists.
-                                        // We must re-check the prop via a fresh indexer call.
-                                        try {
-                                            await deployMeetingComponents({
+                                        deploy.mutate(
+                                            {
                                                 orgId: BigInt(activeOrg.id),
+                                                roleRegistry:
+                                                    activeOrg.roleRegistry as `0x${string}`,
                                                 govToken: activeOrg.token as `0x${string}`,
                                                 walletAddress:
                                                     authenticatedWalletAddress as `0x${string}`,
-                                            });
-                                        } catch (err) {
-                                            // If the factory reverts because already deployed,
-                                            // that's fine — just refetch.
-                                            const msg =
-                                                err instanceof Error ? err.message : String(err);
-                                            if (
-                                                !msg.includes("already") &&
-                                                !msg.includes("revert")
-                                            ) {
-                                                setConveneError(msg);
-                                            }
-                                        }
-                                        // Poll until the indexer picks up the components
-                                        try {
-                                            await refetchMeetings();
-                                        } catch {
-                                            // best effort
-                                        }
-                                        setIsDeploying(false);
+                                            },
+                                            {
+                                                onError: (err) => {
+                                                    const msg = err.message;
+                                                    if (
+                                                        !msg.includes("already") &&
+                                                        !msg.includes("revert")
+                                                    ) {
+                                                        setConveneError(msg);
+                                                    }
+                                                },
+                                            },
+                                        );
                                         return;
                                     }
 

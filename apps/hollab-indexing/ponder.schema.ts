@@ -19,9 +19,7 @@ export const organization = onchainTable("organization", (t) => ({
     subname: t.text().notNull(),
     name: t.text().notNull(),
     creator: t.hex().notNull(),
-    governor: t.hex().notNull(),
     token: t.hex().notNull(),
-    timelock: t.hex().notNull(),
     circleRegistry: t.hex().notNull(),
     roleRegistry: t.hex().notNull(),
     governanceProcess: t.hex().notNull(),
@@ -29,11 +27,6 @@ export const organization = onchainTable("organization", (t) => ({
     tokenName: t.text().notNull(),
     tokenSymbol: t.text().notNull(),
     tokenTotalSupply: t.bigint().notNull(),
-    governorName: t.text().notNull(),
-    votingDelay: t.bigint().notNull(),
-    votingPeriod: t.bigint().notNull(),
-    proposalThreshold: t.bigint().notNull(),
-    quorumNumerator: t.bigint().notNull(),
     circleCount: t.bigint().notNull(),
     roleCount: t.bigint().notNull(),
     memberCount: t.bigint().notNull(),
@@ -113,7 +106,6 @@ export const proposal = onchainTable("proposal", (t) => ({
     tension: t.text().notNull(),
     // 0=Draft 1=Active 2=Integrating 3=Adopted 4=Withdrawn 5=Discarded 6=Escalated
     status: t.integer().notNull(),
-    daoProposalId: t.bigint(),
     submittedAt: t.bigint().notNull(),
     resolvedAt: t.bigint(),
     txHash: t.hex().notNull(),
@@ -129,37 +121,6 @@ export const objection = onchainTable("objection", (t) => ({
     status: t.integer().notNull(),
     raisedAt: t.bigint().notNull(),
     resolvedAt: t.bigint(),
-    txHash: t.hex().notNull(),
-}));
-
-// ─── DAO governance ───────────────────────────────────────────────────────────
-// Event-sourced — full vote history.
-
-export const daoProposal = onchainTable("dao_proposal", (t) => ({
-    id: t.text().primaryKey(), // "<governorAddress>-<proposalId>"
-    proposalId: t.bigint().notNull(),
-    governorAddress: t.hex().notNull(),
-    proposer: t.hex().notNull(),
-    description: t.text().notNull(),
-    voteStart: t.bigint().notNull(),
-    voteEnd: t.bigint().notNull(),
-    // 0=Pending 1=Active 2=Canceled 3=Defeated 4=Succeeded 5=Queued 6=Expired 7=Executed
-    status: t.integer().notNull(),
-    etaSeconds: t.bigint(),
-    createdAt: t.bigint().notNull(),
-    txHash: t.hex().notNull(),
-}));
-
-export const vote = onchainTable("vote", (t) => ({
-    id: t.text().primaryKey(), // "<governorAddress>-<proposalId>-<voter>"
-    proposalId: t.bigint().notNull(),
-    governorAddress: t.hex().notNull(),
-    voter: t.hex().notNull(),
-    // 0=Against 1=For 2=Abstain
-    support: t.integer().notNull(),
-    weight: t.bigint().notNull(),
-    reason: t.text().notNull(),
-    castAt: t.bigint().notNull(),
     txHash: t.hex().notNull(),
 }));
 

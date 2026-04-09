@@ -19,7 +19,7 @@ interface IAddrResolver {
 /// @notice Registers subdomains under a parent ENS node.
 ///         The deployer must either own the parent node or call
 ///         `ens.setApprovalForAll(address(this), true)` from the node owner.
-///         Only the owner and authorized callers (e.g. HolGovernorFactory) can register subdomains.
+///         Only the owner and authorized callers (e.g. OrganizationFactory) can register subdomains.
 contract ENSSubdomainRegistrar is IENSSubdomainRegistrar {
   IENS public immutable ENS;
   bytes32 public immutable NODE;

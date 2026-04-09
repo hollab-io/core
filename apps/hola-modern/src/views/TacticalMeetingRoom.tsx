@@ -1,10 +1,8 @@
 import type { MeetingOutput, TacticalMeeting } from "@hollab-io/indexing-client";
-import { isEthereumWallet } from "@dynamic-labs/ethereum";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { meetingFactoryAbi } from "@hollab-io/contracts/actions";
+import { useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-    Bot,
     Check,
     CheckSquare,
     ChevronLeft,
@@ -18,6 +16,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { encodeFunctionData } from "viem";
+import { useWalletClient } from "wagmi";
 
 import type { AppTabId } from "../config/navigation";
 import { OutputType, useTacticalMeeting } from "../hooks/useTacticalMeeting";
@@ -88,6 +87,7 @@ export default function TacticalMeetingRoom({
     fetchOutputs,
     refetchMeetings,
     tacticalMeetingAddress,
+    orgId,
 }: {
     indexedMeetings: TacticalMeeting[];
     allOutputs: MeetingOutput[];
@@ -95,8 +95,10 @@ export default function TacticalMeetingRoom({
     refetchMeetings: () => Promise<void>;
     tacticalMeetingAddress?: `0x${string}`;
     onNavigateToTab: (tabId: AppTabId) => void;
+    orgId?: string;
 }) {
-    const { primaryWallet } = useDynamicContext();
+    const { data: walletClient } = useWalletClient();
+    const queryClient = useQueryClient();
     const { activeMeetingId, closeMeeting, authenticatedWalletAddress } = useWorkspaceSnapshot();
     const { recordOutput, completeMeeting: completeMeetingOnChain } = useTacticalMeeting();
 
@@ -206,7 +208,7 @@ export default function TacticalMeetingRoom({
 
     const handleCompleteMeeting = useCallback(async () => {
         if (!activeMeeting || !tacticalMeetingAddress || !authenticatedWalletAddress) return;
-        if (!primaryWallet || !isEthereumWallet(primaryWallet)) return;
+        if (!walletClient) return;
 
         setIsTxPending(true);
         setTxError(null);
@@ -214,7 +216,7 @@ export default function TacticalMeetingRoom({
         try {
             const walletAddr = authenticatedWalletAddress as `0x${string}`;
             const meetingIdBigInt = BigInt(activeMeeting.meetingId);
-            const circleIdBigInt = BigInt(activeMeeting.circleId);
+            const orgIdBigInt = BigInt(orgId ?? activeMeeting.orgId ?? "0");
             const meetingKindTactical = 0;
 
             // Build calls array
@@ -228,7 +230,7 @@ export default function TacticalMeetingRoom({
                         functionName: "recordOutput",
                         args: [
                             meetingIdBigInt,
-                            circleIdBigInt,
+                            orgIdBigInt,
                             po.outputType,
                             po.description,
                             (po.assignedTo || walletAddr) as `0x${string}`,
@@ -243,12 +245,11 @@ export default function TacticalMeetingRoom({
                 data: encodeFunctionData({
                     abi: meetingFactoryAbi,
                     functionName: "endMeeting",
-                    args: [meetingIdBigInt, circleIdBigInt, meetingKindTactical],
+                    args: [meetingIdBigInt, orgIdBigInt, meetingKindTactical],
                 }),
             });
 
             // Try EIP-5792 batch first
-            const walletClient = await primaryWallet.getWalletClient();
             let batched = false;
             try {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -273,7 +274,7 @@ export default function TacticalMeetingRoom({
                     await recordOutput({
                         tacticalMeetingAddress,
                         meetingId: meetingIdBigInt,
-                        circleId: circleIdBigInt,
+                        orgId: orgIdBigInt,
                         outputType: po.outputType as 0 | 1 | 2 | 3,
                         description: po.description,
                         assignedTo: (po.assignedTo || walletAddr) as `0x${string}`,
@@ -284,15 +285,45 @@ export default function TacticalMeetingRoom({
                 await completeMeetingOnChain({
                     tacticalMeetingAddress,
                     meetingId: meetingIdBigInt,
-                    circleId: circleIdBigInt,
+                    orgId: orgIdBigInt,
                     walletAddress: walletAddr,
                 });
             }
 
-            // Give the indexer a moment to index the completion event
-            await new Promise((r) => setTimeout(r, 3000));
-            await refetchMeetings();
+            // Optimistically update the query cache so the UI reflects
+            // both the completed meeting and the new outputs immediately.
+            const nowSecs = Math.floor(Date.now() / 1000).toString();
+            const contractAddr = (tacticalMeetingAddress?.toLowerCase() ?? "") as `0x${string}`;
+            const newOutputs: MeetingOutput[] = pendingOutputs.map((po, i) => ({
+                id: `${contractAddr}-pending-${Date.now()}-${i}`,
+                outputId: `${Date.now()}${i}`,
+                contractAddress: contractAddr,
+                meetingId: activeMeeting.meetingId,
+                outputType: po.outputType,
+                description: po.description,
+                assignedTo: ((po.assignedTo || authenticatedWalletAddress) ??
+                    "0x") as `0x${string}`,
+                roleId: "0",
+                createdAt: nowSecs,
+                txHash: "0x" as `0x${string}`,
+            }));
+            queryClient.setQueryData(
+                ["tacticalMeetings", orgId],
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (old: any) => {
+                    if (!old) return old;
+                    return {
+                        ...old,
+                        meetings: old.meetings.map((m: TacticalMeeting) =>
+                            m.id === activeMeeting.id ? { ...m, completedAt: nowSecs } : m,
+                        ),
+                        outputs: [...(old.outputs ?? []), ...newOutputs],
+                    };
+                },
+            );
             setCompletedScreen(true);
+            // Background: refetch from indexer to get the canonical completedAt
+            void refetchMeetings();
         } catch (err) {
             setTxError(err instanceof Error ? err.message : "Failed to complete huddle on-chain");
         } finally {
@@ -302,34 +333,14 @@ export default function TacticalMeetingRoom({
         activeMeeting,
         authenticatedWalletAddress,
         completeMeetingOnChain,
+        orgId,
         pendingOutputs,
-        primaryWallet,
+        walletClient,
+        queryClient,
         recordOutput,
         refetchMeetings,
         tacticalMeetingAddress,
     ]);
-
-    /* ── AI suggestions ───────────────────────────────────────────────────── */
-    const aiSuggestions = useMemo(
-        () => [
-            {
-                id: "agenda",
-                label: "Draft agenda from open work",
-                action: () => setPhaseIndex(MEETING_PHASES.indexOf("Build agenda")),
-            },
-            {
-                id: "triage",
-                label: "Convert tensions into outputs",
-                action: () => setPhaseIndex(MEETING_PHASES.indexOf("Triage items")),
-            },
-            {
-                id: "closing",
-                label: "Prepare summary for publication",
-                action: () => setPhaseIndex(MEETING_PHASES.indexOf("Closing round")),
-            },
-        ],
-        [],
-    );
 
     /* ── History lists ────────────────────────────────────────────────────── */
     const inProgressMeetings = useMemo(
@@ -381,7 +392,7 @@ export default function TacticalMeetingRoom({
                                     <Check size={40} className="text-emerald-300" />
                                 </motion.div>
                                 <motion.h2
-                                    className="text-2xl font-semibold text-white"
+                                    className="text-2xl font-semibold text-slate-900 dark:text-white"
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.15 }}
@@ -417,7 +428,7 @@ export default function TacticalMeetingRoom({
                         ) : (
                             <>
                                 {/* ── Header ───────────────────────────────── */}
-                                <div className="border-b border-white/[0.06] px-6 py-5">
+                                <div className="border-b border-slate-200 dark:border-white/[0.06] px-6 py-5">
                                     <div className="flex items-start justify-between gap-4">
                                         <div>
                                             <div className="flex flex-wrap items-center gap-2">
@@ -434,10 +445,10 @@ export default function TacticalMeetingRoom({
                                                     </span>
                                                 )}
                                             </div>
-                                            <h2 className="mt-4 text-lg font-bold tracking-[-0.02em] text-white">
+                                            <h2 className="mt-4 text-lg font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
                                                 Huddle #{activeMeeting.meetingId}
                                             </h2>
-                                            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-300">
+                                            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-slate-500 dark:text-slate-300">
                                                 <span className="inline-flex items-center gap-2">
                                                     <Clock3 size={15} aria-hidden="true" />
                                                     {formatTimestamp(activeMeeting.createdAt)}
@@ -453,7 +464,7 @@ export default function TacticalMeetingRoom({
                                         <button
                                             type="button"
                                             onClick={closeMeeting}
-                                            className="rounded-full border border-white/[0.06] p-2 text-slate-300 transition-colors hover:border-white/[0.08] hover:bg-white/[0.03]"
+                                            className="rounded-full border border-slate-200 dark:border-white/[0.06] p-2 text-slate-400 dark:text-slate-300 transition-colors hover:border-slate-300 dark:hover:border-white/[0.08] hover:bg-slate-50 dark:hover:bg-white/[0.03]"
                                             aria-label="Close huddle room"
                                         >
                                             <X size={18} aria-hidden="true" />
@@ -461,14 +472,14 @@ export default function TacticalMeetingRoom({
                                     </div>
 
                                     {/* Tabs — pill-style switcher */}
-                                    <div className="mt-5 flex w-fit rounded-full border border-white/[0.06] bg-white/[0.03] p-[3px]">
+                                    <div className="mt-5 flex w-fit rounded-full border border-slate-200 dark:border-white/[0.06] bg-slate-50 dark:bg-white/[0.03] p-[3px]">
                                         <button
                                             type="button"
                                             onClick={() => setActiveTab("meeting")}
                                             className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                                                 activeTab === "meeting"
-                                                    ? "bg-white/[0.08] text-white"
-                                                    : "text-slate-400 hover:text-slate-200"
+                                                    ? "bg-white dark:bg-white/[0.08] text-slate-900 dark:text-white shadow-sm"
+                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                                             }`}
                                         >
                                             Huddle
@@ -478,8 +489,8 @@ export default function TacticalMeetingRoom({
                                             onClick={() => setActiveTab("history")}
                                             className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                                                 activeTab === "history"
-                                                    ? "bg-white/[0.08] text-white"
-                                                    : "text-slate-400 hover:text-slate-200"
+                                                    ? "bg-white dark:bg-white/[0.08] text-slate-900 dark:text-white shadow-sm"
+                                                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
                                             }`}
                                         >
                                             History
@@ -492,17 +503,17 @@ export default function TacticalMeetingRoom({
                                     {activeTab === "meeting" ? (
                                         <div className="space-y-6">
                                             {/* Phase stepper */}
-                                            <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+                                            <section className="rounded-2xl border border-slate-200 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02] p-5">
                                                 <div className="flex items-center justify-between gap-4">
                                                     <div>
-                                                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                                                             Huddle process
                                                         </div>
-                                                        <h3 className="mt-2 text-lg font-bold tracking-[-0.02em] text-white">
+                                                        <h3 className="mt-2 text-lg font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
                                                             Tactical phases
                                                         </h3>
                                                     </div>
-                                                    <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.03] px-3 py-1 text-sm text-slate-300">
+                                                    <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 dark:bg-white/[0.03] px-3 py-1 text-sm text-slate-600 dark:text-slate-300">
                                                         <Clock3 size={14} aria-hidden="true" />
                                                         {activePhase}
                                                     </span>
@@ -539,7 +550,7 @@ export default function TacticalMeetingRoom({
                                                                                 ? "border-[#3481FF] bg-[#3481FF] text-white shadow-[0_0_20px_rgba(52,129,255,0.4)]"
                                                                                 : isComplete
                                                                                   ? "border-emerald-300 bg-emerald-300 text-slate-950"
-                                                                                  : "border-white/[0.08] text-slate-400 group-hover:border-white/[0.15]"
+                                                                                  : "border-slate-300 dark:border-white/[0.08] text-slate-400 group-hover:border-slate-400 dark:group-hover:border-white/[0.15]"
                                                                         }`}
                                                                     >
                                                                         {isComplete ? (
@@ -554,8 +565,8 @@ export default function TacticalMeetingRoom({
                                                                     <div
                                                                         className={`mx-1 h-px flex-1 ${
                                                                             index < phaseIndex
-                                                                                ? "bg-emerald-300/40"
-                                                                                : "bg-white/[0.06]"
+                                                                                ? "bg-emerald-400/40"
+                                                                                : "bg-slate-200 dark:bg-white/[0.06]"
                                                                         }`}
                                                                     />
                                                                 )}
@@ -567,7 +578,7 @@ export default function TacticalMeetingRoom({
                                                 {/* Phase content */}
                                                 <motion.div
                                                     key={activePhase}
-                                                    className="mt-5 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-4"
+                                                    className="mt-5 rounded-2xl border border-slate-200 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02] px-4 py-4"
                                                     initial={{ opacity: 0, y: 8 }}
                                                     animate={{ opacity: 1, y: 0 }}
                                                     transition={EXPO}
@@ -575,10 +586,10 @@ export default function TacticalMeetingRoom({
                                                     <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                                                         Phase {phaseIndex + 1}
                                                     </div>
-                                                    <div className="mt-1 text-sm font-medium text-white">
+                                                    <div className="mt-1 text-sm font-medium text-slate-900 dark:text-white">
                                                         {activePhase}
                                                     </div>
-                                                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                                                    <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
                                                         {PHASE_DESCRIPTIONS[activePhase]}
                                                     </p>
 
@@ -844,7 +855,7 @@ export default function TacticalMeetingRoom({
                                                         onClick={() =>
                                                             setPhaseIndex((i) => Math.max(0, i - 1))
                                                         }
-                                                        className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-40"
+                                                        className="flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] px-4 py-2 text-sm text-slate-600 dark:text-slate-300 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-40"
                                                     >
                                                         <ChevronLeft size={15} />
                                                         Back
@@ -862,41 +873,40 @@ export default function TacticalMeetingRoom({
                                                                 ),
                                                             )
                                                         }
-                                                        className="flex items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2 text-sm text-slate-300 transition-colors hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-40"
+                                                        className="flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] px-4 py-2 text-sm text-slate-600 dark:text-slate-300 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.06] disabled:pointer-events-none disabled:opacity-40"
                                                     >
                                                         Next
                                                         <ChevronRight size={15} />
                                                     </button>
                                                 </div>
 
-                                                {/* Complete button */}
-                                                {activePhase === "Closing round" &&
-                                                    !activeMeeting?.completedAt && (
-                                                        <button
-                                                            type="button"
-                                                            disabled={isTxPending}
-                                                            onClick={handleCompleteMeeting}
-                                                            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl
+                                                {/* Complete button — always visible so user can end early */}
+                                                {!activeMeeting?.completedAt && (
+                                                    <button
+                                                        type="button"
+                                                        disabled={isTxPending}
+                                                        onClick={handleCompleteMeeting}
+                                                        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl
                                                             border border-emerald-400/40 bg-emerald-500/15
                                                             px-4 py-3 text-sm font-semibold text-emerald-100
                                                             transition-colors hover:bg-emerald-500/25
                                                             disabled:pointer-events-none disabled:opacity-60"
-                                                        >
-                                                            {isTxPending ? (
-                                                                <Loader2
-                                                                    size={15}
-                                                                    className="animate-spin"
-                                                                />
-                                                            ) : (
-                                                                <CheckSquare size={15} />
-                                                            )}
-                                                            {isTxPending
-                                                                ? "Completing huddle..."
-                                                                : pendingOutputs.length > 0
-                                                                  ? `Complete huddle (${pendingOutputs.length} output${pendingOutputs.length !== 1 ? "s" : ""})`
-                                                                  : "Complete huddle"}
-                                                        </button>
-                                                    )}
+                                                    >
+                                                        {isTxPending ? (
+                                                            <Loader2
+                                                                size={15}
+                                                                className="animate-spin"
+                                                            />
+                                                        ) : (
+                                                            <CheckSquare size={15} />
+                                                        )}
+                                                        {isTxPending
+                                                            ? "Completing huddle..."
+                                                            : pendingOutputs.length > 0
+                                                              ? `Complete huddle (${pendingOutputs.length} output${pendingOutputs.length !== 1 ? "s" : ""})`
+                                                              : "Complete huddle"}
+                                                    </button>
+                                                )}
 
                                                 {txError && (
                                                     <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/[0.08] px-4 py-2.5 text-[12px] text-rose-400">
@@ -906,13 +916,13 @@ export default function TacticalMeetingRoom({
                                             </section>
 
                                             {/* Outputs section */}
-                                            <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+                                            <section className="rounded-2xl border border-slate-200 dark:border-white/[0.06] bg-slate-50/50 dark:bg-white/[0.02] p-5">
                                                 <div className="flex items-center justify-between gap-4">
                                                     <div>
-                                                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                                        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                                                             Outputs
                                                         </div>
-                                                        <h3 className="mt-2 text-lg font-bold tracking-[-0.02em] text-white">
+                                                        <h3 className="mt-2 text-lg font-bold tracking-[-0.02em] text-slate-900 dark:text-white">
                                                             Actions and projects from this huddle
                                                         </h3>
                                                     </div>
@@ -1003,7 +1013,7 @@ export default function TacticalMeetingRoom({
 
                                                     {indexedOutputs.length === 0 &&
                                                         pendingOutputs.length === 0 && (
-                                                            <div className="rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-4 text-sm text-slate-400">
+                                                            <div className="rounded-2xl border border-dashed border-slate-200 dark:border-white/[0.08] bg-slate-50/50 dark:bg-white/[0.02] px-4 py-4 text-sm text-slate-500 dark:text-slate-400">
                                                                 No outputs have been captured yet
                                                                 for this huddle.
                                                             </div>
@@ -1011,40 +1021,7 @@ export default function TacticalMeetingRoom({
                                                 </div>
                                             </section>
 
-                                            {/* AI Copilot — now below outputs in single column */}
-                                            <section className="rounded-2xl border border-[#3481FF]/20 bg-[linear-gradient(180deg,rgba(52,129,255,0.08),rgba(10,10,15,0.96))] p-5">
-                                                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6aabff]">
-                                                    <Bot size={15} aria-hidden="true" />
-                                                    AI copilot
-                                                </div>
-                                                <h3 className="mt-3 text-lg font-bold tracking-[-0.02em] text-white">
-                                                    Facilitation suggestions
-                                                </h3>
-                                                <p className="mt-3 text-sm leading-6 text-slate-400">
-                                                    Use the agent to turn live discussion into
-                                                    agenda, outputs, and a publication-ready
-                                                    summary.
-                                                </p>
-
-                                                <div className="mt-5 space-y-2">
-                                                    {aiSuggestions.map((suggestion) => (
-                                                        <button
-                                                            key={suggestion.id}
-                                                            type="button"
-                                                            onClick={suggestion.action}
-                                                            className="flex w-full items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-left text-sm text-white transition-colors hover:border-white/[0.08] hover:bg-white/[0.06]"
-                                                        >
-                                                            <span>{suggestion.label}</span>
-                                                            <ChevronRight
-                                                                size={16}
-                                                                aria-hidden="true"
-                                                            />
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </section>
-
-                                            {/* Meeting info — now below AI copilot in single column */}
+                                            {/* Meeting info */}
                                             <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
                                                 <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                                                     <Sparkles size={15} aria-hidden="true" />

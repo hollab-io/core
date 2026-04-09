@@ -1,8 +1,10 @@
+import type { Organization } from "@hollab-io/indexing-client";
 import { motion } from "framer-motion";
 import { ArrowRight, Clock3, Loader2, Scale, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 
 import { useGovernanceMeeting } from "../hooks/useGovernanceMeeting";
+import { useDeployMeetingComponents } from "../hooks/useMeetingComponentsFactory";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -43,17 +45,18 @@ type Props = {
     pollForNewGovernanceMeeting?: (
         prevCount: number,
     ) => Promise<import("../hooks/useGovernanceMeetingsFromIndexer").GovernanceMeeting[]>;
-    refetchMeetingComponents?: () => Promise<void>;
+    activeOrg: Organization | null;
 };
 
 export default function GovernanceView({
     governanceMeetingAddress,
     indexedGovernanceMeetings = [],
     pollForNewGovernanceMeeting,
-    refetchMeetingComponents,
+    activeOrg,
 }: Props) {
     const { conveneGovernanceMeeting, authenticatedWalletAddress } = useWorkspaceSnapshot();
     const { conveneMeeting } = useGovernanceMeeting();
+    const deploy = useDeployMeetingComponents();
     const [isConvening, setIsConvening] = useState(false);
     const [conveneError, setConveneError] = useState<string | null>(null);
 
@@ -72,41 +75,39 @@ export default function GovernanceView({
         setIsConvening(true);
         setConveneError(null);
 
-        // If the governance address isn't available yet, try refetching
-        // the meeting components — the contract may already be deployed.
-        const address = governanceMeetingAddress;
-        if (!address && refetchMeetingComponents) {
-            try {
-                await refetchMeetingComponents();
-            } catch {
-                // indexer unavailable
+        // If meeting components aren't deployed yet, deploy them first
+        if (!governanceMeetingAddress) {
+            if (!activeOrg || !deploy.factoryConfigured) {
+                setConveneError("Meeting components factory not configured for this chain.");
+                setIsConvening(false);
+                return;
             }
-            // Address will be available on next render; bail for now
-            // and let the user click again.
-            setIsConvening(false);
-            if (!governanceMeetingAddress) {
-                setConveneError(
-                    "Governance contracts not deployed yet. Set up huddles on the Tactical tab first.",
-                );
-            }
-            return;
-        }
-
-        if (!address) {
-            setConveneError(
-                "Governance contracts not deployed yet. Set up huddles on the Tactical tab first.",
+            deploy.mutate(
+                {
+                    orgId: BigInt(activeOrg.id),
+                    roleRegistry: activeOrg.roleRegistry as `0x${string}`,
+                    govToken: activeOrg.token as `0x${string}`,
+                    walletAddress: authenticatedWalletAddress as `0x${string}`,
+                },
+                {
+                    onError: (err) => {
+                        setConveneError(err.message);
+                        setIsConvening(false);
+                    },
+                },
             );
+            // After deploy succeeds, the cache update will re-render with
+            // governanceMeetingAddress set. User clicks again to convene.
             setIsConvening(false);
             return;
         }
 
-        // Use the org's anchor circle (circleId 1) by default
-        const circleId = 1n;
+        const address = governanceMeetingAddress;
 
         try {
             await conveneMeeting({
                 governanceMeetingAddress: address,
-                circleId,
+                orgId: BigInt(activeOrg!.id),
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
             });
 

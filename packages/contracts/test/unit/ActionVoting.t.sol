@@ -5,7 +5,6 @@ import {ActionVoting, IActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {OrganizationFactory, IOrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {GovToken} from 'contracts/governance/GovToken.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
@@ -31,29 +30,22 @@ contract UnitActionVoting is Test {
 
   uint256 internal _orgId;
 
-  function _defaultGovConfig() internal view returns (IOrganizationFactory.GovernanceConfig memory _cfg) {
+  function _defaultTokenConfig() internal view returns (IOrganizationFactory.TokenConfig memory _cfg) {
     address[] memory _holders = new address[](1);
     _holders[0] = _deployer;
     uint256[] memory _amounts = new uint256[](1);
     _amounts[0] = 1_000_000e18;
-    _cfg = IOrganizationFactory.GovernanceConfig({
+    _cfg = IOrganizationFactory.TokenConfig({
       tokenName: 'HolLab Gov',
       tokenSymbol: 'GOV',
       initialHolders: _holders,
-      initialAmounts: _amounts,
-      timelockDelay: 0,
-      votingDelay: 1,
-      votingPeriod: 10,
-      proposalThreshold: 0,
-      quorumNumerator: 4
+      initialAmounts: _amounts
     });
   }
 
   function setUp() external {
-    HolGovernorFactory _govFactory = new HolGovernorFactory();
     _orgFactory = new OrganizationFactory(
       address(new RoleRegistry()),
-      address(_govFactory),
       address(new StubENSRegistrarForActionVoting())
     );
     _meetingFactory = MeetingFactory(Clones.clone(address(new MeetingFactory())));
@@ -61,13 +53,13 @@ contract UnitActionVoting is Test {
     _govToken = new GovToken('HolLab Gov', 'GOV', address(this));
 
     vm.prank(_deployer);
-    _orgId = _orgFactory.createOrganization('action-org', 'Build holacracy tools', _defaultGovConfig());
+    _orgId = _orgFactory.createOrganization('action-org', 'Build holacracy tools', _defaultTokenConfig());
 
     vm.startPrank(_deployer);
     _orgFactory.addOrgAdmin(_orgId, _member1);
     _orgFactory.addOrgMember(_orgId, _member1);
     _orgFactory.addOrgMember(_orgId, _member2);
-    _meetingFactory.initialize(address(_orgFactory), address(0), address(0));
+    _meetingFactory.initialize(address(_orgFactory), address(0));
     _actionVoting.initialize(address(_orgFactory), address(_meetingFactory), address(_govToken));
     vm.stopPrank();
 

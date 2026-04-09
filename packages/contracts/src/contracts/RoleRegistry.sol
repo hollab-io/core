@@ -9,6 +9,9 @@ import {IRoleRegistry} from 'interfaces/IRoleRegistry.sol';
  * @notice Manages the creation, modification, and assignment of Roles
  * @dev Roles are the fundamental unit of organizational structure in Holacracy.
  *      A Role must have a name and at least one of: purpose, domain, or accountability.
+ *
+ *      Structural changes are restricted to the governance process (MeetingFactory),
+ *      enforcing Holacracy's rule that structure can only change through governance.
  */
 contract RoleRegistry is IRoleRegistry {
   /*///////////////////////////////////////////////////////////////
@@ -30,8 +33,8 @@ contract RoleRegistry is IRoleRegistry {
   /// @notice Circle ID => array of role IDs within the circle
   mapping(uint256 => uint256[]) internal _circleRoles;
 
-  /// @notice Address authorized to manage roles (set to CircleRegistry)
-  address public circleRegistry;
+  /// @notice Address authorized to manage roles (the governance process / MeetingFactory)
+  address public governanceProcess;
 
   /// @notice Whether the contract has been initialized
   bool internal _initialized;
@@ -43,9 +46,9 @@ contract RoleRegistry is IRoleRegistry {
                             MODIFIERS
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Restricts calls to the circle registry
-  modifier onlyCircleRegistry() {
-    if (msg.sender != circleRegistry) {
+  /// @notice Restricts calls to the governance process (MeetingFactory)
+  modifier onlyGovernanceProcess() {
+    if (msg.sender != governanceProcess) {
       revert RoleRegistry_Unauthorized();
     }
     _;
@@ -74,11 +77,11 @@ contract RoleRegistry is IRoleRegistry {
                             ADMIN
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Sets the circle registry address (can only be set once)
-  /// @param _circleRegistry The address of the circle registry
-  function setCircleRegistry(address _circleRegistry) external {
-    if (circleRegistry != address(0)) revert RoleRegistry_Unauthorized();
-    circleRegistry = _circleRegistry;
+  /// @notice Sets the governance process address (can only be set once)
+  /// @param _governanceProcess The address of the governance process (MeetingFactory)
+  function setGovernanceProcess(address _governanceProcess) external {
+    if (governanceProcess != address(0)) revert RoleRegistry_Unauthorized();
+    governanceProcess = _governanceProcess;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -137,7 +140,7 @@ contract RoleRegistry is IRoleRegistry {
     string calldata _purpose,
     string[] calldata _domains,
     string[] calldata _accountabilities
-  ) external onlyCircleRegistry returns (uint256 _roleId) {
+  ) external onlyGovernanceProcess returns (uint256 _roleId) {
     _roleId = _createRole(_circleId, _name, _purpose, _domains, _accountabilities);
   }
 
@@ -148,12 +151,12 @@ contract RoleRegistry is IRoleRegistry {
     string calldata _purpose,
     string[] calldata _domains,
     string[] calldata _accountabilities
-  ) external onlyCircleRegistry {
+  ) external onlyGovernanceProcess {
     _updateRole(_roleId, _name, _purpose, _domains, _accountabilities);
   }
 
   /// @inheritdoc IRoleRegistry
-  function removeRole(uint256 _roleId) external onlyCircleRegistry {
+  function removeRole(uint256 _roleId) external onlyGovernanceProcess {
     HolacracyTypes.Role storage _role = _roles[_roleId];
     if (!_role.exists) revert RoleRegistry_RoleNotFound(_roleId);
 
@@ -183,7 +186,7 @@ contract RoleRegistry is IRoleRegistry {
   }
 
   /// @inheritdoc IRoleRegistry
-  function assignRoleLead(uint256 _roleId, address _lead) external onlyCircleRegistry {
+  function assignRoleLead(uint256 _roleId, address _lead) external onlyGovernanceProcess {
     if (!_roles[_roleId].exists) revert RoleRegistry_RoleNotFound(_roleId);
     if (_isRoleLead[_roleId][_lead]) revert RoleRegistry_AlreadyRoleLead(_roleId, _lead);
 
@@ -194,7 +197,7 @@ contract RoleRegistry is IRoleRegistry {
   }
 
   /// @inheritdoc IRoleRegistry
-  function unassignRoleLead(uint256 _roleId, address _lead) external onlyCircleRegistry {
+  function unassignRoleLead(uint256 _roleId, address _lead) external onlyGovernanceProcess {
     if (!_roles[_roleId].exists) revert RoleRegistry_RoleNotFound(_roleId);
     if (!_isRoleLead[_roleId][_lead]) revert RoleRegistry_NotRoleLead(_roleId, _lead);
 
@@ -221,7 +224,7 @@ contract RoleRegistry is IRoleRegistry {
     string[] calldata _accountabilities,
     bytes32[] calldata _fieldNames,
     HolacracyTypes.ContentRef[] calldata _refs
-  ) external onlyCircleRegistry returns (uint256 _roleId) {
+  ) external onlyGovernanceProcess returns (uint256 _roleId) {
     if (_fieldNames.length != _refs.length) revert RoleRegistry_ArrayLengthMismatch();
 
     _roleId = _createRole(_circleId, _name, _purpose, _domains, _accountabilities);
@@ -237,7 +240,7 @@ contract RoleRegistry is IRoleRegistry {
     string[] calldata _accountabilities,
     bytes32[] calldata _fieldNames,
     HolacracyTypes.ContentRef[] calldata _refs
-  ) external onlyCircleRegistry {
+  ) external onlyGovernanceProcess {
     if (_fieldNames.length != _refs.length) revert RoleRegistry_ArrayLengthMismatch();
 
     _updateRole(_roleId, _name, _purpose, _domains, _accountabilities);

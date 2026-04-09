@@ -1,6 +1,6 @@
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { meetingFactoryAbi } from "@hollab-io/viem-extension";
 import { useCallback } from "react";
+import { useAccount } from "wagmi";
 
 import { useSendTransaction } from "./useSendTransaction";
 
@@ -8,15 +8,15 @@ import { useSendTransaction } from "./useSendTransaction";
 const MEETING_KIND_GOVERNANCE = 1;
 
 export function useGovernanceMeeting() {
-    const { primaryWallet } = useDynamicContext();
+    const { address } = useAccount();
     const { send } = useSendTransaction();
 
-    const account = () => (primaryWallet?.address ?? "0x") as `0x${string}`;
+    const account = () => (address ?? "0x") as `0x${string}`;
 
     const conveneMeeting = useCallback(
         async (params: {
             governanceMeetingAddress: `0x${string}`;
-            circleId: bigint;
+            orgId: bigint;
             walletAddress: `0x${string}`;
         }): Promise<`0x${string}`> =>
             send(
@@ -26,20 +26,20 @@ export function useGovernanceMeeting() {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         abi: meetingFactoryAbi as any,
                         functionName: "startMeeting",
-                        args: [params.circleId, MEETING_KIND_GOVERNANCE],
+                        args: [params.orgId, MEETING_KIND_GOVERNANCE],
                     },
                 ],
                 account(),
             ),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [send, primaryWallet],
+        [send, address],
     );
 
     const completeMeeting = useCallback(
         async (params: {
             governanceMeetingAddress: `0x${string}`;
             meetingId: bigint;
-            circleId: bigint;
+            orgId: bigint;
             walletAddress: `0x${string}`;
         }): Promise<`0x${string}`> =>
             send(
@@ -49,20 +49,20 @@ export function useGovernanceMeeting() {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         abi: meetingFactoryAbi as any,
                         functionName: "endMeeting",
-                        args: [params.meetingId, params.circleId, MEETING_KIND_GOVERNANCE],
+                        args: [params.meetingId, params.orgId, MEETING_KIND_GOVERNANCE],
                     },
                 ],
                 account(),
             ),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [send, primaryWallet],
+        [send, address],
     );
 
     const linkProposal = useCallback(
         async (params: {
             governanceMeetingAddress: `0x${string}`;
             meetingId: bigint;
-            circleId: bigint;
+            orgId: bigint;
             proposalId: bigint;
             walletAddress: `0x${string}`;
         }): Promise<`0x${string}`> =>
@@ -73,13 +73,13 @@ export function useGovernanceMeeting() {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
                         abi: meetingFactoryAbi as any,
                         functionName: "linkProposal",
-                        args: [params.meetingId, params.circleId, params.proposalId],
+                        args: [params.meetingId, params.orgId, params.proposalId],
                     },
                 ],
                 account(),
             ),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [send, primaryWallet],
+        [send, address],
     );
 
     return { conveneMeeting, completeMeeting, linkProposal };

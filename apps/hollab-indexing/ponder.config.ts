@@ -1,6 +1,4 @@
 import {
-    holGovernorAbi,
-    holGovernorFactoryAbi,
     meetingComponentsFactoryAbi,
     organizationFactoryAbi,
     roleRegistryAbi,
@@ -14,7 +12,6 @@ const ZERO = "0x0000000000000000000000000000000000000001" as `0x${string}`;
 const addr = (key: string) => (process.env[key] || ZERO) as `0x${string}`;
 
 const orgFactoryAddr = addr("ORGANIZATION_FACTORY_ADDRESS");
-const govFactoryAddr = addr("HOL_GOVERNOR_FACTORY_ADDRESS");
 const meetingFactoryAddr = addr("MEETING_COMPONENTS_FACTORY_ADDRESS");
 const startBlock = Number(process.env.START_BLOCK ?? 0);
 
@@ -37,11 +34,6 @@ const rpcUrls: string[] = process.env.PONDER_RPC_URL
 const orgComponentsDeployedEvent = organizationFactoryAbi.find(
     (e): e is (typeof organizationFactoryAbi)[number] & { type: "event" } =>
         e.type === "event" && (e as { name?: string }).name === "OrgComponentsDeployed",
-)!;
-
-const governorDeployedEvent = holGovernorFactoryAbi.find(
-    (e): e is (typeof holGovernorFactoryAbi)[number] & { type: "event" } =>
-        e.type === "event" && (e as { name?: string }).name === "GovernorDeployed",
 )!;
 
 const meetingComponentsDeployedEvent = meetingComponentsFactoryAbi.find(
@@ -73,18 +65,6 @@ export default createConfig({
                 address: orgFactoryAddr,
                 event: orgComponentsDeployedEvent,
                 parameter: "_roleRegistry",
-            },
-            startBlock,
-        },
-
-        // ── Per-org governor: auto-discovered from GovernorDeployed ──────────────
-        HolGovernor: {
-            chain: "chain",
-            abi: holGovernorAbi,
-            address: {
-                address: govFactoryAddr,
-                event: governorDeployedEvent,
-                parameter: "governor",
             },
             startBlock,
         },
