@@ -78,7 +78,7 @@ ponder.on("MeetingFactory:MeetingOutputRecorded", async ({ event, context }) => 
 });
 
 ponder.on("MeetingFactory:MeetingProposalLinked", async ({ event, context }) => {
-    const { _meetingId, _itemId, _proposalId } = event.args;
+    const { _meetingId, _proposalId } = event.args;
     const contract = event.log.address;
 
     await context.db.insert(schema.governanceMeetingLink).values({

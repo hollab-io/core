@@ -1,0 +1,68 @@
+# Contract Deployment
+
+Contracts are deployed using Foundry's `forge script` system. Infrastructure is deployed once per chain; organizations are created by users through the factory.
+
+## Infrastructure Deployment
+
+The infrastructure deployment creates the singleton contracts that all organizations share:
+
+```bash
+forge script script/DeployInfrastructure.s.sol \
+    --rpc-url $RPC_URL \
+    --broadcast \
+    --verify
+```
+
+### Deployment Order
+
+1. **ENSSubdomainRegistrar** — Or MockENSRegistrar on chains without ENS
+2. **Implementation contracts** — RoleRegistry, MeetingFactory, ActionVoting (these are the clone sources)
+3. **MeetingComponentsFactory** — Clones meeting components
+4. **GovTokenDeployer** — Helper for token deployment
+5. **OrganizationFactory** — Main entry point
+6. Authorize OrganizationFactory on ENSSubdomainRegistrar
+
+### Output
+
+Deployment addresses are written to `packages/contracts/deployments/<chainId>-infrastructure.json`.
+
+## Local Deployment
+
+For local development, `DeployLocal.s.sol` deploys everything plus a sample organization:
+
+```bash
+forge script script/DeployLocal.s.sol \
+    --rpc-url http://localhost:8545 \
+    --broadcast
+```
+
+This is handled automatically by `pnpm dev:local`.
+
+Output is written to `packages/contracts/deployments/31337-local.json`.
+
+## Organization Creation Flow
+
+Once infrastructure is deployed, users create organizations through the frontend, which calls:
+
+```
+OrganizationFactory.createOrganization(name, subname)
+```
+
+This deploys per-org contracts (RoleRegistry clone, GovToken, AccessManager) in a single transaction.
+
+Meeting components are deployed separately per circle:
+
+```
+MeetingComponentsFactory.deploy(orgId, circleId, roleRegistryAddress, tokenAddress)
+```
+
+## Wagmi Bindings
+
+After deployment, wagmi bindings are regenerated to pick up the new addresses:
+
+```bash
+cd packages/contracts
+pnpm wagmi generate
+```
+
+The generated types and ABIs are exported as `@hollab-io/contracts/actions` and consumed by the frontend and viem-extension package.

@@ -22,11 +22,7 @@ interface IMeetingComponentsFactory {
   //////////////////////////////////////////////////////////////*/
 
   /// @notice Emitted once per org when meeting components are deployed.
-  event MeetingComponentsDeployed(
-    uint256 indexed _orgId,
-    address indexed _meetingFactory,
-    address _actionVoting
-  );
+  event MeetingComponentsDeployed(uint256 indexed _orgId, address indexed _meetingFactory, address _actionVoting);
 
   /*///////////////////////////////////////////////////////////////
                             ERRORS

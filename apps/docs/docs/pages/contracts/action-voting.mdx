@@ -1,0 +1,86 @@
+# ActionVoting
+
+Event-driven voting on meeting outputs. Combines GovToken weight with collaborator weight for hybrid governance.
+
+**Source:** `packages/contracts/src/contracts/ActionVoting.sol`
+
+## Creating a Vote
+
+Org admins create votes on meeting outputs:
+
+```solidity
+function createVote(
+    uint256 meetingId,
+    uint256 outputIndex,
+    uint256 circleId,
+    uint256 duration        // voting period in seconds
+) external returns (uint256 voteId)
+```
+
+The vote captures a **snapshot block** at creation time. Voting power is frozen at this block — token transfers after vote creation don't affect the outcome.
+
+## Casting Votes
+
+```solidity
+function castVote(uint256 voteId, uint8 support) external
+```
+
+Vote support values:
+
+| Value | Meaning |
+| ----- | ------- |
+| 0     | Against |
+| 1     | For     |
+| 2     | Abstain |
+
+Double voting is prevented — each address can only vote once per vote ID.
+
+## Voting Power
+
+Voting power comes from two sources:
+
+### 1. GovToken (ERC20Votes)
+
+Token holders (and their delegates) get voting weight proportional to their balance at the snapshot block. Standard ERC20Votes delegation is supported — holders can delegate to themselves or others.
+
+### 2. Collaborator Weight
+
+Non-token-holders can receive voting power per circle:
+
+```solidity
+// Grant voting weight to a collaborator (admin only)
+function grantCollaboratorWeight(
+    uint256 circleId,
+    address collaborator,
+    uint256 weight
+) external
+
+// Revoke collaborator voting weight
+function revokeCollaboratorWeight(
+    uint256 circleId,
+    address collaborator
+) external
+```
+
+This allows external partners, advisors, or stakeholders to participate in circle-level decisions without holding governance tokens.
+
+### Circle Limits
+
+Admins can set per-circle constraints:
+
+```solidity
+function setCircleQuorum(uint256 circleId, uint256 quorum) external
+function setCircleMintCap(uint256 circleId, uint256 cap) external
+```
+
+-   **Quorum** — Minimum total participation required for a valid vote
+-   **Mint cap** — Maximum total collaborator weight that can be granted per circle
+
+## Event-Driven Tallying
+
+The contract stores minimal on-chain data (vote metadata + has-voted flags). Individual `VoteCast` events are processed by the Ponder indexer to compute tallies off-chain. This keeps gas costs low while maintaining full auditability.
+
+```solidity
+event VoteCreated(uint256 voteId, uint256 circleId, uint256 snapshotBlock, uint256 deadline);
+event VoteCast(uint256 voteId, address voter, uint8 support, uint256 weight);
+```

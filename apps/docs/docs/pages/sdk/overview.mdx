@@ -1,0 +1,108 @@
+# SDK Overview
+
+The `hollab-sdk` package (`packages/hollab-sdk/`) provides cryptographic key management and encrypted storage for off-chain governance data.
+
+## Purpose
+
+While smart contracts handle on-chain commitments (org structure, votes, membership), some governance data is better kept private — internal issues, draft proposals, role descriptions, and meeting notes. The SDK provides end-to-end encryption for this data using the 0G Network for storage.
+
+For programmatic access by AI agents and automated systems, see the [Agent SDK](/sdk/agent-sdk).
+
+## Core Components
+
+### KeyManager
+
+Derives encryption keys from wallet signatures using HKDF (HMAC-based Key Derivation Function):
+
+```ts
+import { KeyManager } from "@hollab-io/hollab-sdk";
+
+const keyManager = new KeyManager();
+```
+
+Key hierarchy:
+
+-   **Master key** — Derived from `wallet.signMessage(prefix + orgId)`
+-   **Org key** — `HKDF(masterKey, "org" + orgId)`
+-   **Circle key** — `HKDF(masterKey, "circle" + circleId)`
+-   **Role key** — `HKDF(circleKey, "role" + roleId)`
+
+See [Key Management](/sdk/key-management) for details.
+
+### StorageClient
+
+Interacts with 0G Network for encrypted blob storage:
+
+```ts
+import { StorageClient } from "@hollab-io/hollab-sdk";
+
+const storage = new StorageClient(config);
+```
+
+### OrgClient
+
+High-level client for reading and writing organization data:
+
+```ts
+import { OrgClient } from "@hollab-io/hollab-sdk";
+
+const orgClient = new OrgClient(keyManager, storage);
+
+// Read/write org metadata
+await orgClient.setOrgMeta(orgId, metadata);
+const meta = await orgClient.getOrgMeta(orgId);
+
+// Circle-level data
+await orgClient.setCircleMeta(circleId, metadata);
+const circleMeta = await orgClient.getCircleMeta(circleId);
+```
+
+### EventIndexer
+
+Parses and indexes off-chain events for querying:
+
+```ts
+import { EventIndexer } from "@hollab-io/hollab-sdk";
+
+const indexer = new EventIndexer();
+```
+
+## Types
+
+The SDK exports comprehensive TypeScript types:
+
+```ts
+import type {
+    CircleMeta,
+    ContentRefEvent,
+    EncryptedPayload,
+    KeyShare,
+    OrgMeta,
+    Proposal,
+    RoleConfig,
+    StreamId,
+    Tension,
+} from "@hollab-io/hollab-sdk";
+```
+
+## Interfaces
+
+All core components implement interfaces for dependency injection:
+
+| Interface        | Implementation  | Purpose                  |
+| ---------------- | --------------- | ------------------------ |
+| `IKeyManager`    | `KeyManager`    | Key derivation           |
+| `IStorageClient` | `StorageClient` | Encrypted blob storage   |
+| `IOrgClient`     | `OrgClient`     | Org data read/write      |
+| `IEventIndexer`  | `EventIndexer`  | Off-chain event indexing |
+
+## Error Handling
+
+```ts
+import {
+    EncryptionError,
+    HollabSdkError,
+    KeyDerivationError,
+    StorageError,
+} from "@hollab-io/hollab-sdk";
+```

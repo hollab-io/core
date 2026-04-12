@@ -10,7 +10,7 @@
  *
  * Syncs browser back/forward, persists across refresh.
  */
-import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 import type { AppTabId } from "../config/navigation";
 

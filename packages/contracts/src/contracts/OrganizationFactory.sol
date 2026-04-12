@@ -3,12 +3,12 @@ pragma solidity 0.8.28;
 
 import {AccessManager} from '@openzeppelin/contracts/access/manager/AccessManager.sol';
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
-import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
-import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
+import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {GovToken} from 'contracts/governance/GovToken.sol';
 import {GovTokenDeployer} from 'contracts/governance/GovTokenDeployer.sol';
-import {RoleRegistry} from 'contracts/RoleRegistry.sol';
+import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
+import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
  * @title OrganizationFactory
@@ -104,9 +104,7 @@ contract OrganizationFactory is IOrganizationFactory {
     // Deploy governance token (ERC20Votes) — used by ActionVoting for vote weight.
     // Factory is the initial minter so it can mint initial allocations, then
     // transfers the minter role to the org creator.
-    GovToken _token = GovToken(
-      TOKEN_DEPLOYER.deploy(_tokenConfig.tokenName, _tokenConfig.tokenSymbol, address(this))
-    );
+    GovToken _token = GovToken(TOKEN_DEPLOYER.deploy(_tokenConfig.tokenName, _tokenConfig.tokenSymbol, address(this)));
     _mintInitialTokens(_token, _tokenConfig);
     _token.setMinter(msg.sender);
 
@@ -138,7 +136,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function requestToJoin(uint256 orgId, string calldata message) external returns (uint256 requestId) {
+  function requestToJoin(
+    uint256 orgId,
+    string calldata message
+  ) external returns (uint256 requestId) {
     if (_organizations[orgId].id == 0) revert OrganizationFactory_OrgNotFound(orgId);
     if (_joinRequestIds[orgId][msg.sender] != 0) {
       revert OrganizationFactory_JoinRequestAlreadyPending(msg.sender, orgId);
@@ -151,7 +152,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function approveJoinRequest(uint256 orgId, address requester) external {
+  function approveJoinRequest(
+    uint256 orgId,
+    address requester
+  ) external {
     uint256 requestId = _joinRequestIds[orgId][requester];
     if (requestId == 0) revert OrganizationFactory_JoinRequestNotFound(requester, orgId);
 
@@ -167,7 +171,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function rejectJoinRequest(uint256 orgId, address requester) external {
+  function rejectJoinRequest(
+    uint256 orgId,
+    address requester
+  ) external {
     uint256 requestId = _joinRequestIds[orgId][requester];
     if (requestId == 0) revert OrganizationFactory_JoinRequestNotFound(requester, orgId);
 
@@ -178,7 +185,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function addOrgAdmin(uint256 orgId, address account) external {
+  function addOrgAdmin(
+    uint256 orgId,
+    address account
+  ) external {
     _assertOrgAdmin(orgId);
     if (!_orgAdmins[orgId][account]) {
       _orgAdmins[orgId][account] = true;
@@ -187,7 +197,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function removeOrgAdmin(uint256 orgId, address account) external {
+  function removeOrgAdmin(
+    uint256 orgId,
+    address account
+  ) external {
     _assertOrgAdmin(orgId);
     if (_orgAdmins[orgId][account]) {
       _orgAdmins[orgId][account] = false;
@@ -196,7 +209,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function addOrgMember(uint256 orgId, address account) external {
+  function addOrgMember(
+    uint256 orgId,
+    address account
+  ) external {
     _assertOrgAdmin(orgId);
     if (!_orgMembers[orgId][account]) {
       _orgMembers[orgId][account] = true;
@@ -205,7 +221,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function removeOrgMember(uint256 orgId, address account) external {
+  function removeOrgMember(
+    uint256 orgId,
+    address account
+  ) external {
     _assertOrgAdmin(orgId);
     if (_orgMembers[orgId][account]) {
       _orgMembers[orgId][account] = false;
@@ -218,7 +237,9 @@ contract OrganizationFactory is IOrganizationFactory {
   //////////////////////////////////////////////////////////////*/
 
   /// @inheritdoc IOrganizationFactory
-  function getOrganization(uint256 _orgId) external view returns (HolacracyTypes.Organization memory _org) {
+  function getOrganization(
+    uint256 _orgId
+  ) external view returns (HolacracyTypes.Organization memory _org) {
     _org = _organizations[_orgId];
   }
 
@@ -260,17 +281,26 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function hasPendingRequest(address requester, uint256 orgId) external view returns (bool) {
+  function hasPendingRequest(
+    address requester,
+    uint256 orgId
+  ) external view returns (bool) {
     return _joinRequestIds[orgId][requester] != 0;
   }
 
   /// @inheritdoc IOrganizationFactory
-  function isOrgAdmin(uint256 orgId, address account) external view returns (bool) {
+  function isOrgAdmin(
+    uint256 orgId,
+    address account
+  ) external view returns (bool) {
     return _orgAdmins[orgId][account];
   }
 
   /// @inheritdoc IOrganizationFactory
-  function isOrgMember(uint256 orgId, address account) external view returns (bool) {
+  function isOrgMember(
+    uint256 orgId,
+    address account
+  ) external view returns (bool) {
     return _orgMembers[orgId][account];
   }
 
@@ -279,14 +309,19 @@ contract OrganizationFactory is IOrganizationFactory {
   //////////////////////////////////////////////////////////////*/
 
   /// @notice Mints initial token allocations to holders.
-  function _mintInitialTokens(GovToken _token, TokenConfig calldata _cfg) internal {
+  function _mintInitialTokens(
+    GovToken _token,
+    TokenConfig calldata _cfg
+  ) internal {
     for (uint256 _i; _i < _cfg.initialHolders.length; ++_i) {
       _token.mint(_cfg.initialHolders[_i], _cfg.initialAmounts[_i]);
     }
   }
 
   /// @notice Validates a subname: min 3 chars, only [a-z0-9-], no leading/trailing hyphen.
-  function _validateSubname(string calldata _subname) internal pure {
+  function _validateSubname(
+    string calldata _subname
+  ) internal pure {
     bytes calldata _b = bytes(_subname);
 
     if (_b.length < 3) {
@@ -311,13 +346,18 @@ contract OrganizationFactory is IOrganizationFactory {
     }
   }
 
-  function _assertOrgAdmin(uint256 orgId) internal view {
+  function _assertOrgAdmin(
+    uint256 orgId
+  ) internal view {
     HolacracyTypes.Organization memory org = _organizations[orgId];
     if (org.id == 0) revert OrganizationFactory_OrgNotFound(orgId);
     if (!_orgAdmins[orgId][msg.sender]) revert OrganizationFactory_JoinRequestUnauthorized(msg.sender, orgId);
   }
 
-  function _seedOrgAccess(uint256 orgId, address creator) internal {
+  function _seedOrgAccess(
+    uint256 orgId,
+    address creator
+  ) internal {
     _orgAdmins[orgId][creator] = true;
     _orgMembers[orgId][creator] = true;
     emit OrgAdminAdded(orgId, creator);

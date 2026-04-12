@@ -39,7 +39,7 @@ export default function ActionItemsView({ outputs, meetings }: Props) {
                     </h1>
                     <p className="mt-3 max-w-[48ch] text-sm leading-relaxed text-slate-400">
                         Next actions, projects, OKRs, and metrics — the concrete output of every
-                        tactical huddle.
+                        team sync.
                     </p>
                 </motion.div>
 
@@ -99,7 +99,7 @@ export default function ActionItemsView({ outputs, meetings }: Props) {
                         ) : (
                             <EmptyState
                                 icon={CheckSquare}
-                                text="No open actions. Start a tactical huddle to capture next steps."
+                                text="No open actions. Start a team sync to capture next steps."
                             />
                         )}
                     </motion.div>
@@ -155,7 +155,7 @@ export default function ActionItemsView({ outputs, meetings }: Props) {
                         ) : (
                             <EmptyState
                                 icon={KanbanSquare}
-                                text="No active projects. Create one from a tactical huddle."
+                                text="No active projects. Create one from a team sync."
                             />
                         )}
                     </motion.div>
@@ -194,7 +194,7 @@ export default function ActionItemsView({ outputs, meetings }: Props) {
                         </div>
                         <EmptyState
                             icon={TrendingUp}
-                            text="Metrics reporting is coming. Track role-based indicators across circles."
+                            text="Metrics reporting is coming. Track role-based indicators across teams."
                         />
                     </motion.div>
                 </div>

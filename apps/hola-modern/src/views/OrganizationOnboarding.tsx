@@ -1,9 +1,9 @@
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { motion } from "framer-motion";
 import { ArrowRight, Building2, CheckCircle2, LogOut, Network, Wallet } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useDisconnect } from "wagmi";
 
-import DynamicAuthControl from "../components/DynamicAuthControl";
+import WalletAuthControl from "../components/WalletAuthControl";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 const EXPO = [0.16, 1, 0.3, 1] as const;
@@ -16,18 +16,18 @@ function shortenWallet(address: string) {
 const FEATURES = [
     {
         icon: "◎",
-        title: "Org chart",
-        body: "Circles, roles, and structural relationships visible immediately.",
+        title: "Structure",
+        body: "Teams, roles, and responsibilities visible immediately.",
     },
     {
         icon: "◈",
-        title: "Governance",
-        body: "Proposals, elections, and tactical meetings ready to use.",
+        title: "Proposals",
+        body: "Propose structure changes, vote, and execute — all onchain.",
     },
     {
         icon: "◉",
         title: "Execution",
-        body: "Actions, OKRs, projects, and calendar linked into one model.",
+        body: "Actions, OKRs, projects, and syncs linked into one model.",
     },
 ] as const;
 
@@ -40,12 +40,12 @@ export default function OrganizationOnboarding() {
         roleMap,
         snapshot,
     } = useWorkspaceSnapshot();
-    const { handleLogOut } = useDynamicContext();
+    const { disconnect } = useDisconnect();
 
     const [organizationName, setOrganizationName] = useState("");
     const [ownerName, setOwnerName] = useState("");
     const [purpose, setPurpose] = useState(
-        "Create a transparent Holacracy workspace where circles, governance, tactical meetings, and execution all live together.",
+        "Create a transparent workspace where teams, proposals, syncs, and execution all live together — verifiable onchain.",
     );
 
     const defaultOwnerName = useMemo(() => {
@@ -84,7 +84,6 @@ export default function OrganizationOnboarding() {
 
             {/* Centered column */}
             <div className="relative mx-auto flex w-full max-w-[480px] flex-col items-center gap-8 pb-16 pt-10">
-
                 {/* ── Header ── */}
                 <motion.div
                     initial={{ opacity: 0, y: 16, filter: "blur(6px)" }}
@@ -93,18 +92,22 @@ export default function OrganizationOnboarding() {
                     className="flex w-full flex-col items-center text-center"
                 >
                     {/* Brand mark */}
-                    <div className="mb-5 flex h-[52px] w-[52px] items-center justify-center rounded-[1rem]
+                    <div
+                        className="mb-5 flex h-[52px] w-[52px] items-center justify-center rounded-[1rem]
                         bg-gradient-to-br from-[#3481FF] to-[#1a5fd4]
-                        shadow-[0_6px_24px_rgba(52,129,255,0.38)]">
+                        shadow-[0_6px_24px_rgba(52,129,255,0.38)]"
+                    >
                         <span className="text-[22px] font-bold text-white">H</span>
                     </div>
 
-                    <span className="mb-3 inline-flex items-center rounded-full border border-slate-200/80 dark:border-white/[0.1]
+                    <span
+                        className="mb-3 inline-flex items-center rounded-full border border-slate-200/80 dark:border-white/[0.1]
                         bg-white/80 dark:bg-white/[0.04]
                         px-3 py-1
                         text-[10px] font-semibold uppercase tracking-[0.2em]
                         text-slate-500 dark:text-slate-500
-                        shadow-sm backdrop-blur-sm">
+                        shadow-sm backdrop-blur-sm"
+                    >
                         Organization setup
                     </span>
 
@@ -112,7 +115,8 @@ export default function OrganizationOnboarding() {
                         Create your workspace
                     </h1>
                     <p className="mt-2.5 max-w-[340px] text-[14px] leading-relaxed text-slate-500 dark:text-slate-500">
-                        Fill in the details below — your starter structure deploys instantly onchain.
+                        Fill in the details below — your starter structure deploys instantly
+                        onchain.
                     </p>
                 </motion.div>
 
@@ -125,13 +129,19 @@ export default function OrganizationOnboarding() {
                 >
                     {authenticatedWalletAddress ? (
                         /* Connected state */
-                        <div className="rounded-2xl
+                        <div
+                            className="rounded-2xl
                             border border-emerald-200/70 dark:border-emerald-500/[0.2]
                             bg-emerald-50/80 dark:bg-emerald-500/[0.06]
-                            px-4 py-3">
+                            px-4 py-3"
+                        >
                             <div className="flex items-center gap-3">
-                                <CheckCircle2 size={16} strokeWidth={1.75}
-                                    className="flex-shrink-0 text-emerald-500" aria-hidden="true" />
+                                <CheckCircle2
+                                    size={16}
+                                    strokeWidth={1.75}
+                                    className="flex-shrink-0 text-emerald-500"
+                                    aria-hidden="true"
+                                />
                                 <div className="min-w-0 flex-1">
                                     <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-500">
                                         Wallet connected
@@ -140,41 +150,52 @@ export default function OrganizationOnboarding() {
                                         {authenticatedWalletAddress}
                                     </p>
                                 </div>
-                                <span className="flex-shrink-0 rounded-full border border-emerald-200 dark:border-emerald-500/20
+                                <span
+                                    className="flex-shrink-0 rounded-full border border-emerald-200 dark:border-emerald-500/20
                                     bg-white/80 dark:bg-emerald-500/10
-                                    px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                                    px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400"
+                                >
                                     {shortenWallet(authenticatedWalletAddress)}
                                 </span>
                             </div>
                             <div className="mt-3 border-t border-emerald-200/60 dark:border-emerald-500/[0.15] pt-3">
                                 <button
                                     type="button"
-                                    onClick={handleLogOut}
+                                    onClick={() => disconnect()}
                                     className="group flex items-center gap-2
                                         text-[12px] font-semibold text-slate-500 dark:text-slate-500
                                         transition-colors duration-200 hover:text-slate-800 dark:hover:text-slate-300"
                                 >
-                                    <LogOut size={13} strokeWidth={2}
+                                    <LogOut
+                                        size={13}
+                                        strokeWidth={2}
                                         className="transition-transform duration-300 group-hover:-translate-x-0.5"
-                                        aria-hidden="true" />
+                                        aria-hidden="true"
+                                    />
                                     Sign out
                                 </button>
                             </div>
                         </div>
                     ) : (
                         /* Disconnected state */
-                        <div className="rounded-2xl
+                        <div
+                            className="rounded-2xl
                             border border-slate-200/80 dark:border-white/[0.08]
                             bg-white/70 dark:bg-white/[0.03]
-                            px-4 py-4">
+                            px-4 py-4"
+                        >
                             <div className="mb-3 flex items-center gap-2.5">
-                                <Wallet size={15} strokeWidth={1.5}
-                                    className="text-slate-400 dark:text-slate-600" aria-hidden="true" />
+                                <Wallet
+                                    size={15}
+                                    strokeWidth={1.5}
+                                    className="text-slate-400 dark:text-slate-600"
+                                    aria-hidden="true"
+                                />
                                 <p className="text-[12px] font-semibold text-slate-500 dark:text-slate-500">
                                     Connect a wallet to continue
                                 </p>
                             </div>
-                            <DynamicAuthControl />
+                            <WalletAuthControl />
                         </div>
                     )}
                 </motion.div>
@@ -187,12 +208,14 @@ export default function OrganizationOnboarding() {
                     className="w-full"
                 >
                     {/* Outer shell */}
-                    <div className="rounded-[1.75rem]
+                    <div
+                        className="rounded-[1.75rem]
                         border border-slate-200/80 dark:border-white/[0.08]
                         bg-white/60 dark:bg-white/[0.03]
                         p-[5px]
                         shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_32px_rgba(0,0,0,0.4)]
-                        backdrop-blur-xl">
+                        backdrop-blur-xl"
+                    >
                         {/* Inner core */}
                         <form
                             className="rounded-[calc(1.75rem-5px)]
@@ -212,8 +235,10 @@ export default function OrganizationOnboarding() {
                         >
                             {/* Form header */}
                             <div className="mb-5 flex items-center gap-3">
-                                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl
-                                    bg-[#3481FF]/10 dark:bg-[#3481FF]/15 text-[#3481FF]">
+                                <div
+                                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl
+                                    bg-[#3481FF]/10 dark:bg-[#3481FF]/15 text-[#3481FF]"
+                                >
                                     <Building2 size={17} strokeWidth={1.75} aria-hidden="true" />
                                 </div>
                                 <div>
@@ -333,9 +358,10 @@ export default function OrganizationOnboarding() {
                                 className={`group mt-5 flex w-full items-center justify-between rounded-xl px-5 py-3.5
                                     text-[14px] font-bold tracking-tight
                                     transition-all duration-500 active:scale-[0.98]
-                                    ${canCreate
-                                        ? "bg-[#3481FF] text-white shadow-[0_8px_28px_rgba(52,129,255,0.35)] hover:shadow-[0_10px_36px_rgba(52,129,255,0.45)] hover:bg-[#2570f0]"
-                                        : "cursor-not-allowed bg-slate-100 dark:bg-white/[0.05] text-slate-400 dark:text-slate-600"
+                                    ${
+                                        canCreate
+                                            ? "bg-[#3481FF] text-white shadow-[0_8px_28px_rgba(52,129,255,0.35)] hover:shadow-[0_10px_36px_rgba(52,129,255,0.45)] hover:bg-[#2570f0]"
+                                            : "cursor-not-allowed bg-slate-100 dark:bg-white/[0.05] text-slate-400 dark:text-slate-600"
                                     }`}
                                 style={{ transitionTimingFunction: SPRING }}
                             >
@@ -344,11 +370,13 @@ export default function OrganizationOnboarding() {
                                     Create workspace
                                 </div>
                                 {/* Trailing icon — button-in-button */}
-                                <span className={`flex h-7 w-7 items-center justify-center rounded-full
+                                <span
+                                    className={`flex h-7 w-7 items-center justify-center rounded-full
                                     transition-all duration-500
-                                    ${canCreate
-                                        ? "bg-white/20 group-hover:translate-x-0.5 group-hover:-translate-y-[1px] group-hover:scale-[1.08]"
-                                        : "bg-slate-200/50 dark:bg-white/[0.04]"
+                                    ${
+                                        canCreate
+                                            ? "bg-white/20 group-hover:translate-x-0.5 group-hover:-translate-y-[1px] group-hover:scale-[1.08]"
+                                            : "bg-slate-200/50 dark:bg-white/[0.04]"
                                     }`}
                                     style={{ transitionTimingFunction: SPRING }}
                                 >
@@ -402,7 +430,6 @@ export default function OrganizationOnboarding() {
                         ))}
                     </div>
                 </motion.div>
-
             </div>
         </div>
     );

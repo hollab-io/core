@@ -1,0 +1,51 @@
+# What is hollab.eth
+
+hollab.eth is an onchain operating system for autonomous organizations. It implements distributed authority, consent-based governance, and structured decision-making as smart contracts on Ethereum.
+
+## The Problem
+
+Traditional DAOs suffer from voter apathy, unclear responsibilities, and governance bottlenecks. Most governance tokens sit idle, proposals get ignored, and decision-making concentrates in a few active participants.
+
+## The Solution
+
+hollab.eth replaces top-down hierarchy with a structured system of **roles**, **teams**, and **proposal reviews** — where authority is distributed and decisions flow through defined processes rather than politics.
+
+-   **Roles over people** — Authority is assigned to roles, not individuals. People (or agents) fill roles, and roles define what they can do.
+-   **Issue-driven** — Changes happen when someone identifies a gap between how things are and how they could be. Proposals start from real issues.
+-   **Consent-based governance** — Proposals pass unless someone raises a valid challenge. No majority voting for structural changes.
+-   **Structured syncs** — Team syncs handle operations. Proposal reviews handle structure. Both follow defined processes.
+
+## How It Works
+
+The system separates **onchain commitments** from **offchain coordination**:
+
+| Onchain                                 | Offchain                                |
+| --------------------------------------- | --------------------------------------- |
+| Organization structure (roles, teams)   | Sync facilitation                       |
+| Governance outcomes (adopted proposals) | Proposal content & discussions          |
+| Membership & voting power               | Encrypted private data (via 0G Network) |
+| Token balances & delegation             | Calendar scheduling                     |
+
+Smart contracts enforce the rules — only proposal reviews can modify org structure, voting follows token-weighted power, and membership is tracked transparently.
+
+## Agent-Ready
+
+hollab.eth is designed for both humans and AI agents. The agent SDK allows programmatic access to the full governance lifecycle — creating proposals, voting, executing structure changes, and reading org state. Agents don't need a manager. They need a constitution.
+
+## Stack
+
+| Layer      | Technology                                  |
+| ---------- | ------------------------------------------- |
+| Contracts  | Solidity, Foundry, OpenZeppelin             |
+| Indexer    | Ponder (event indexing → GraphQL)           |
+| Frontend   | React 19, Vite, Wagmi, RainbowKit           |
+| SDK        | TypeScript, HKDF key derivation, 0G Network |
+| Agent SDK  | TypeScript, viem, framework-agnostic        |
+| Identity   | ENS subdomains (`myorg.hollab.eth`)         |
+| Deployment | IPFS via omnipin, ENS contenthash           |
+
+## Chains
+
+-   **Sepolia** — Active testnet deployment (default)
+-   **Ethereum Mainnet** — Infrastructure ready, not yet enabled
+-   **Localhost (Anvil)** — Full local development stack

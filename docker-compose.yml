@@ -50,7 +50,7 @@ services:
             dockerfile: Dockerfile
             target: hola-modern
             args:
-                VITE_DYNAMIC_ENVIRONMENT_ID: "aac79627-b466-4c2a-94e7-dad80d4746e7"
+                VITE_WALLETCONNECT_PROJECT_ID: ""
                 VITE_INDEXER_URL: "https://indexer.hollab.io"
         restart: unless-stopped
         networks:

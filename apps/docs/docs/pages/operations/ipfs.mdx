@@ -1,0 +1,50 @@
+# IPFS Deployment
+
+The frontend is deployed to IPFS and served via ENS + eth.limo, making it fully decentralized — no server required.
+
+## How It Works
+
+```
+Build (Vite) → Upload (omnipin) → Pin (Filecoin) → Update ENS contenthash
+                                                         ↓
+                                              hollab.eth → IPFS CID
+                                                         ↓
+                                              hollab.eth.limo (HTTP gateway)
+```
+
+1. **Build** — Vite produces a static `dist/` folder
+2. **Upload** — The `dist/` is uploaded to IPFS via omnipin
+3. **Pin** — Content is pinned to Filecoin for persistence
+4. **ENS update** — The `hollab.eth` contenthash record is updated to point to the new IPFS CID
+5. **Access** — Users visit `hollab.eth.limo` (eth.limo resolves ENS → IPFS → HTTP)
+
+## ENS Contenthash
+
+The contenthash is updated via a Safe multisig transaction, requiring multiple signers to approve. This prevents unauthorized deployments.
+
+## Why IPFS
+
+-   **Censorship resistant** — No single server to take down
+-   **Verifiable** — Content is addressed by hash (CID)
+-   **Permanent** — Filecoin pinning ensures persistence
+-   **ENS native** — `hollab.eth` resolves directly to the app
+
+## Hash-Based Routing
+
+The frontend uses hash-based routing (`#/org/:id/tactical`) instead of path-based routing (`/org/:id/tactical`). This is critical for IPFS deployment because:
+
+-   IPFS serves a single `index.html` file
+-   There is no server to handle path-based routing fallbacks
+-   Hash fragments (`#/...`) are handled entirely client-side
+
+## Manual Deployment
+
+```bash
+# Build the frontend
+pnpm --filter hola-modern build
+
+# The dist/ folder is ready for IPFS upload
+ls apps/hola-modern/dist/
+```
+
+The actual IPFS upload and ENS update are handled by the `deploy-ipfs.yml` GitHub Action, which uses omnipin CLI tools and Safe SDK for the multisig transaction.
