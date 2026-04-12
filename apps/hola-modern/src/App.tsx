@@ -31,11 +31,11 @@ const SPRING = "cubic-bezier(0.32,0.72,0,1)";
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 const NAV = [
-    { id: "tactical" as AppTabId, icon: Users, label: "Tactical" },
-    { id: "governance" as AppTabId, icon: Scale, label: "Governance" },
+    { id: "tactical" as AppTabId, icon: Users, label: "Sync" },
+    { id: "governance" as AppTabId, icon: Scale, label: "Proposals" },
     { id: "actions" as AppTabId, icon: CheckSquare, label: "Actions" },
     { id: "structure" as AppTabId, icon: Network, label: "Structure" },
-    { id: "constitution" as AppTabId, icon: BookOpen, label: "Constitution" },
+    { id: "constitution" as AppTabId, icon: BookOpen, label: "About" },
 ] as const;
 
 function App() {

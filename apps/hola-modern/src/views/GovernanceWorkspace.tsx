@@ -13,7 +13,6 @@ import { useMemo, useState } from "react";
 
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
-
 type ProposalFormState = {
     circleId: string;
     proposerRoleId: string;
@@ -386,9 +385,9 @@ export default function GovernanceWorkspace() {
                             Consent-based structural change
                         </h2>
                         <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                            Governance changes move through proposal requirements, async objection
-                            handling, meeting-based IDM, elections, and process-restoration rules.
-                            The UI keeps that full chain visible in one place.
+                            Structure changes move through proposal requirements, async challenge
+                            handling, review sessions, elections, and process-restoration rules. The
+                            UI keeps that full chain visible in one place.
                         </p>
                     </div>
 
@@ -587,7 +586,7 @@ export default function GovernanceWorkspace() {
                                             <div className="mt-5 grid gap-4 lg:grid-cols-3">
                                                 <div className="rounded-3xl border border-slate-200 bg-white px-4 py-4">
                                                     <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                                                        Tension
+                                                        Issue
                                                     </div>
                                                     <p className="mt-2 text-sm leading-6 text-slate-600">
                                                         {proposal.tension}
@@ -614,7 +613,7 @@ export default function GovernanceWorkspace() {
                                             <div className="mt-5 rounded-3xl border border-slate-200 bg-white px-4 py-4">
                                                 <div className="flex flex-wrap items-center justify-between gap-3">
                                                     <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                                                        Objections
+                                                        Challenges
                                                     </div>
                                                     <span className="text-xs text-slate-400">
                                                         {proposalObjections.length} total ·{" "}
@@ -801,7 +800,7 @@ export default function GovernanceWorkspace() {
                                                 <div className="mt-5 rounded-[24px] border border-slate-200 bg-white p-5">
                                                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#3481FF]">
                                                         <ShieldAlert size={15} aria-hidden="true" />
-                                                        Objection requirements
+                                                        Challenge requirements
                                                     </div>
                                                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                                                         <div>
@@ -969,10 +968,10 @@ export default function GovernanceWorkspace() {
                     <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
                         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#3481FF]">
                             <CalendarDays size={15} aria-hidden="true" />
-                            Governance meeting room
+                            Proposal review room
                         </div>
                         <h3 className="mt-2 text-xl font-semibold text-slate-900">
-                            Meetings process agenda items in real time with IDM or elections
+                            Sessions process agenda items in real time with reviews or elections
                         </h3>
                         <div className="mt-5 grid gap-4 lg:grid-cols-2">
                             {filteredMeetings.map((meeting) => {
@@ -1293,7 +1292,7 @@ export default function GovernanceWorkspace() {
                         <div className="mt-4 grid gap-4">
                             <div>
                                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
-                                    Tension
+                                    Issue
                                 </label>
                                 <textarea
                                     value={proposalForm.tension}

@@ -765,7 +765,7 @@ export const meetingComponentsFactoryAbi = [
  */
 export const meetingComponentsFactoryAddress = {
     1: "0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25",
-    31337: "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154",
+    31337: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
     11155111: "0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F",
 } as const;
 
@@ -1373,7 +1373,7 @@ export const organizationFactoryAbi = [
  */
 export const organizationFactoryAddress = {
     1: "0xC0252342923238CF5509cfBd2fa46A45ADeDc921",
-    31337: "0xb7278A61aa25c888815aFC32Ad3cC52fF24fE575",
+    31337: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
     11155111: "0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3",
 } as const;
 
