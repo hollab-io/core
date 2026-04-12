@@ -1,0 +1,39 @@
+{
+    "name": "@hollab-io/agent-sdk",
+    "version": "0.0.1",
+    "private": true,
+    "description": "SDK for agents and systems to integrate with hollab.eth governance",
+    "license": "MIT",
+    "type": "module",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+        "dist",
+        "package.json"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "check-types": "tsc --noEmit -p ./tsconfig.json",
+        "clean": "rm -rf dist",
+        "format": "prettier --check \"src/**/*.ts\"",
+        "format:fix": "prettier --write \"src/**/*.ts\"",
+        "lint": "eslint \"src/**/*.ts\"",
+        "lint:fix": "pnpm lint --fix",
+        "test": "vitest run --passWithNoTests",
+        "test:cov": "vitest run --coverage"
+    },
+    "dependencies": {
+        "@hollab-io/contracts": "workspace:*",
+        "@hollab-io/indexing-client": "workspace:*",
+        "viem": "2.21.4"
+    },
+    "devDependencies": {
+        "tsup": "^8.0.0"
+    }
+}
