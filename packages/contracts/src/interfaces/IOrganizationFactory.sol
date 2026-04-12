@@ -6,25 +6,20 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 /**
  * @title IOrganizationFactory
  * @notice Deploys Holacracy organizations as ERC-1167 minimal proxy clones,
- *         deploys an on-chain governance suite (GovToken + Timelock + HolGovernor),
- *         and registers an ENS subname pointing to the governor under hollab.eth.
+ *         deploys a governance token (ERC20Votes) for ActionVoting,
+ *         and registers an ENS subname under hollab.eth.
  */
 interface IOrganizationFactory {
   /*///////////////////////////////////////////////////////////////
                             TYPES
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Parameters for the on-chain governance suite deployed with each organization
-  struct GovernanceConfig {
+  /// @notice Parameters for the governance token deployed with each organization
+  struct TokenConfig {
     string tokenName;
     string tokenSymbol;
     address[] initialHolders;
     uint256[] initialAmounts;
-    uint256 timelockDelay;
-    uint48 votingDelay;
-    uint32 votingPeriod;
-    uint256 proposalThreshold;
-    uint256 quorumNumerator;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -44,10 +39,7 @@ interface IOrganizationFactory {
   /// @param _roleRegistry The deployed RoleRegistry clone
   /// @param _governanceProcess The deployed GovernanceProcess clone
   event OrgComponentsDeployed(
-    uint256 indexed _orgId,
-    address indexed _circleRegistry,
-    address indexed _roleRegistry,
-    address _governanceProcess
+    uint256 indexed _orgId, address indexed _circleRegistry, address indexed _roleRegistry, address _governanceProcess
   );
   event JoinRequested(uint256 indexed requestId, address indexed requester, uint256 indexed orgId, string message);
   event JoinApproved(uint256 indexed requestId, address indexed requester, uint256 indexed orgId);
@@ -78,23 +70,44 @@ interface IOrganizationFactory {
                             LOGIC
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Creates a new Holacracy organization with an on-chain governance suite
+  /// @notice Creates a new Holacracy organization with a governance token
   /// @param _subname The ENS subname to register (e.g. "myorg" for myorg.hollab.eth)
   /// @param _purpose The purpose of the organization's anchor circle
-  /// @param _govConfig Parameters for the GovToken + Timelock + HolGovernor deployment
+  /// @param _tokenConfig Parameters for the GovToken deployment
   /// @return _orgId The ID of the created organization
   function createOrganization(
     string calldata _subname,
     string calldata _purpose,
-    GovernanceConfig calldata _govConfig
+    TokenConfig calldata _tokenConfig
   ) external returns (uint256 _orgId);
-  function requestToJoin(uint256 orgId, string calldata message) external returns (uint256 requestId);
-  function approveJoinRequest(uint256 orgId, address requester) external;
-  function rejectJoinRequest(uint256 orgId, address requester) external;
-  function addOrgAdmin(uint256 orgId, address account) external;
-  function removeOrgAdmin(uint256 orgId, address account) external;
-  function addOrgMember(uint256 orgId, address account) external;
-  function removeOrgMember(uint256 orgId, address account) external;
+  function requestToJoin(
+    uint256 orgId,
+    string calldata message
+  ) external returns (uint256 requestId);
+  function approveJoinRequest(
+    uint256 orgId,
+    address requester
+  ) external;
+  function rejectJoinRequest(
+    uint256 orgId,
+    address requester
+  ) external;
+  function addOrgAdmin(
+    uint256 orgId,
+    address account
+  ) external;
+  function removeOrgAdmin(
+    uint256 orgId,
+    address account
+  ) external;
+  function addOrgMember(
+    uint256 orgId,
+    address account
+  ) external;
+  function removeOrgMember(
+    uint256 orgId,
+    address account
+  ) external;
 
   /*///////////////////////////////////////////////////////////////
                             VARIABLES
@@ -103,12 +116,16 @@ interface IOrganizationFactory {
   /// @notice Returns an organization by its ID
   /// @param _orgId The organization ID
   /// @return _org The organization data
-  function getOrganization(uint256 _orgId) external view returns (HolacracyTypes.Organization memory _org);
+  function getOrganization(
+    uint256 _orgId
+  ) external view returns (HolacracyTypes.Organization memory _org);
 
   /// @notice Returns an organization by its ENS subname
   /// @param _subname The ENS subname
   /// @return _org The organization data
-  function getOrganizationBySubname(string calldata _subname) external view returns (HolacracyTypes.Organization memory _org);
+  function getOrganizationBySubname(
+    string calldata _subname
+  ) external view returns (HolacracyTypes.Organization memory _org);
 
   /// @notice Returns the total number of organizations created
   /// @return _count The organization count
@@ -123,12 +140,20 @@ interface IOrganizationFactory {
     uint256 _offset,
     uint256 _limit
   ) external view returns (HolacracyTypes.Organization[] memory _orgs);
-  function hasPendingRequest(address requester, uint256 orgId) external view returns (bool);
-  function isOrgAdmin(uint256 orgId, address account) external view returns (bool);
-  function isOrgMember(uint256 orgId, address account) external view returns (bool);
+  function hasPendingRequest(
+    address requester,
+    uint256 orgId
+  ) external view returns (bool);
+  function isOrgAdmin(
+    uint256 orgId,
+    address account
+  ) external view returns (bool);
+  function isOrgMember(
+    uint256 orgId,
+    address account
+  ) external view returns (bool);
 
   /// @notice Returns the RoleRegistry implementation address
   /// @return _impl The implementation address
   function roleRegistryImplementation() external view returns (address _impl);
-
 }

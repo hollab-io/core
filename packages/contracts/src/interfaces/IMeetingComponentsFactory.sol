@@ -22,16 +22,7 @@ interface IMeetingComponentsFactory {
   //////////////////////////////////////////////////////////////*/
 
   /// @notice Emitted once per org when meeting components are deployed.
-  ///         Indexed parameters are used by off-chain indexers (e.g. Ponder) to
-  ///         auto-discover per-org clone addresses without manual configuration.
-  /// @param _orgId          The organization ID (assigned by OrganizationFactory)
-  /// @param _meetingFactory     Address of the MeetingFactory clone
-  /// @param _actionVoting       Address of the ActionVoting clone
-  event MeetingComponentsDeployed(
-    uint256 indexed _orgId,
-    address indexed _meetingFactory,
-    address _actionVoting
-  );
+  event MeetingComponentsDeployed(uint256 indexed _orgId, address indexed _meetingFactory, address _actionVoting);
 
   /*///////////////////////////////////////////////////////////////
                             ERRORS
@@ -43,15 +34,18 @@ interface IMeetingComponentsFactory {
                             LOGIC
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Deploy and initialize MeetingFactory and ActionVoting
-  ///         clones for `_orgId`, wired to org-level authorization.
+  /// @notice Deploy and initialize MeetingFactory and ActionVoting clones for an org.
+  ///         Also wires MeetingFactory as the governance process on the RoleRegistry,
+  ///         so governance-adopted proposals can execute structural changes.
   /// @param _orgId             Organization ID (from OrganizationFactory)
   /// @param _orgFactory        OrganizationFactory address (for org membership/admin checks)
+  /// @param _roleRegistry      RoleRegistry clone address (for governance execution)
   /// @param _govToken          Org governance token (IVotes) — used as ActionVoting vote weight
-  /// @return deployment Addresses of the three newly deployed clones
+  /// @return deployment Addresses of the deployed clones
   function deploy(
     uint256 _orgId,
     address _orgFactory,
+    address _roleRegistry,
     address _govToken
   ) external returns (Deployment memory deployment);
 

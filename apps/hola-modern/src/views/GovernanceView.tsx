@@ -1,18 +1,20 @@
+import type { Organization } from "@hollab-io/indexing-client";
 import { motion } from "framer-motion";
 import { ArrowRight, Clock3, Loader2, Scale, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 
 import { useGovernanceMeeting } from "../hooks/useGovernanceMeeting";
+import { useDeployMeetingComponents } from "../hooks/useMeetingComponentsFactory";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const SPRING = { type: "spring", stiffness: 340, damping: 28 } as const;
 
-const IDM_STEPS = [
+const REVIEW_STEPS = [
     {
         step: "a",
         label: "Present proposal",
-        desc: "Proposer describes the Tension and shares a Proposal",
+        desc: "Proposer describes the issue and shares a proposal",
     },
     {
         step: "b",
@@ -24,16 +26,16 @@ const IDM_STEPS = [
         label: "Reaction round",
         desc: "Each participant shares reactions, one at a time",
     },
-    { step: "d", label: "Option to clarify", desc: "Proposer may amend the Proposal" },
+    { step: "d", label: "Option to clarify", desc: "Proposer may amend the proposal" },
     {
         step: "e",
-        label: "Objection round",
-        desc: "Each participant raises concerns; Facilitator captures Objections",
+        label: "Challenge round",
+        desc: "Each participant raises concerns; facilitator captures challenges",
     },
     {
         step: "f",
         label: "Integration",
-        desc: "Resolve each Objection until the Proposal is adopted",
+        desc: "Resolve each challenge until the proposal is adopted",
     },
 ] as const;
 
@@ -43,17 +45,18 @@ type Props = {
     pollForNewGovernanceMeeting?: (
         prevCount: number,
     ) => Promise<import("../hooks/useGovernanceMeetingsFromIndexer").GovernanceMeeting[]>;
-    refetchMeetingComponents?: () => Promise<void>;
+    activeOrg: Organization | null;
 };
 
 export default function GovernanceView({
     governanceMeetingAddress,
     indexedGovernanceMeetings = [],
     pollForNewGovernanceMeeting,
-    refetchMeetingComponents,
+    activeOrg,
 }: Props) {
     const { conveneGovernanceMeeting, authenticatedWalletAddress } = useWorkspaceSnapshot();
     const { conveneMeeting } = useGovernanceMeeting();
+    const deploy = useDeployMeetingComponents();
     const [isConvening, setIsConvening] = useState(false);
     const [conveneError, setConveneError] = useState<string | null>(null);
 
@@ -72,41 +75,39 @@ export default function GovernanceView({
         setIsConvening(true);
         setConveneError(null);
 
-        // If the governance address isn't available yet, try refetching
-        // the meeting components — the contract may already be deployed.
-        const address = governanceMeetingAddress;
-        if (!address && refetchMeetingComponents) {
-            try {
-                await refetchMeetingComponents();
-            } catch {
-                // indexer unavailable
+        // If meeting components aren't deployed yet, deploy them first
+        if (!governanceMeetingAddress) {
+            if (!activeOrg || !deploy.factoryConfigured) {
+                setConveneError("Meeting components factory not configured for this chain.");
+                setIsConvening(false);
+                return;
             }
-            // Address will be available on next render; bail for now
-            // and let the user click again.
-            setIsConvening(false);
-            if (!governanceMeetingAddress) {
-                setConveneError(
-                    "Governance contracts not deployed yet. Set up huddles on the Tactical tab first.",
-                );
-            }
-            return;
-        }
-
-        if (!address) {
-            setConveneError(
-                "Governance contracts not deployed yet. Set up huddles on the Tactical tab first.",
+            deploy.mutate(
+                {
+                    orgId: BigInt(activeOrg.id),
+                    roleRegistry: activeOrg.roleRegistry as `0x${string}`,
+                    govToken: activeOrg.token as `0x${string}`,
+                    walletAddress: authenticatedWalletAddress as `0x${string}`,
+                },
+                {
+                    onError: (err) => {
+                        setConveneError(err.message);
+                        setIsConvening(false);
+                    },
+                },
             );
+            // After deploy succeeds, the cache update will re-render with
+            // governanceMeetingAddress set. User clicks again to convene.
             setIsConvening(false);
             return;
         }
 
-        // Use the org's anchor circle (circleId 1) by default
-        const circleId = 1n;
+        const address = governanceMeetingAddress;
 
         try {
             await conveneMeeting({
                 governanceMeetingAddress: address,
-                circleId,
+                orgId: BigInt(activeOrg!.id),
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
             });
 
@@ -154,14 +155,14 @@ export default function GovernanceView({
                     className="mb-10"
                 >
                     <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                        Governance
+                        Proposals
                     </p>
                     <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-slate-900 dark:text-white">
-                        Integrative decisions
+                        Structure changes
                     </h1>
                     <p className="mt-3 max-w-[52ch] text-sm leading-relaxed text-slate-400">
-                        Change Roles, Policies, and structure through consent-based decision-making.
-                        Proposals require a Tension, an example, and an explanation.
+                        Change roles, policies, and structure through consent-based decision-making.
+                        Each proposal requires an issue, an example, and an explanation.
                     </p>
                 </motion.div>
 
@@ -199,7 +200,7 @@ export default function GovernanceView({
                                     </div>
                                     <div className="text-left">
                                         <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
-                                            Resume governance meeting
+                                            Resume proposal review
                                         </p>
                                         <p className="mt-0.5 text-xs text-slate-400">
                                             Meeting #{m.meetingId} · In progress
@@ -252,11 +253,11 @@ export default function GovernanceView({
                                     <div className="text-left">
                                         <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
                                             {isConvening
-                                                ? "Convening meeting on-chain..."
-                                                : "Convene governance meeting"}
+                                                ? "Starting proposal review..."
+                                                : "Start proposal review"}
                                         </p>
                                         <p className="mt-0.5 text-xs text-slate-400">
-                                            Start a new on-chain governance session
+                                            Open a new onchain proposal session
                                         </p>
                                     </div>
                                 </div>
@@ -373,13 +374,13 @@ export default function GovernanceView({
                     transition={{ duration: 0.65, delay: 0.22, ease: EXPO }}
                 >
                     <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-                        Integrative decision-making
+                        Proposal review process
                     </p>
                     <div
                         className="grid grid-cols-1 gap-px rounded-[1.5rem] overflow-hidden
                         border border-slate-200 dark:border-white/[0.06] bg-slate-100 dark:bg-white/[0.04]"
                     >
-                        {IDM_STEPS.map((s) => (
+                        {REVIEW_STEPS.map((s) => (
                             <div
                                 key={s.step}
                                 className="flex items-center gap-4 bg-white dark:bg-[#0a0a0f] px-5 py-3.5
@@ -413,14 +414,14 @@ export default function GovernanceView({
                             strokeWidth={1.75}
                         />
                         <p className="text-xs leading-relaxed text-slate-400">
-                            A valid proposal requires: a{" "}
-                            <span className="text-slate-300 font-medium">Tension</span> it would
+                            A valid proposal requires: an{" "}
+                            <span className="text-slate-300 font-medium">issue</span> it would
                             address, an <span className="text-slate-300 font-medium">example</span>{" "}
                             of an actual past or present situation, and a{" "}
                             <span className="text-slate-300 font-medium">
                                 reasonable explanation
                             </span>{" "}
-                            of how it would reduce the Tension.
+                            of how it would resolve the issue.
                         </p>
                     </div>
                 </motion.div>

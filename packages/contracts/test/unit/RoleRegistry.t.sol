@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
-import {RoleRegistry, IRoleRegistry} from 'contracts/RoleRegistry.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
+import {IRoleRegistry, RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {Test} from 'forge-std/Test.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 contract UnitRoleRegistry is Test {
   RoleRegistry internal _roleRegistry;
 
-  address internal _circleRegistry = makeAddr('circleRegistry');
+  address internal _governanceProcess = makeAddr('governanceProcess');
   address internal _stranger = makeAddr('stranger');
 
   string internal _roleName = 'Developer';
@@ -27,33 +27,33 @@ contract UnitRoleRegistry is Test {
     RoleRegistry _impl = new RoleRegistry();
     _roleRegistry = RoleRegistry(Clones.clone(address(_impl)));
     _roleRegistry.initialize();
-    _roleRegistry.setCircleRegistry(_circleRegistry);
+    _roleRegistry.setGovernanceProcess(_governanceProcess);
 
     _domains.push('Codebase');
     _accountabilities.push('Write clean code');
   }
 
   /*///////////////////////////////////////////////////////////////
-                        SET CIRCLE REGISTRY
+                        SET GOVERNANCE PROCESS
   //////////////////////////////////////////////////////////////*/
 
-  function test_SetCircleRegistryWhenAlreadySet() external {
+  function test_SetGovernanceProcessWhenAlreadySet() external {
     // it reverts
     vm.expectRevert(IRoleRegistry.RoleRegistry_Unauthorized.selector);
-    _roleRegistry.setCircleRegistry(makeAddr('other'));
+    _roleRegistry.setGovernanceProcess(makeAddr('other'));
   }
 
   /*///////////////////////////////////////////////////////////////
                             CREATE ROLE
   //////////////////////////////////////////////////////////////*/
 
-  modifier whenCalledByCircleRegistry() {
-    vm.startPrank(_circleRegistry);
+  modifier whenCalledByGovernanceProcess() {
+    vm.startPrank(_governanceProcess);
     _;
     vm.stopPrank();
   }
 
-  function test_CreateRoleWhenValidParams() external whenCalledByCircleRegistry {
+  function test_CreateRoleWhenValidParams() external whenCalledByGovernanceProcess {
     uint256 _circleId = 1;
 
     // it emits RoleCreated
@@ -89,13 +89,13 @@ contract UnitRoleRegistry is Test {
     assertEq(_circleRoleIds[0], _roleId);
   }
 
-  function test_CreateRoleWhenEmptyName() external whenCalledByCircleRegistry {
+  function test_CreateRoleWhenEmptyName() external whenCalledByGovernanceProcess {
     // it reverts
     vm.expectRevert(IRoleRegistry.RoleRegistry_EmptyName.selector);
     _roleRegistry.createRole(1, '', _rolePurpose, _domains, _accountabilities);
   }
 
-  function test_CreateRoleWhenNoPurposeDomainsOrAccountabilities() external whenCalledByCircleRegistry {
+  function test_CreateRoleWhenNoPurposeDomainsOrAccountabilities() external whenCalledByGovernanceProcess {
     string[] memory _emptyArr = new string[](0);
 
     // it reverts
@@ -103,7 +103,7 @@ contract UnitRoleRegistry is Test {
     _roleRegistry.createRole(1, _roleName, '', _emptyArr, _emptyArr);
   }
 
-  function test_CreateRoleWhenOnlyPurposeProvided() external whenCalledByCircleRegistry {
+  function test_CreateRoleWhenOnlyPurposeProvided() external whenCalledByGovernanceProcess {
     string[] memory _emptyArr = new string[](0);
 
     // it succeeds with just purpose
@@ -112,7 +112,7 @@ contract UnitRoleRegistry is Test {
     assertEq(_role.purpose, _rolePurpose);
   }
 
-  function test_CreateRoleWhenOnlyDomainsProvided() external whenCalledByCircleRegistry {
+  function test_CreateRoleWhenOnlyDomainsProvided() external whenCalledByGovernanceProcess {
     string[] memory _emptyArr = new string[](0);
 
     // it succeeds with just domains
@@ -121,7 +121,7 @@ contract UnitRoleRegistry is Test {
     assertEq(_storedDomains.length, 1);
   }
 
-  function test_CreateRoleWhenOnlyAccountabilitiesProvided() external whenCalledByCircleRegistry {
+  function test_CreateRoleWhenOnlyAccountabilitiesProvided() external whenCalledByGovernanceProcess {
     string[] memory _emptyArr = new string[](0);
 
     // it succeeds with just accountabilities
@@ -130,8 +130,10 @@ contract UnitRoleRegistry is Test {
     assertEq(_storedAccs.length, 1);
   }
 
-  function test_CreateRoleWhenCalledByNonCircleRegistry(address _caller) external {
-    vm.assume(_caller != _circleRegistry);
+  function test_CreateRoleWhenCalledByNonGovernanceProcess(
+    address _caller
+  ) external {
+    vm.assume(_caller != _governanceProcess);
     vm.prank(_caller);
 
     // it reverts
@@ -143,7 +145,7 @@ contract UnitRoleRegistry is Test {
                             UPDATE ROLE
   //////////////////////////////////////////////////////////////*/
 
-  function test_UpdateRoleWhenValidParams() external whenCalledByCircleRegistry {
+  function test_UpdateRoleWhenValidParams() external whenCalledByGovernanceProcess {
     uint256 _roleId = _roleRegistry.createRole(1, _roleName, _rolePurpose, _domains, _accountabilities);
 
     string[] memory _newDomains = new string[](2);
@@ -176,13 +178,13 @@ contract UnitRoleRegistry is Test {
     assertEq(_storedAccs[0], 'Deploy services');
   }
 
-  function test_UpdateRoleWhenRoleDoesNotExist() external whenCalledByCircleRegistry {
+  function test_UpdateRoleWhenRoleDoesNotExist() external whenCalledByGovernanceProcess {
     // it reverts
     vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_RoleNotFound.selector, 999));
     _roleRegistry.updateRole(999, _roleName, _rolePurpose, _domains, _accountabilities);
   }
 
-  function test_UpdateRoleWhenInvalidData() external whenCalledByCircleRegistry {
+  function test_UpdateRoleWhenInvalidData() external whenCalledByGovernanceProcess {
     uint256 _roleId = _roleRegistry.createRole(1, _roleName, _rolePurpose, _domains, _accountabilities);
     string[] memory _emptyArr = new string[](0);
 
@@ -199,7 +201,7 @@ contract UnitRoleRegistry is Test {
                             REMOVE ROLE
   //////////////////////////////////////////////////////////////*/
 
-  function test_RemoveRoleWhenExists() external whenCalledByCircleRegistry {
+  function test_RemoveRoleWhenExists() external whenCalledByGovernanceProcess {
     uint256 _circleId = 1;
     uint256 _roleId = _roleRegistry.createRole(_circleId, _roleName, _rolePurpose, _domains, _accountabilities);
 
@@ -225,7 +227,7 @@ contract UnitRoleRegistry is Test {
     assertEq(_circleRoleIds.length, 0);
   }
 
-  function test_RemoveRoleWhenDoesNotExist() external whenCalledByCircleRegistry {
+  function test_RemoveRoleWhenDoesNotExist() external whenCalledByGovernanceProcess {
     // it reverts
     vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_RoleNotFound.selector, 999));
     _roleRegistry.removeRole(999);
@@ -235,7 +237,7 @@ contract UnitRoleRegistry is Test {
                         ASSIGN ROLE LEAD
   //////////////////////////////////////////////////////////////*/
 
-  function test_AssignRoleLeadWhenValid() external whenCalledByCircleRegistry {
+  function test_AssignRoleLeadWhenValid() external whenCalledByGovernanceProcess {
     uint256 _roleId = _roleRegistry.createRole(1, _roleName, _rolePurpose, _domains, _accountabilities);
     address _lead = makeAddr('lead');
 
@@ -254,7 +256,7 @@ contract UnitRoleRegistry is Test {
     assertEq(_leads[0], _lead);
   }
 
-  function test_AssignRoleLeadWhenAlreadyAssigned() external whenCalledByCircleRegistry {
+  function test_AssignRoleLeadWhenAlreadyAssigned() external whenCalledByGovernanceProcess {
     uint256 _roleId = _roleRegistry.createRole(1, _roleName, _rolePurpose, _domains, _accountabilities);
     address _lead = makeAddr('lead');
     _roleRegistry.assignRoleLead(_roleId, _lead);
@@ -264,13 +266,13 @@ contract UnitRoleRegistry is Test {
     _roleRegistry.assignRoleLead(_roleId, _lead);
   }
 
-  function test_AssignRoleLeadWhenRoleDoesNotExist() external whenCalledByCircleRegistry {
+  function test_AssignRoleLeadWhenRoleDoesNotExist() external whenCalledByGovernanceProcess {
     // it reverts
     vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_RoleNotFound.selector, 999));
     _roleRegistry.assignRoleLead(999, makeAddr('lead'));
   }
 
-  function test_AssignMultipleRoleLeads() external whenCalledByCircleRegistry {
+  function test_AssignMultipleRoleLeads() external whenCalledByGovernanceProcess {
     uint256 _roleId = _roleRegistry.createRole(1, _roleName, _rolePurpose, _domains, _accountabilities);
     address _lead1 = makeAddr('lead1');
     address _lead2 = makeAddr('lead2');
@@ -289,7 +291,7 @@ contract UnitRoleRegistry is Test {
                       UNASSIGN ROLE LEAD
   //////////////////////////////////////////////////////////////*/
 
-  function test_UnassignRoleLeadWhenValid() external whenCalledByCircleRegistry {
+  function test_UnassignRoleLeadWhenValid() external whenCalledByGovernanceProcess {
     uint256 _roleId = _roleRegistry.createRole(1, _roleName, _rolePurpose, _domains, _accountabilities);
     address _lead = makeAddr('lead');
     _roleRegistry.assignRoleLead(_roleId, _lead);
@@ -306,7 +308,7 @@ contract UnitRoleRegistry is Test {
     assertEq(_leads.length, 0);
   }
 
-  function test_UnassignRoleLeadWhenNotAssigned() external whenCalledByCircleRegistry {
+  function test_UnassignRoleLeadWhenNotAssigned() external whenCalledByGovernanceProcess {
     uint256 _roleId = _roleRegistry.createRole(1, _roleName, _rolePurpose, _domains, _accountabilities);
     address _lead = makeAddr('lead');
 
@@ -315,7 +317,7 @@ contract UnitRoleRegistry is Test {
     _roleRegistry.unassignRoleLead(_roleId, _lead);
   }
 
-  function test_UnassignRoleLeadWhenRoleDoesNotExist() external whenCalledByCircleRegistry {
+  function test_UnassignRoleLeadWhenRoleDoesNotExist() external whenCalledByGovernanceProcess {
     // it reverts
     vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_RoleNotFound.selector, 999));
     _roleRegistry.unassignRoleLead(999, makeAddr('lead'));

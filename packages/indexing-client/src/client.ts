@@ -5,7 +5,6 @@ import type {
     ActionVoteCast,
     ChecklistItem,
     Circle,
-    DaoProposal,
     GovernanceMeeting,
     GovernanceMeetingLink,
     JoinRequest,
@@ -21,11 +20,9 @@ import type {
     Proposal,
     Role,
     TacticalMeeting,
-    Vote,
 } from "./types.js";
 import {
     GET_CIRCLE,
-    GET_DAO_PROPOSAL,
     GET_ORGANIZATION,
     GET_POLICY,
     GET_PROPOSAL,
@@ -34,7 +31,6 @@ import {
     LIST_ACTION_VOTES_BY_CIRCLE,
     LIST_CHECKLIST_ITEMS_BY_ROLE,
     LIST_CIRCLES_BY_ORG,
-    LIST_DAO_PROPOSALS_BY_GOVERNOR,
     LIST_GOVERNANCE_MEETING_LINKS,
     LIST_GOVERNANCE_MEETINGS_BY_CIRCLE,
     LIST_GOVERNANCE_MEETINGS_BY_CONTRACT,
@@ -55,7 +51,6 @@ import {
     LIST_ROLES_BY_ORG,
     LIST_TACTICAL_MEETINGS_BY_CIRCLE,
     LIST_TACTICAL_MEETINGS_BY_CONTRACT,
-    LIST_VOTES_BY_PROPOSAL,
 } from "./queries.js";
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/explicit-module-boundary-types
@@ -186,37 +181,6 @@ export function createIndexingClient(url: string) {
                 { processAddress, proposalId, ...opts },
             );
             return data.objections;
-        },
-
-        // ── DAO governance ──────────────────────────────────────────────────────
-        async getDaoProposal(id: string): Promise<DaoProposal | null> {
-            const data = await gql.request<{ daoProposal: DaoProposal | null }>(GET_DAO_PROPOSAL, {
-                id,
-            });
-            return data.daoProposal;
-        },
-
-        async listDaoProposalsByGovernor(
-            governorAddress: string,
-            opts: PaginationOptions = {},
-        ): Promise<PaginatedResult<DaoProposal>> {
-            const data = await gql.request<{ daoProposals: PaginatedResult<DaoProposal> }>(
-                LIST_DAO_PROPOSALS_BY_GOVERNOR,
-                { governorAddress, ...opts },
-            );
-            return data.daoProposals;
-        },
-
-        async listVotesByProposal(
-            governorAddress: string,
-            proposalId: string,
-            opts: PaginationOptions = {},
-        ): Promise<PaginatedResult<Vote>> {
-            const data = await gql.request<{ votes: PaginatedResult<Vote> }>(
-                LIST_VOTES_BY_PROPOSAL,
-                { governorAddress, proposalId, ...opts },
-            );
-            return data.votes;
         },
 
         // ── Tactical meetings ───────────────────────────────────────────────────

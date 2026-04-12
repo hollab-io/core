@@ -14,9 +14,7 @@ export type Organization = {
     subname: string;
     name: string;
     creator: HexStr;
-    governor: HexStr;
     token: HexStr;
-    timelock: HexStr;
     circleRegistry: HexStr;
     roleRegistry: HexStr;
     governanceProcess: HexStr;
@@ -24,11 +22,6 @@ export type Organization = {
     tokenName: string;
     tokenSymbol: string;
     tokenTotalSupply: BigIntStr;
-    governorName: string;
-    votingDelay: BigIntStr;
-    votingPeriod: BigIntStr;
-    proposalThreshold: BigIntStr;
-    quorumNumerator: BigIntStr;
     circleCount: BigIntStr;
     roleCount: BigIntStr;
     memberCount: BigIntStr;
@@ -96,7 +89,6 @@ export type Proposal = {
     proposerRoleId: BigIntStr;
     tension: string;
     status: ProposalStatus;
-    daoProposalId: BigIntStr | null;
     submittedAt: BigIntStr;
     resolvedAt: BigIntStr | null;
     txHash: HexStr;
@@ -114,38 +106,6 @@ export type Objection = {
     status: ObjectionStatus;
     raisedAt: BigIntStr;
     resolvedAt: BigIntStr | null;
-    txHash: HexStr;
-};
-
-/** 0=Pending 1=Active 2=Canceled 3=Defeated 4=Succeeded 5=Queued 6=Expired 7=Executed */
-export type DaoProposalStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
-
-export type DaoProposal = {
-    id: string;
-    proposalId: BigIntStr;
-    governorAddress: HexStr;
-    proposer: HexStr;
-    description: string;
-    voteStart: BigIntStr;
-    voteEnd: BigIntStr;
-    status: DaoProposalStatus;
-    etaSeconds: BigIntStr | null;
-    createdAt: BigIntStr;
-    txHash: HexStr;
-};
-
-/** 0=Against 1=For 2=Abstain */
-export type VoteSupport = 0 | 1 | 2;
-
-export type Vote = {
-    id: string;
-    proposalId: BigIntStr;
-    governorAddress: HexStr;
-    voter: HexStr;
-    support: VoteSupport;
-    weight: BigIntStr;
-    reason: string;
-    castAt: BigIntStr;
     txHash: HexStr;
 };
 

@@ -53,9 +53,7 @@ const organizationReadAbi = [
                     { name: "accessManager", type: "address" },
                     { name: "anchorCircleId", type: "uint256" },
                     { name: "createdAt", type: "uint256" },
-                    { name: "governor", type: "address" },
                     { name: "token", type: "address" },
-                    { name: "timelock", type: "address" },
                 ],
             },
         ],
@@ -71,9 +69,7 @@ function mapOrg(org: {
     circleRegistry: `0x${string}`;
     governanceProcess: `0x${string}`;
     anchorCircleId: bigint;
-    governor: `0x${string}`;
     token: `0x${string}`;
-    timelock: `0x${string}`;
     createdAt: bigint;
 }): Organization {
     return {
@@ -81,9 +77,7 @@ function mapOrg(org: {
         subname: org.subname,
         name: org.name,
         creator: org.creator,
-        governor: org.governor,
         token: org.token,
-        timelock: org.timelock,
         circleRegistry: org.circleRegistry,
         roleRegistry: org.roleRegistry,
         governanceProcess: org.governanceProcess,
@@ -91,11 +85,6 @@ function mapOrg(org: {
         tokenName: "",
         tokenSymbol: "",
         tokenTotalSupply: "0",
-        governorName: org.subname,
-        votingDelay: "0",
-        votingPeriod: "0",
-        proposalThreshold: "0",
-        quorumNumerator: "0",
         circleCount: "0",
         roleCount: "0",
         memberCount: "0",
@@ -163,54 +152,7 @@ export function useOrganizationsFromIndexer(creatorAddress: string | null) {
         });
     }, [queryClient, activeChainId]);
 
-    /**
-     * Poll every `intervalMs` until `predicate` returns true or `timeoutMs` elapses.
-     * Resolves with the first matching org list that satisfies the predicate.
-     */
-    const pollUntil = useCallback(
-        (
-            predicate: (orgs: Organization[]) => boolean,
-            intervalMs = 2000,
-            timeoutMs = 60_000,
-        ): Promise<Organization[]> => {
-            return new Promise((resolve, reject) => {
-                if (!creatorAddress) {
-                    reject(new Error("Wallet not connected"));
-                    return;
-                }
-
-                const deadline = Date.now() + timeoutMs;
-
-                const tick = async () => {
-                    try {
-                        const all = await listOrganizationsOnchain(activeChainId);
-                        const items = all.filter(
-                            (org) => org.creator.toLowerCase() === creatorAddress.toLowerCase(),
-                        );
-                        queryClient.setQueryData(["organizations:onchain:all", activeChainId], all);
-                        if (predicate(items)) {
-                            resolve(items);
-                            return;
-                        }
-                    } catch {
-                        // keep polling on transient errors
-                    }
-
-                    if (Date.now() >= deadline) {
-                        reject(new Error("Timed out waiting for onchain org update"));
-                        return;
-                    }
-
-                    setTimeout(tick, intervalMs);
-                };
-
-                void tick();
-            });
-        },
-        [creatorAddress, queryClient, activeChainId],
-    );
-
-    return { organizations, allOrganizations, loading, refetch, pollUntil };
+    return { organizations, allOrganizations, loading, refetch };
 }
 
 /** Stable singleton ref so other hooks can share the client for the active chain. */

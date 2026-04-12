@@ -8,10 +8,7 @@ import type {
     WriteContractReturnType,
 } from "viem";
 import {
-    govComponentDeployerAbi,
     govTokenAbi,
-    holGovernorAbi,
-    holGovernorFactoryAbi,
     meetingComponentsFactoryAbi,
     meetingFactoryAbi,
     organizationFactoryAbi,
@@ -22,10 +19,7 @@ import { simulateContract, writeContract } from "viem/actions";
 // Re-export ABIs so consumers of viem-extension don't need to depend on
 // @hollab-io/contracts directly.
 export {
-    govComponentDeployerAbi,
     govTokenAbi,
-    holGovernorAbi,
-    holGovernorFactoryAbi,
     meetingComponentsFactoryAbi,
     meetingFactoryAbi,
     organizationFactoryAbi,
@@ -69,10 +63,7 @@ function makeContractActions<const TAbi extends Abi>(abi: TAbi) {
  */
 export function holLabContractActions() {
     return (client: Client) => ({
-        govComponentDeployer: makeContractActions(govComponentDeployerAbi)(client),
         govToken: makeContractActions(govTokenAbi)(client),
-        holGovernor: makeContractActions(holGovernorAbi)(client),
-        holGovernorFactory: makeContractActions(holGovernorFactoryAbi)(client),
         meetingFactory: makeContractActions(meetingFactoryAbi)(client),
         organizationFactory: makeContractActions(organizationFactoryAbi)(client),
         roleRegistry: makeContractActions(roleRegistryAbi)(client),

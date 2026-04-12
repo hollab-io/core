@@ -6,7 +6,8 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 /**
  * @title IMeetingFactory
  * @notice Unified event-driven meeting lifecycle for tactical and governance sessions.
- * @dev Minimal on-chain state: deterministic counters only.
+ *         Also serves as the governance process: the only path to structural changes
+ *         on the RoleRegistry, enforcing Holacracy's governance authority model.
  */
 interface IMeetingFactory {
   /*///////////////////////////////////////////////////////////////
@@ -24,9 +25,15 @@ interface IMeetingFactory {
   //////////////////////////////////////////////////////////////*/
 
   event MeetingStarted(
-    uint256 indexed _meetingId, uint256 indexed _orgId, MeetingKind indexed _kind, address _startedBy, uint256 _timestamp
+    uint256 indexed _meetingId,
+    uint256 indexed _orgId,
+    MeetingKind indexed _kind,
+    address _startedBy,
+    uint256 _timestamp
   );
-  event MeetingEnded(uint256 indexed _meetingId, uint256 indexed _orgId, MeetingKind indexed _kind, address _endedBy, uint256 _timestamp);
+  event MeetingEnded(
+    uint256 indexed _meetingId, uint256 indexed _orgId, MeetingKind indexed _kind, address _endedBy, uint256 _timestamp
+  );
   event MeetingOutputRecorded(
     uint256 indexed _meetingId,
     uint256 indexed _itemId,
@@ -36,7 +43,17 @@ interface IMeetingFactory {
     uint256 _roleId,
     string _description
   );
-  event MeetingProposalLinked(uint256 indexed _meetingId, uint256 indexed _itemId, uint256 indexed _orgId, uint256 _proposalId);
+  event MeetingProposalLinked(
+    uint256 indexed _meetingId, uint256 indexed _itemId, uint256 indexed _orgId, uint256 _proposalId
+  );
+
+  /// @notice Emitted when a governance proposal is executed on-chain (role created/amended/removed)
+  event GovernanceExecuted(
+    uint256 indexed _orgId,
+    HolacracyTypes.ChangeType indexed _changeType,
+    uint256 indexed _resultId,
+    address _executedBy
+  );
 
   /*///////////////////////////////////////////////////////////////
                             ERRORS
@@ -46,14 +63,25 @@ interface IMeetingFactory {
   error MeetingFactory_NotOrgMember(uint256 _orgId, address _caller);
   error MeetingFactory_NotOrgAdmin(uint256 _orgId, address _caller);
   error MeetingFactory_EmptyString();
+  error MeetingFactory_UnsupportedChangeType();
 
   /*///////////////////////////////////////////////////////////////
                             LOGIC
   //////////////////////////////////////////////////////////////*/
 
-  function initialize(address _orgFactory, address _roleRegistry, address _unused) external;
-  function startMeeting(uint256 _orgId, MeetingKind _kind) external returns (uint256 _meetingId);
-  function endMeeting(uint256 _meetingId, uint256 _orgId, MeetingKind _kind) external;
+  function initialize(
+    address _orgFactory,
+    address _roleRegistry
+  ) external;
+  function startMeeting(
+    uint256 _orgId,
+    MeetingKind _kind
+  ) external returns (uint256 _meetingId);
+  function endMeeting(
+    uint256 _meetingId,
+    uint256 _orgId,
+    MeetingKind _kind
+  ) external;
   function recordOutput(
     uint256 _meetingId,
     uint256 _orgId,
@@ -67,4 +95,11 @@ interface IMeetingFactory {
     uint256 _orgId,
     uint256 _proposalId
   ) external returns (uint256 _itemId);
+
+  /// @notice Execute an adopted governance proposal on the RoleRegistry
+  function executeGovernance(
+    uint256 _orgId,
+    HolacracyTypes.ChangeType _changeType,
+    bytes calldata _data
+  ) external returns (uint256 _resultId);
 }

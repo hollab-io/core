@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
-import {OrganizationFactory, IOrganizationFactory} from 'contracts/OrganizationFactory.sol';
-import {RoleRegistry, IRoleRegistry} from 'contracts/RoleRegistry.sol';
-import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
+import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {IRoleRegistry, RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {Test} from 'forge-std/Test.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /// @notice Mock ENS subdomain registrar that records calls without ENS logic
 contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
@@ -17,7 +16,10 @@ contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
 
   SubnodeCall[] public calls;
 
-  function registerSubnode(bytes32 _label, address _targetAddress) external {
+  function registerSubnode(
+    bytes32 _label,
+    address _targetAddress
+  ) external {
     calls.push(SubnodeCall(_label, _targetAddress));
   }
 
@@ -25,7 +27,9 @@ contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
     return calls.length;
   }
 
-  function getCall(uint256 _idx) external view returns (SubnodeCall memory) {
+  function getCall(
+    uint256 _idx
+  ) external view returns (SubnodeCall memory) {
     return calls[_idx];
   }
 }
@@ -33,7 +37,6 @@ contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
 contract UnitOrganizationFactory is Test {
   OrganizationFactory internal _factory;
   MockENSSubdomainRegistrar internal _mockRegistrar;
-  HolGovernorFactory internal _govFactory;
 
   address internal _creator1 = makeAddr('creator1');
   address internal _creator2 = makeAddr('creator2');
@@ -42,37 +45,24 @@ contract UnitOrganizationFactory is Test {
 
   function setUp() external {
     _mockRegistrar = new MockENSSubdomainRegistrar();
-    _govFactory = new HolGovernorFactory();
 
     address roleRegistryImpl = address(new RoleRegistry());
 
-    _factory = new OrganizationFactory(
-      roleRegistryImpl,
-      address(_govFactory),
-      address(_mockRegistrar)
-    );
+    _factory = new OrganizationFactory(roleRegistryImpl, address(_mockRegistrar));
   }
 
   /*///////////////////////////////////////////////////////////////
                     HELPERS
   //////////////////////////////////////////////////////////////*/
 
-  function _defaultGovConfig() internal view returns (IOrganizationFactory.GovernanceConfig memory) {
+  function _defaultTokenConfig() internal view returns (IOrganizationFactory.TokenConfig memory) {
     address[] memory holders = new address[](1);
     holders[0] = _creator1;
     uint256[] memory amounts = new uint256[](1);
     amounts[0] = 1_000_000e18;
 
-    return IOrganizationFactory.GovernanceConfig({
-      tokenName: 'OrgToken',
-      tokenSymbol: 'ORG',
-      initialHolders: holders,
-      initialAmounts: amounts,
-      timelockDelay: 0,
-      votingDelay: 1,
-      votingPeriod: 50,
-      proposalThreshold: 0,
-      quorumNumerator: 4
+    return IOrganizationFactory.TokenConfig({
+      tokenName: 'OrgToken', tokenSymbol: 'ORG', initialHolders: holders, initialAmounts: amounts
     });
   }
 
@@ -87,7 +77,7 @@ contract UnitOrganizationFactory is Test {
     vm.expectEmit(true, true, true, true, address(_factory));
     emit OrganizationCreated(1, 'myorg', _creator1);
 
-    uint256 _orgId = _factory.createOrganization('myorg', 'Build great things', _defaultGovConfig());
+    uint256 _orgId = _factory.createOrganization('myorg', 'Build great things', _defaultTokenConfig());
 
     // it increments organization count
     assertEq(_factory.organizationCount(), 1);
@@ -104,10 +94,11 @@ contract UnitOrganizationFactory is Test {
     assertEq(_org.circleRegistry, address(0));
     assertEq(_org.governanceProcess, address(0));
     assertEq(_org.anchorCircleId, 0);
+    assertTrue(_org.token != address(0));
   }
 
   function test_CreateOrganizationClonesAreIsolated() external {
-    IOrganizationFactory.GovernanceConfig memory _cfg = _defaultGovConfig();
+    IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.prank(_creator1);
     uint256 _orgId1 = _factory.createOrganization('orgone', 'Purpose one', _cfg);
@@ -124,9 +115,7 @@ contract UnitOrganizationFactory is Test {
     assertEq(_org2.circleRegistry, address(0));
     assertEq(_org1.governanceProcess, address(0));
     assertEq(_org2.governanceProcess, address(0));
-    assertTrue(_org1.governor != _org2.governor);
     assertTrue(_org1.token != _org2.token);
-    assertTrue(_org1.timelock != _org2.timelock);
 
     // anchor circles are removed in org-scoped architecture
     assertEq(_org1.anchorCircleId, 0);
@@ -135,7 +124,7 @@ contract UnitOrganizationFactory is Test {
 
   function test_CreateOrganizationAnchorCircle() external {
     vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Build great things', _defaultGovConfig());
+    uint256 _orgId = _factory.createOrganization('myorg', 'Build great things', _defaultTokenConfig());
 
     HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
     // anchor circles are removed in org-scoped architecture
@@ -145,31 +134,26 @@ contract UnitOrganizationFactory is Test {
 
   function test_CreateOrganizationRegistersENSSubname() external {
     vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultGovConfig());
+    _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
 
-    HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
-
-    // it calls registerSubnode with the correct label and governor address
+    // it calls registerSubnode with the correct label
     assertEq(_mockRegistrar.callCount(), 1);
     MockENSSubdomainRegistrar.SubnodeCall memory _call = _mockRegistrar.getCall(0);
     assertEq(_call.label, keccak256(bytes('myorg')));
-    assertEq(_call.targetAddress, _org.governor);
   }
 
-  function test_CreateOrganizationDeploysGovernance() external {
+  function test_CreateOrganizationDeploysToken() external {
     vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultGovConfig());
+    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
 
     HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
 
-    // it deploys all three governance contracts
-    assertTrue(_org.governor != address(0));
+    // it deploys a governance token
     assertTrue(_org.token != address(0));
-    assertTrue(_org.timelock != address(0));
   }
 
   function test_CreateOrganizationMultipleOrgs() external {
-    IOrganizationFactory.GovernanceConfig memory _cfg = _defaultGovConfig();
+    IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.prank(_creator1);
     _factory.createOrganization('alpha', 'Alpha org', _cfg);
@@ -195,7 +179,7 @@ contract UnitOrganizationFactory is Test {
   //////////////////////////////////////////////////////////////*/
 
   function test_CreateOrganizationWhenSubnameTooShort() external {
-    IOrganizationFactory.GovernanceConfig memory _cfg = _defaultGovConfig();
+    IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.startPrank(_creator1);
 
@@ -215,59 +199,47 @@ contract UnitOrganizationFactory is Test {
   }
 
   function test_CreateOrganizationWhenSubnameHasInvalidChars() external {
-    IOrganizationFactory.GovernanceConfig memory _cfg = _defaultGovConfig();
+    IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.startPrank(_creator1);
 
     // it reverts with uppercase
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'MyOrg')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'MyOrg'));
     _factory.createOrganization('MyOrg', 'Purpose', _cfg);
 
     // it reverts with spaces
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my org')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my org'));
     _factory.createOrganization('my org', 'Purpose', _cfg);
 
     // it reverts with underscores
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my_org')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my_org'));
     _factory.createOrganization('my_org', 'Purpose', _cfg);
 
     // it reverts with dots
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my.org')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my.org'));
     _factory.createOrganization('my.org', 'Purpose', _cfg);
 
     vm.stopPrank();
   }
 
   function test_CreateOrganizationWhenSubnameStartsOrEndsWithHyphen() external {
-    IOrganizationFactory.GovernanceConfig memory _cfg = _defaultGovConfig();
+    IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.startPrank(_creator1);
 
     // it reverts with leading hyphen
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, '-myorg')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, '-myorg'));
     _factory.createOrganization('-myorg', 'Purpose', _cfg);
 
     // it reverts with trailing hyphen
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'myorg-')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'myorg-'));
     _factory.createOrganization('myorg-', 'Purpose', _cfg);
 
     vm.stopPrank();
   }
 
   function test_CreateOrganizationWhenSubnameAlreadyTaken() external {
-    IOrganizationFactory.GovernanceConfig memory _cfg = _defaultGovConfig();
+    IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.prank(_creator1);
     _factory.createOrganization('taken', 'Purpose', _cfg);
@@ -281,7 +253,7 @@ contract UnitOrganizationFactory is Test {
   }
 
   function test_CreateOrganizationWhenSubnameHasValidChars() external {
-    IOrganizationFactory.GovernanceConfig memory _cfg = _defaultGovConfig();
+    IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.startPrank(_creator1);
 
@@ -308,7 +280,7 @@ contract UnitOrganizationFactory is Test {
 
   function test_GetOrganizationBySubname() external {
     vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultGovConfig());
+    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
 
     // it returns the correct organization
     HolacracyTypes.Organization memory _org = _factory.getOrganizationBySubname('myorg');
@@ -331,9 +303,9 @@ contract UnitOrganizationFactory is Test {
 
   function test_GetOrganizationsPaginated() external {
     vm.startPrank(_creator1);
-    _factory.createOrganization('orgone', 'One', _defaultGovConfig());
-    _factory.createOrganization('orgtwo', 'Two', _defaultGovConfig());
-    _factory.createOrganization('orgthree', 'Three', _defaultGovConfig());
+    _factory.createOrganization('orgone', 'One', _defaultTokenConfig());
+    _factory.createOrganization('orgtwo', 'Two', _defaultTokenConfig());
+    _factory.createOrganization('orgthree', 'Three', _defaultTokenConfig());
     vm.stopPrank();
 
     HolacracyTypes.Organization[] memory _page = _factory.getOrganizations(0, 2);
@@ -348,7 +320,7 @@ contract UnitOrganizationFactory is Test {
 
   function test_GetOrganizationsWhenOffsetOutOfBounds() external {
     vm.prank(_creator1);
-    _factory.createOrganization('myorg', 'Build my DAO', _defaultGovConfig());
+    _factory.createOrganization('myorg', 'Build my DAO', _defaultTokenConfig());
 
     HolacracyTypes.Organization[] memory _page = _factory.getOrganizations(5, 10);
     assertEq(_page.length, 0);
@@ -365,7 +337,7 @@ contract UnitOrganizationFactory is Test {
 
   function test_CloneInitializationGuard() external {
     vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultGovConfig());
+    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
     HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
 
     // it prevents re-initialization of RoleRegistry clone
@@ -382,22 +354,11 @@ contract UnitOrganizationFactory is Test {
 
   function test_GovernanceProcessDisabled() external {
     vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultGovConfig());
+    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
     HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
 
     // governance process is intentionally not deployed or linked
     assertEq(_org.governanceProcess, address(0));
     assertEq(_org.circleRegistry, address(0));
-  }
-
-  function test_GovernanceProcessDAOLinkDisabled() external {
-    vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultGovConfig());
-    HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
-
-    // governance process no longer participates in DAO linking
-    assertEq(_org.governanceProcess, address(0));
-    assertTrue(_org.governor != address(0));
-    assertTrue(_org.timelock != address(0));
   }
 }

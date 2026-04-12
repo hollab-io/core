@@ -2,9 +2,6 @@
 // ActionVoting
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/**
- *
- */
 export const actionVotingAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
     {
@@ -52,54 +49,12 @@ export const actionVotingAbi = [
     },
     {
         type: "function",
-        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
-        name: "getCircleVotes",
-        outputs: [{ name: "_voteIds", internalType: "uint256[]", type: "uint256[]" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
         inputs: [
             { name: "_circleId", internalType: "uint256", type: "uint256" },
             { name: "_collaborator", internalType: "address", type: "address" },
         ],
         name: "getCollaboratorWeight",
         outputs: [{ name: "_weight", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "_voteId", internalType: "uint256", type: "uint256" }],
-        name: "getVote",
-        outputs: [
-            {
-                name: "_vote",
-                internalType: "struct HolacracyTypes.ActionVote",
-                type: "tuple",
-                components: [
-                    { name: "id", internalType: "uint256", type: "uint256" },
-                    { name: "circleId", internalType: "uint256", type: "uint256" },
-                    { name: "outputId", internalType: "uint256", type: "uint256" },
-                    { name: "proposer", internalType: "address", type: "address" },
-                    { name: "reason", internalType: "string", type: "string" },
-                    { name: "snapshotBlock", internalType: "uint256", type: "uint256" },
-                    { name: "deadline", internalType: "uint256", type: "uint256" },
-                    { name: "forVotes", internalType: "uint256", type: "uint256" },
-                    { name: "againstVotes", internalType: "uint256", type: "uint256" },
-                    { name: "abstainVotes", internalType: "uint256", type: "uint256" },
-                    { name: "exists", internalType: "bool", type: "bool" },
-                ],
-            },
-        ],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "_voteId", internalType: "uint256", type: "uint256" }],
-        name: "getVoteStatus",
-        outputs: [
-            { name: "_status", internalType: "enum HolacracyTypes.VoteStatus", type: "uint8" },
-        ],
         stateMutability: "view",
     },
     {
@@ -144,19 +99,12 @@ export const actionVotingAbi = [
         type: "function",
         inputs: [
             { name: "_orgFactory", internalType: "address", type: "address" },
-            { name: "_meetingFactory", internalType: "address", type: "address" },
+            { name: "", internalType: "address", type: "address" },
             { name: "_govToken", internalType: "address", type: "address" },
         ],
         name: "initialize",
         outputs: [],
         stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "meetingFactory",
-        outputs: [{ name: "", internalType: "contract IMeetingFactory", type: "address" }],
-        stateMutability: "view",
     },
     {
         type: "function",
@@ -257,6 +205,8 @@ export const actionVotingAbi = [
             { name: "_outputId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_proposer", internalType: "address", type: "address", indexed: false },
             { name: "_deadline", internalType: "uint256", type: "uint256", indexed: false },
+            { name: "_reason", internalType: "string", type: "string", indexed: false },
+            { name: "_snapshotBlock", internalType: "uint256", type: "uint256", indexed: false },
         ],
         name: "VoteCreated",
     },
@@ -310,48 +260,6 @@ export const actionVotingAbi = [
     },
     { type: "error", inputs: [], name: "ActionVoting_ZeroAddress" },
     { type: "error", inputs: [], name: "ActionVoting_ZeroAmount" },
-] as const;
-
-/**
- *
- */
-export const actionVotingAddress = {
-    31337: "0x0165878A594ca255338adfa4d48449f69242Eb8F",
-} as const;
-
-/**
- *
- */
-export const actionVotingConfig = { address: actionVotingAddress, abi: actionVotingAbi } as const;
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// GovComponentDeployer
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-export const govComponentDeployerAbi = [
-    {
-        type: "function",
-        inputs: [
-            { name: "_minDelay", internalType: "uint256", type: "uint256" },
-            { name: "_proposers", internalType: "address[]", type: "address[]" },
-            { name: "_executors", internalType: "address[]", type: "address[]" },
-            { name: "_admin", internalType: "address", type: "address" },
-        ],
-        name: "deployTimelock",
-        outputs: [{ name: "", internalType: "address", type: "address" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "_name", internalType: "string", type: "string" },
-            { name: "_symbol", internalType: "string", type: "string" },
-            { name: "_minter", internalType: "address", type: "address" },
-        ],
-        name: "deployToken",
-        outputs: [{ name: "", internalType: "address", type: "address" }],
-        stateMutability: "nonpayable",
-    },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -757,795 +665,22 @@ export const govTokenAbi = [
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// HolGovernor
+// GovTokenDeployer
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-export const holGovernorAbi = [
+export const govTokenDeployerAbi = [
     {
-        type: "constructor",
+        type: "function",
         inputs: [
             { name: "_name", internalType: "string", type: "string" },
-            { name: "_token", internalType: "contract IVotes", type: "address" },
-            { name: "_timelock", internalType: "contract TimelockController", type: "address" },
-            { name: "_votingDelay", internalType: "uint48", type: "uint48" },
-            { name: "_votingPeriod", internalType: "uint32", type: "uint32" },
-            { name: "_proposalThreshold", internalType: "uint256", type: "uint256" },
-            { name: "_quorumNumerator", internalType: "uint256", type: "uint256" },
-        ],
-        stateMutability: "nonpayable",
-    },
-    { type: "receive", stateMutability: "payable" },
-    {
-        type: "function",
-        inputs: [],
-        name: "BALLOT_TYPEHASH",
-        outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "CLOCK_MODE",
-        outputs: [{ name: "", internalType: "string", type: "string" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "COUNTING_MODE",
-        outputs: [{ name: "", internalType: "string", type: "string" }],
-        stateMutability: "pure",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "EXTENDED_BALLOT_TYPEHASH",
-        outputs: [{ name: "", internalType: "bytes32", type: "bytes32" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "targets", internalType: "address[]", type: "address[]" },
-            { name: "values", internalType: "uint256[]", type: "uint256[]" },
-            { name: "calldatas", internalType: "bytes[]", type: "bytes[]" },
-            { name: "descriptionHash", internalType: "bytes32", type: "bytes32" },
-        ],
-        name: "cancel",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "proposalId", internalType: "uint256", type: "uint256" },
-            { name: "support", internalType: "uint8", type: "uint8" },
-        ],
-        name: "castVote",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "proposalId", internalType: "uint256", type: "uint256" },
-            { name: "support", internalType: "uint8", type: "uint8" },
-            { name: "voter", internalType: "address", type: "address" },
-            { name: "signature", internalType: "bytes", type: "bytes" },
-        ],
-        name: "castVoteBySig",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "proposalId", internalType: "uint256", type: "uint256" },
-            { name: "support", internalType: "uint8", type: "uint8" },
-            { name: "reason", internalType: "string", type: "string" },
-        ],
-        name: "castVoteWithReason",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "proposalId", internalType: "uint256", type: "uint256" },
-            { name: "support", internalType: "uint8", type: "uint8" },
-            { name: "reason", internalType: "string", type: "string" },
-            { name: "params", internalType: "bytes", type: "bytes" },
-        ],
-        name: "castVoteWithReasonAndParams",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "proposalId", internalType: "uint256", type: "uint256" },
-            { name: "support", internalType: "uint8", type: "uint8" },
-            { name: "voter", internalType: "address", type: "address" },
-            { name: "reason", internalType: "string", type: "string" },
-            { name: "params", internalType: "bytes", type: "bytes" },
-            { name: "signature", internalType: "bytes", type: "bytes" },
-        ],
-        name: "castVoteWithReasonAndParamsBySig",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "clock",
-        outputs: [{ name: "", internalType: "uint48", type: "uint48" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "eip712Domain",
-        outputs: [
-            { name: "fields", internalType: "bytes1", type: "bytes1" },
-            { name: "name", internalType: "string", type: "string" },
-            { name: "version", internalType: "string", type: "string" },
-            { name: "chainId", internalType: "uint256", type: "uint256" },
-            { name: "verifyingContract", internalType: "address", type: "address" },
-            { name: "salt", internalType: "bytes32", type: "bytes32" },
-            { name: "extensions", internalType: "uint256[]", type: "uint256[]" },
-        ],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "targets", internalType: "address[]", type: "address[]" },
-            { name: "values", internalType: "uint256[]", type: "uint256[]" },
-            { name: "calldatas", internalType: "bytes[]", type: "bytes[]" },
-            { name: "descriptionHash", internalType: "bytes32", type: "bytes32" },
-        ],
-        name: "execute",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "payable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "targets", internalType: "address[]", type: "address[]" },
-            { name: "values", internalType: "uint256[]", type: "uint256[]" },
-            { name: "calldatas", internalType: "bytes[]", type: "bytes[]" },
-            { name: "descriptionHash", internalType: "bytes32", type: "bytes32" },
-        ],
-        name: "getProposalId",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "account", internalType: "address", type: "address" },
-            { name: "timepoint", internalType: "uint256", type: "uint256" },
-        ],
-        name: "getVotes",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "account", internalType: "address", type: "address" },
-            { name: "timepoint", internalType: "uint256", type: "uint256" },
-            { name: "params", internalType: "bytes", type: "bytes" },
-        ],
-        name: "getVotesWithParams",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "proposalId", internalType: "uint256", type: "uint256" },
-            { name: "account", internalType: "address", type: "address" },
-        ],
-        name: "hasVoted",
-        outputs: [{ name: "", internalType: "bool", type: "bool" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "targets", internalType: "address[]", type: "address[]" },
-            { name: "values", internalType: "uint256[]", type: "uint256[]" },
-            { name: "calldatas", internalType: "bytes[]", type: "bytes[]" },
-            { name: "descriptionHash", internalType: "bytes32", type: "bytes32" },
-        ],
-        name: "hashProposal",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "pure",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "name",
-        outputs: [{ name: "", internalType: "string", type: "string" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "owner", internalType: "address", type: "address" }],
-        name: "nonces",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "", internalType: "address", type: "address" },
-            { name: "", internalType: "address", type: "address" },
-            { name: "", internalType: "uint256[]", type: "uint256[]" },
-            { name: "", internalType: "uint256[]", type: "uint256[]" },
-            { name: "", internalType: "bytes", type: "bytes" },
-        ],
-        name: "onERC1155BatchReceived",
-        outputs: [{ name: "", internalType: "bytes4", type: "bytes4" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "", internalType: "address", type: "address" },
-            { name: "", internalType: "address", type: "address" },
-            { name: "", internalType: "uint256", type: "uint256" },
-            { name: "", internalType: "uint256", type: "uint256" },
-            { name: "", internalType: "bytes", type: "bytes" },
-        ],
-        name: "onERC1155Received",
-        outputs: [{ name: "", internalType: "bytes4", type: "bytes4" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "", internalType: "address", type: "address" },
-            { name: "", internalType: "address", type: "address" },
-            { name: "", internalType: "uint256", type: "uint256" },
-            { name: "", internalType: "bytes", type: "bytes" },
-        ],
-        name: "onERC721Received",
-        outputs: [{ name: "", internalType: "bytes4", type: "bytes4" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256" }],
-        name: "proposalDeadline",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256" }],
-        name: "proposalEta",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256" }],
-        name: "proposalNeedsQueuing",
-        outputs: [{ name: "", internalType: "bool", type: "bool" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256" }],
-        name: "proposalProposer",
-        outputs: [{ name: "", internalType: "address", type: "address" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256" }],
-        name: "proposalSnapshot",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "proposalThreshold",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256" }],
-        name: "proposalVotes",
-        outputs: [
-            { name: "againstVotes", internalType: "uint256", type: "uint256" },
-            { name: "forVotes", internalType: "uint256", type: "uint256" },
-            { name: "abstainVotes", internalType: "uint256", type: "uint256" },
-        ],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "targets", internalType: "address[]", type: "address[]" },
-            { name: "values", internalType: "uint256[]", type: "uint256[]" },
-            { name: "calldatas", internalType: "bytes[]", type: "bytes[]" },
-            { name: "description", internalType: "string", type: "string" },
-        ],
-        name: "propose",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "targets", internalType: "address[]", type: "address[]" },
-            { name: "values", internalType: "uint256[]", type: "uint256[]" },
-            { name: "calldatas", internalType: "bytes[]", type: "bytes[]" },
-            { name: "descriptionHash", internalType: "bytes32", type: "bytes32" },
-        ],
-        name: "queue",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "blockNumber", internalType: "uint256", type: "uint256" }],
-        name: "quorum",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "quorumDenominator",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "timepoint", internalType: "uint256", type: "uint256" }],
-        name: "quorumNumerator",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "quorumNumerator",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "target", internalType: "address", type: "address" },
-            { name: "value", internalType: "uint256", type: "uint256" },
-            { name: "data", internalType: "bytes", type: "bytes" },
-        ],
-        name: "relay",
-        outputs: [],
-        stateMutability: "payable",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "newProposalThreshold", internalType: "uint256", type: "uint256" }],
-        name: "setProposalThreshold",
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "newVotingDelay", internalType: "uint48", type: "uint48" }],
-        name: "setVotingDelay",
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "newVotingPeriod", internalType: "uint32", type: "uint32" }],
-        name: "setVotingPeriod",
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256" }],
-        name: "state",
-        outputs: [{ name: "", internalType: "enum IGovernor.ProposalState", type: "uint8" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "interfaceId", internalType: "bytes4", type: "bytes4" }],
-        name: "supportsInterface",
-        outputs: [{ name: "", internalType: "bool", type: "bool" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "timelock",
-        outputs: [{ name: "", internalType: "address", type: "address" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "token",
-        outputs: [{ name: "", internalType: "contract IERC5805", type: "address" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "newQuorumNumerator", internalType: "uint256", type: "uint256" }],
-        name: "updateQuorumNumerator",
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "newTimelock", internalType: "contract TimelockController", type: "address" },
-        ],
-        name: "updateTimelock",
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "version",
-        outputs: [{ name: "", internalType: "string", type: "string" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "votingDelay",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "votingPeriod",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    { type: "event", anonymous: false, inputs: [], name: "EIP712DomainChanged" },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256", indexed: false }],
-        name: "ProposalCanceled",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "proposalId", internalType: "uint256", type: "uint256", indexed: false },
-            { name: "proposer", internalType: "address", type: "address", indexed: false },
-            { name: "targets", internalType: "address[]", type: "address[]", indexed: false },
-            { name: "values", internalType: "uint256[]", type: "uint256[]", indexed: false },
-            { name: "signatures", internalType: "string[]", type: "string[]", indexed: false },
-            { name: "calldatas", internalType: "bytes[]", type: "bytes[]", indexed: false },
-            { name: "voteStart", internalType: "uint256", type: "uint256", indexed: false },
-            { name: "voteEnd", internalType: "uint256", type: "uint256", indexed: false },
-            { name: "description", internalType: "string", type: "string", indexed: false },
-        ],
-        name: "ProposalCreated",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256", indexed: false }],
-        name: "ProposalExecuted",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "proposalId", internalType: "uint256", type: "uint256", indexed: false },
-            { name: "etaSeconds", internalType: "uint256", type: "uint256", indexed: false },
-        ],
-        name: "ProposalQueued",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            {
-                name: "oldProposalThreshold",
-                internalType: "uint256",
-                type: "uint256",
-                indexed: false,
-            },
-            {
-                name: "newProposalThreshold",
-                internalType: "uint256",
-                type: "uint256",
-                indexed: false,
-            },
-        ],
-        name: "ProposalThresholdSet",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            {
-                name: "oldQuorumNumerator",
-                internalType: "uint256",
-                type: "uint256",
-                indexed: false,
-            },
-            {
-                name: "newQuorumNumerator",
-                internalType: "uint256",
-                type: "uint256",
-                indexed: false,
-            },
-        ],
-        name: "QuorumNumeratorUpdated",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "oldTimelock", internalType: "address", type: "address", indexed: false },
-            { name: "newTimelock", internalType: "address", type: "address", indexed: false },
-        ],
-        name: "TimelockChange",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "voter", internalType: "address", type: "address", indexed: true },
-            { name: "proposalId", internalType: "uint256", type: "uint256", indexed: false },
-            { name: "support", internalType: "uint8", type: "uint8", indexed: false },
-            { name: "weight", internalType: "uint256", type: "uint256", indexed: false },
-            { name: "reason", internalType: "string", type: "string", indexed: false },
-        ],
-        name: "VoteCast",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "voter", internalType: "address", type: "address", indexed: true },
-            { name: "proposalId", internalType: "uint256", type: "uint256", indexed: false },
-            { name: "support", internalType: "uint8", type: "uint8", indexed: false },
-            { name: "weight", internalType: "uint256", type: "uint256", indexed: false },
-            { name: "reason", internalType: "string", type: "string", indexed: false },
-            { name: "params", internalType: "bytes", type: "bytes", indexed: false },
-        ],
-        name: "VoteCastWithParams",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "oldVotingDelay", internalType: "uint256", type: "uint256", indexed: false },
-            { name: "newVotingDelay", internalType: "uint256", type: "uint256", indexed: false },
-        ],
-        name: "VotingDelaySet",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "oldVotingPeriod", internalType: "uint256", type: "uint256", indexed: false },
-            { name: "newVotingPeriod", internalType: "uint256", type: "uint256", indexed: false },
-        ],
-        name: "VotingPeriodSet",
-    },
-    { type: "error", inputs: [], name: "CheckpointUnorderedInsertion" },
-    { type: "error", inputs: [], name: "FailedCall" },
-    {
-        type: "error",
-        inputs: [{ name: "voter", internalType: "address", type: "address" }],
-        name: "GovernorAlreadyCastVote",
-    },
-    {
-        type: "error",
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256" }],
-        name: "GovernorAlreadyQueuedProposal",
-    },
-    { type: "error", inputs: [], name: "GovernorDisabledDeposit" },
-    {
-        type: "error",
-        inputs: [
-            { name: "proposer", internalType: "address", type: "address" },
-            { name: "votes", internalType: "uint256", type: "uint256" },
-            { name: "threshold", internalType: "uint256", type: "uint256" },
-        ],
-        name: "GovernorInsufficientProposerVotes",
-    },
-    {
-        type: "error",
-        inputs: [
-            { name: "targets", internalType: "uint256", type: "uint256" },
-            { name: "calldatas", internalType: "uint256", type: "uint256" },
-            { name: "values", internalType: "uint256", type: "uint256" },
-        ],
-        name: "GovernorInvalidProposalLength",
-    },
-    {
-        type: "error",
-        inputs: [
-            { name: "quorumNumerator", internalType: "uint256", type: "uint256" },
-            { name: "quorumDenominator", internalType: "uint256", type: "uint256" },
-        ],
-        name: "GovernorInvalidQuorumFraction",
-    },
-    {
-        type: "error",
-        inputs: [{ name: "voter", internalType: "address", type: "address" }],
-        name: "GovernorInvalidSignature",
-    },
-    { type: "error", inputs: [], name: "GovernorInvalidVoteParams" },
-    { type: "error", inputs: [], name: "GovernorInvalidVoteType" },
-    {
-        type: "error",
-        inputs: [{ name: "votingPeriod", internalType: "uint256", type: "uint256" }],
-        name: "GovernorInvalidVotingPeriod",
-    },
-    {
-        type: "error",
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256" }],
-        name: "GovernorNonexistentProposal",
-    },
-    {
-        type: "error",
-        inputs: [{ name: "proposalId", internalType: "uint256", type: "uint256" }],
-        name: "GovernorNotQueuedProposal",
-    },
-    {
-        type: "error",
-        inputs: [{ name: "account", internalType: "address", type: "address" }],
-        name: "GovernorOnlyExecutor",
-    },
-    { type: "error", inputs: [], name: "GovernorQueueNotImplemented" },
-    {
-        type: "error",
-        inputs: [{ name: "proposer", internalType: "address", type: "address" }],
-        name: "GovernorRestrictedProposer",
-    },
-    {
-        type: "error",
-        inputs: [
-            { name: "proposalId", internalType: "uint256", type: "uint256" },
-            { name: "account", internalType: "address", type: "address" },
-        ],
-        name: "GovernorUnableToCancel",
-    },
-    {
-        type: "error",
-        inputs: [
-            { name: "proposalId", internalType: "uint256", type: "uint256" },
-            { name: "current", internalType: "enum IGovernor.ProposalState", type: "uint8" },
-            { name: "expectedStates", internalType: "bytes32", type: "bytes32" },
-        ],
-        name: "GovernorUnexpectedProposalState",
-    },
-    {
-        type: "error",
-        inputs: [
-            { name: "account", internalType: "address", type: "address" },
-            { name: "currentNonce", internalType: "uint256", type: "uint256" },
-        ],
-        name: "InvalidAccountNonce",
-    },
-    { type: "error", inputs: [], name: "InvalidShortString" },
-    {
-        type: "error",
-        inputs: [
-            { name: "bits", internalType: "uint8", type: "uint8" },
-            { name: "value", internalType: "uint256", type: "uint256" },
-        ],
-        name: "SafeCastOverflowedUintDowncast",
-    },
-    {
-        type: "error",
-        inputs: [{ name: "str", internalType: "string", type: "string" }],
-        name: "StringTooLong",
-    },
-] as const;
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// HolGovernorFactory
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- *
- */
-export const holGovernorFactoryAbi = [
-    { type: "constructor", inputs: [], stateMutability: "nonpayable" },
-    {
-        type: "function",
-        inputs: [],
-        name: "COMPONENT_DEPLOYER",
-        outputs: [{ name: "", internalType: "contract GovComponentDeployer", type: "address" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            {
-                name: "config",
-                internalType: "struct HolGovernorFactory.DeploymentConfig",
-                type: "tuple",
-                components: [
-                    { name: "tokenName", internalType: "string", type: "string" },
-                    { name: "tokenSymbol", internalType: "string", type: "string" },
-                    { name: "initialHolders", internalType: "address[]", type: "address[]" },
-                    { name: "initialAmounts", internalType: "uint256[]", type: "uint256[]" },
-                    { name: "timelockDelay", internalType: "uint256", type: "uint256" },
-                    { name: "governorName", internalType: "string", type: "string" },
-                    { name: "votingDelay", internalType: "uint48", type: "uint48" },
-                    { name: "votingPeriod", internalType: "uint32", type: "uint32" },
-                    { name: "proposalThreshold", internalType: "uint256", type: "uint256" },
-                    { name: "quorumNumerator", internalType: "uint256", type: "uint256" },
-                    { name: "subdomain", internalType: "string", type: "string" },
-                    { name: "subdomainRegistrar", internalType: "address", type: "address" },
-                ],
-            },
+            { name: "_symbol", internalType: "string", type: "string" },
+            { name: "_minter", internalType: "address", type: "address" },
         ],
         name: "deploy",
-        outputs: [
-            {
-                name: "deployment",
-                internalType: "struct HolGovernorFactory.Deployment",
-                type: "tuple",
-                components: [
-                    { name: "token", internalType: "address", type: "address" },
-                    { name: "timelock", internalType: "address", type: "address" },
-                    { name: "governor", internalType: "address", type: "address" },
-                ],
-            },
-        ],
+        outputs: [{ name: "", internalType: "address", type: "address" }],
         stateMutability: "nonpayable",
     },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "governor", internalType: "address", type: "address", indexed: true },
-            { name: "token", internalType: "address", type: "address", indexed: true },
-            { name: "timelock", internalType: "address", type: "address", indexed: true },
-            { name: "governorName", internalType: "string", type: "string", indexed: false },
-        ],
-        name: "GovernorDeployed",
-    },
-    { type: "error", inputs: [], name: "ArrayLengthMismatch" },
-    {
-        type: "error",
-        inputs: [{ name: "subdomain", internalType: "string", type: "string" }],
-        name: "InvalidSubdomain",
-    },
-    { type: "error", inputs: [], name: "MissingENSRegistrar" },
 ] as const;
-
-/**
- *
- */
-export const holGovernorFactoryAddress = {
-    31337: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
-} as const;
-
-/**
- *
- */
-export const holGovernorFactoryConfig = {
-    address: holGovernorFactoryAddress,
-    abi: holGovernorFactoryAbi,
-} as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // MeetingComponentsFactory
@@ -1553,6 +688,7 @@ export const holGovernorFactoryConfig = {
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
+ * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F)
  */
 export const meetingComponentsFactoryAbi = [
@@ -1576,6 +712,7 @@ export const meetingComponentsFactoryAbi = [
         inputs: [
             { name: "_orgId", internalType: "uint256", type: "uint256" },
             { name: "_orgFactory", internalType: "address", type: "address" },
+            { name: "_roleRegistry", internalType: "address", type: "address" },
             { name: "_govToken", internalType: "address", type: "address" },
         ],
         name: "deploy",
@@ -1623,15 +760,18 @@ export const meetingComponentsFactoryAbi = [
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
+ * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F)
  */
 export const meetingComponentsFactoryAddress = {
     1: "0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25",
+    31337: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
     11155111: "0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F",
 } as const;
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
+ * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F)
  */
 export const meetingComponentsFactoryConfig = {
@@ -1659,9 +799,19 @@ export const meetingFactoryAbi = [
     {
         type: "function",
         inputs: [
+            { name: "_orgId", internalType: "uint256", type: "uint256" },
+            { name: "_changeType", internalType: "enum HolacracyTypes.ChangeType", type: "uint8" },
+            { name: "_data", internalType: "bytes", type: "bytes" },
+        ],
+        name: "executeGovernance",
+        outputs: [{ name: "_resultId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
             { name: "_orgFactory", internalType: "address", type: "address" },
             { name: "_roleRegistry", internalType: "address", type: "address" },
-            { name: "_unused", internalType: "address", type: "address" },
         ],
         name: "initialize",
         outputs: [],
@@ -1701,6 +851,13 @@ export const meetingFactoryAbi = [
     },
     {
         type: "function",
+        inputs: [],
+        name: "roleRegistry",
+        outputs: [{ name: "", internalType: "contract IRoleRegistry", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
         inputs: [
             { name: "_orgId", internalType: "uint256", type: "uint256" },
             { name: "_kind", internalType: "enum IMeetingFactory.MeetingKind", type: "uint8" },
@@ -1708,6 +865,22 @@ export const meetingFactoryAbi = [
         name: "startMeeting",
         outputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
         stateMutability: "nonpayable",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_orgId", internalType: "uint256", type: "uint256", indexed: true },
+            {
+                name: "_changeType",
+                internalType: "enum HolacracyTypes.ChangeType",
+                type: "uint8",
+                indexed: true,
+            },
+            { name: "_resultId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_executedBy", internalType: "address", type: "address", indexed: false },
+        ],
+        name: "GovernanceExecuted",
     },
     {
         type: "event",
@@ -1791,6 +964,7 @@ export const meetingFactoryAbi = [
         ],
         name: "MeetingFactory_NotOrgMember",
     },
+    { type: "error", inputs: [], name: "MeetingFactory_UnsupportedChangeType" },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1799,6 +973,7 @@ export const meetingFactoryAbi = [
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
+ * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3)
  */
 export const organizationFactoryAbi = [
@@ -1806,7 +981,6 @@ export const organizationFactoryAbi = [
         type: "constructor",
         inputs: [
             { name: "_roleRegistryImpl", internalType: "address", type: "address" },
-            { name: "_govFactory", internalType: "address", type: "address" },
             { name: "_ensRegistrar", internalType: "address", type: "address" },
         ],
         stateMutability: "nonpayable",
@@ -1821,8 +995,8 @@ export const organizationFactoryAbi = [
     {
         type: "function",
         inputs: [],
-        name: "GOV_FACTORY",
-        outputs: [{ name: "", internalType: "contract HolGovernorFactory", type: "address" }],
+        name: "TOKEN_DEPLOYER",
+        outputs: [{ name: "", internalType: "contract GovTokenDeployer", type: "address" }],
         stateMutability: "view",
     },
     {
@@ -1861,52 +1035,20 @@ export const organizationFactoryAbi = [
             { name: "_subname", internalType: "string", type: "string" },
             { name: "_purpose", internalType: "string", type: "string" },
             {
-                name: "_govConfig",
-                internalType: "struct IOrganizationFactory.GovernanceConfig",
+                name: "_tokenConfig",
+                internalType: "struct IOrganizationFactory.TokenConfig",
                 type: "tuple",
                 components: [
                     { name: "tokenName", internalType: "string", type: "string" },
                     { name: "tokenSymbol", internalType: "string", type: "string" },
                     { name: "initialHolders", internalType: "address[]", type: "address[]" },
                     { name: "initialAmounts", internalType: "uint256[]", type: "uint256[]" },
-                    { name: "timelockDelay", internalType: "uint256", type: "uint256" },
-                    { name: "votingDelay", internalType: "uint48", type: "uint48" },
-                    { name: "votingPeriod", internalType: "uint32", type: "uint32" },
-                    { name: "proposalThreshold", internalType: "uint256", type: "uint256" },
-                    { name: "quorumNumerator", internalType: "uint256", type: "uint256" },
                 ],
             },
         ],
         name: "createOrganization",
         outputs: [{ name: "_orgId", internalType: "uint256", type: "uint256" }],
         stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-            { name: "requester", internalType: "address", type: "address" },
-        ],
-        name: "getJoinRequest",
-        outputs: [
-            {
-                name: "",
-                internalType: "struct IOrganizationFactory.JoinRequest",
-                type: "tuple",
-                components: [
-                    { name: "id", internalType: "uint256", type: "uint256" },
-                    { name: "message", internalType: "string", type: "string" },
-                    {
-                        name: "status",
-                        internalType: "enum IOrganizationFactory.JoinRequestStatus",
-                        type: "uint8",
-                    },
-                    { name: "submittedAt", internalType: "uint256", type: "uint256" },
-                    { name: "resolvedAt", internalType: "uint256", type: "uint256" },
-                ],
-            },
-        ],
-        stateMutability: "view",
     },
     {
         type: "function",
@@ -1929,9 +1071,7 @@ export const organizationFactoryAbi = [
                     { name: "accessManager", internalType: "address", type: "address" },
                     { name: "anchorCircleId", internalType: "uint256", type: "uint256" },
                     { name: "createdAt", internalType: "uint256", type: "uint256" },
-                    { name: "governor", internalType: "address", type: "address" },
                     { name: "token", internalType: "address", type: "address" },
-                    { name: "timelock", internalType: "address", type: "address" },
                 ],
             },
         ],
@@ -1958,9 +1098,7 @@ export const organizationFactoryAbi = [
                     { name: "accessManager", internalType: "address", type: "address" },
                     { name: "anchorCircleId", internalType: "uint256", type: "uint256" },
                     { name: "createdAt", internalType: "uint256", type: "uint256" },
-                    { name: "governor", internalType: "address", type: "address" },
                     { name: "token", internalType: "address", type: "address" },
-                    { name: "timelock", internalType: "address", type: "address" },
                 ],
             },
         ],
@@ -1990,30 +1128,10 @@ export const organizationFactoryAbi = [
                     { name: "accessManager", internalType: "address", type: "address" },
                     { name: "anchorCircleId", internalType: "uint256", type: "uint256" },
                     { name: "createdAt", internalType: "uint256", type: "uint256" },
-                    { name: "governor", internalType: "address", type: "address" },
                     { name: "token", internalType: "address", type: "address" },
-                    { name: "timelock", internalType: "address", type: "address" },
                 ],
             },
         ],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [{ name: "orgId", internalType: "uint256", type: "uint256" }],
-        name: "getPendingRequestCount",
-        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-            { name: "offset", internalType: "uint256", type: "uint256" },
-            { name: "limit", internalType: "uint256", type: "uint256" },
-        ],
-        name: "getPendingRequesters",
-        outputs: [{ name: "result", internalType: "address[]", type: "address[]" }],
         stateMutability: "view",
     },
     {
@@ -2226,14 +1344,6 @@ export const organizationFactoryAbi = [
     {
         type: "error",
         inputs: [
-            { name: "requester", internalType: "address", type: "address" },
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-        ],
-        name: "OrganizationFactory_JoinRequestNotPending",
-    },
-    {
-        type: "error",
-        inputs: [
             { name: "caller", internalType: "address", type: "address" },
             { name: "orgId", internalType: "uint256", type: "uint256" },
         ],
@@ -2258,15 +1368,18 @@ export const organizationFactoryAbi = [
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
+ * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3)
  */
 export const organizationFactoryAddress = {
     1: "0xC0252342923238CF5509cfBd2fa46A45ADeDc921",
+    31337: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
     11155111: "0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3",
 } as const;
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
+ * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3)
  */
 export const organizationFactoryConfig = {
@@ -2278,9 +1391,6 @@ export const organizationFactoryConfig = {
 // RoleRegistry
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/**
- *
- */
 export const roleRegistryAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
     {
@@ -2292,13 +1402,6 @@ export const roleRegistryAbi = [
         name: "assignRoleLead",
         outputs: [],
         stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [],
-        name: "circleRegistry",
-        outputs: [{ name: "", internalType: "address", type: "address" }],
-        stateMutability: "view",
     },
     {
         type: "function",
@@ -2417,6 +1520,13 @@ export const roleRegistryAbi = [
     {
         type: "function",
         inputs: [],
+        name: "governanceProcess",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
         name: "initialize",
         outputs: [],
         stateMutability: "nonpayable",
@@ -2447,8 +1557,8 @@ export const roleRegistryAbi = [
     },
     {
         type: "function",
-        inputs: [{ name: "_circleRegistry", internalType: "address", type: "address" }],
-        name: "setCircleRegistry",
+        inputs: [{ name: "_governanceProcess", internalType: "address", type: "address" }],
+        name: "setGovernanceProcess",
         outputs: [],
         stateMutability: "nonpayable",
     },
@@ -2589,15 +1699,3 @@ export const roleRegistryAbi = [
     },
     { type: "error", inputs: [], name: "RoleRegistry_Unauthorized" },
 ] as const;
-
-/**
- *
- */
-export const roleRegistryAddress = {
-    31337: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-} as const;
-
-/**
- *
- */
-export const roleRegistryConfig = { address: roleRegistryAddress, abi: roleRegistryAbi } as const;

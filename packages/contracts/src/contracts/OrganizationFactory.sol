@@ -3,18 +3,18 @@ pragma solidity 0.8.28;
 
 import {AccessManager} from '@openzeppelin/contracts/access/manager/AccessManager.sol';
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
-import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
-import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
-import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
+import {GovToken} from 'contracts/governance/GovToken.sol';
+import {GovTokenDeployer} from 'contracts/governance/GovTokenDeployer.sol';
+import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
+import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
  * @title OrganizationFactory
  * @notice Deploys core Holacracy organization infrastructure in a single transaction:
- *         ERC-1167 clones for holacracy contracts, on-chain governance suite
- *         (GovToken + Timelock + HolGovernor) via HolGovernorFactory, and an ENS
- *         subname pointing to the governor.
+ *         ERC-1167 clones for holacracy contracts, a governance token (ERC20Votes)
+ *         for ActionVoting, and an ENS subname.
  *
  *         Meeting components (MeetingFactory, ActionVoting) are
  *         deployed separately via MeetingComponentsFactory — an org can have multiple
@@ -31,8 +31,8 @@ contract OrganizationFactory is IOrganizationFactory {
   /// @notice The RoleRegistry implementation used for cloning
   address public immutable roleRegistryImplementation;
 
-  /// @notice Factory used to deploy GovToken + TimelockController + HolGovernor per org
-  HolGovernorFactory public immutable GOV_FACTORY;
+  /// @notice Deploys GovToken instances (extracted to stay under contract size limit)
+  GovTokenDeployer public immutable TOKEN_DEPLOYER;
 
   /// @notice ENS subdomain registrar — registers subnames under the parent node
   IENSSubdomainRegistrar public immutable ENS_REGISTRAR;
@@ -63,15 +63,13 @@ contract OrganizationFactory is IOrganizationFactory {
   //////////////////////////////////////////////////////////////*/
 
   /// @param _roleRegistryImpl The RoleRegistry implementation address
-  /// @param _govFactory Deployed HolGovernorFactory used to create the governance suite
   /// @param _ensRegistrar ENSSubdomainRegistrar authorized to register subnames under the parent node
   constructor(
     address _roleRegistryImpl,
-    address _govFactory,
     address _ensRegistrar
   ) {
     roleRegistryImplementation = _roleRegistryImpl;
-    GOV_FACTORY = HolGovernorFactory(_govFactory);
+    TOKEN_DEPLOYER = new GovTokenDeployer();
     ENS_REGISTRAR = IENSSubdomainRegistrar(_ensRegistrar);
   }
 
@@ -83,7 +81,7 @@ contract OrganizationFactory is IOrganizationFactory {
   function createOrganization(
     string calldata _subname,
     string calldata _purpose,
-    GovernanceConfig calldata _govConfig
+    TokenConfig calldata _tokenConfig
   ) external returns (uint256 _orgId) {
     // Validate subname
     _validateSubname(_subname);
@@ -103,12 +101,15 @@ contract OrganizationFactory is IOrganizationFactory {
     // Deploy AccessManager with org creator as initial admin
     address _accessManagerAddr = address(new AccessManager(msg.sender));
 
-    // Deploy on-chain governance suite (GovToken + TimelockController + HolGovernor).
-    // ENS registration is handled below, so subdomain is left empty here.
-    HolGovernorFactory.Deployment memory _gov = GOV_FACTORY.deploy(_buildGovDeploymentConfig(_subname, _govConfig));
+    // Deploy governance token (ERC20Votes) — used by ActionVoting for vote weight.
+    // Factory is the initial minter so it can mint initial allocations, then
+    // transfers the minter role to the org creator.
+    GovToken _token = GovToken(TOKEN_DEPLOYER.deploy(_tokenConfig.tokenName, _tokenConfig.tokenSymbol, address(this)));
+    _mintInitialTokens(_token, _tokenConfig);
+    _token.setMinter(msg.sender);
 
-    // Register ENS subname — the subdomain resolves to the governor address.
-    ENS_REGISTRAR.registerSubnode(keccak256(bytes(_subname)), _gov.governor);
+    // Register ENS subname — the subdomain resolves to the access manager.
+    ENS_REGISTRAR.registerSubnode(keccak256(bytes(_subname)), _accessManagerAddr);
 
     // Store organization record
     _orgId = ++_orgCounter;
@@ -124,9 +125,7 @@ contract OrganizationFactory is IOrganizationFactory {
       _org.accessManager = _accessManagerAddr;
       _org.anchorCircleId = 0;
       _org.createdAt = block.timestamp;
-      _org.governor = _gov.governor;
-      _org.token = _gov.token;
-      _org.timelock = _gov.timelock;
+      _org.token = address(_token);
     }
 
     _subnameToOrgId[_subnameHash] = _orgId;
@@ -137,7 +136,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function requestToJoin(uint256 orgId, string calldata message) external returns (uint256 requestId) {
+  function requestToJoin(
+    uint256 orgId,
+    string calldata message
+  ) external returns (uint256 requestId) {
     if (_organizations[orgId].id == 0) revert OrganizationFactory_OrgNotFound(orgId);
     if (_joinRequestIds[orgId][msg.sender] != 0) {
       revert OrganizationFactory_JoinRequestAlreadyPending(msg.sender, orgId);
@@ -150,7 +152,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function approveJoinRequest(uint256 orgId, address requester) external {
+  function approveJoinRequest(
+    uint256 orgId,
+    address requester
+  ) external {
     uint256 requestId = _joinRequestIds[orgId][requester];
     if (requestId == 0) revert OrganizationFactory_JoinRequestNotFound(requester, orgId);
 
@@ -166,7 +171,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function rejectJoinRequest(uint256 orgId, address requester) external {
+  function rejectJoinRequest(
+    uint256 orgId,
+    address requester
+  ) external {
     uint256 requestId = _joinRequestIds[orgId][requester];
     if (requestId == 0) revert OrganizationFactory_JoinRequestNotFound(requester, orgId);
 
@@ -177,7 +185,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function addOrgAdmin(uint256 orgId, address account) external {
+  function addOrgAdmin(
+    uint256 orgId,
+    address account
+  ) external {
     _assertOrgAdmin(orgId);
     if (!_orgAdmins[orgId][account]) {
       _orgAdmins[orgId][account] = true;
@@ -186,7 +197,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function removeOrgAdmin(uint256 orgId, address account) external {
+  function removeOrgAdmin(
+    uint256 orgId,
+    address account
+  ) external {
     _assertOrgAdmin(orgId);
     if (_orgAdmins[orgId][account]) {
       _orgAdmins[orgId][account] = false;
@@ -195,7 +209,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function addOrgMember(uint256 orgId, address account) external {
+  function addOrgMember(
+    uint256 orgId,
+    address account
+  ) external {
     _assertOrgAdmin(orgId);
     if (!_orgMembers[orgId][account]) {
       _orgMembers[orgId][account] = true;
@@ -204,7 +221,10 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function removeOrgMember(uint256 orgId, address account) external {
+  function removeOrgMember(
+    uint256 orgId,
+    address account
+  ) external {
     _assertOrgAdmin(orgId);
     if (_orgMembers[orgId][account]) {
       _orgMembers[orgId][account] = false;
@@ -217,7 +237,9 @@ contract OrganizationFactory is IOrganizationFactory {
   //////////////////////////////////////////////////////////////*/
 
   /// @inheritdoc IOrganizationFactory
-  function getOrganization(uint256 _orgId) external view returns (HolacracyTypes.Organization memory _org) {
+  function getOrganization(
+    uint256 _orgId
+  ) external view returns (HolacracyTypes.Organization memory _org) {
     _org = _organizations[_orgId];
   }
 
@@ -259,17 +281,26 @@ contract OrganizationFactory is IOrganizationFactory {
   }
 
   /// @inheritdoc IOrganizationFactory
-  function hasPendingRequest(address requester, uint256 orgId) external view returns (bool) {
+  function hasPendingRequest(
+    address requester,
+    uint256 orgId
+  ) external view returns (bool) {
     return _joinRequestIds[orgId][requester] != 0;
   }
 
   /// @inheritdoc IOrganizationFactory
-  function isOrgAdmin(uint256 orgId, address account) external view returns (bool) {
+  function isOrgAdmin(
+    uint256 orgId,
+    address account
+  ) external view returns (bool) {
     return _orgAdmins[orgId][account];
   }
 
   /// @inheritdoc IOrganizationFactory
-  function isOrgMember(uint256 orgId, address account) external view returns (bool) {
+  function isOrgMember(
+    uint256 orgId,
+    address account
+  ) external view returns (bool) {
     return _orgMembers[orgId][account];
   }
 
@@ -277,30 +308,20 @@ contract OrganizationFactory is IOrganizationFactory {
                             INTERNAL
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Builds a HolGovernorFactory.DeploymentConfig from an org subname and governance config.
-  ///         Extracted to avoid stack-too-deep in createOrganization.
-  function _buildGovDeploymentConfig(
-    string calldata _subname,
-    GovernanceConfig calldata _govConfig
-  ) internal pure returns (HolGovernorFactory.DeploymentConfig memory _cfg) {
-    _cfg = HolGovernorFactory.DeploymentConfig({
-      tokenName: _govConfig.tokenName,
-      tokenSymbol: _govConfig.tokenSymbol,
-      initialHolders: _govConfig.initialHolders,
-      initialAmounts: _govConfig.initialAmounts,
-      timelockDelay: _govConfig.timelockDelay,
-      governorName: _subname,
-      votingDelay: _govConfig.votingDelay,
-      votingPeriod: _govConfig.votingPeriod,
-      proposalThreshold: _govConfig.proposalThreshold,
-      quorumNumerator: _govConfig.quorumNumerator,
-      subdomain: '',
-      subdomainRegistrar: address(0)
-    });
+  /// @notice Mints initial token allocations to holders.
+  function _mintInitialTokens(
+    GovToken _token,
+    TokenConfig calldata _cfg
+  ) internal {
+    for (uint256 _i; _i < _cfg.initialHolders.length; ++_i) {
+      _token.mint(_cfg.initialHolders[_i], _cfg.initialAmounts[_i]);
+    }
   }
 
   /// @notice Validates a subname: min 3 chars, only [a-z0-9-], no leading/trailing hyphen.
-  function _validateSubname(string calldata _subname) internal pure {
+  function _validateSubname(
+    string calldata _subname
+  ) internal pure {
     bytes calldata _b = bytes(_subname);
 
     if (_b.length < 3) {
@@ -325,13 +346,18 @@ contract OrganizationFactory is IOrganizationFactory {
     }
   }
 
-  function _assertOrgAdmin(uint256 orgId) internal view {
+  function _assertOrgAdmin(
+    uint256 orgId
+  ) internal view {
     HolacracyTypes.Organization memory org = _organizations[orgId];
     if (org.id == 0) revert OrganizationFactory_OrgNotFound(orgId);
     if (!_orgAdmins[orgId][msg.sender]) revert OrganizationFactory_JoinRequestUnauthorized(msg.sender, orgId);
   }
 
-  function _seedOrgAccess(uint256 orgId, address creator) internal {
+  function _seedOrgAccess(
+    uint256 orgId,
+    address creator
+  ) internal {
     _orgAdmins[orgId][creator] = true;
     _orgMembers[orgId][creator] = true;
     emit OrgAdminAdded(orgId, creator);

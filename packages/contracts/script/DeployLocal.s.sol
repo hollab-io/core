@@ -1,23 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Script, console} from 'forge-std/Script.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
-import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
-import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
-import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
-import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
-import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
-
+import {MeetingFactory} from 'contracts/MeetingFactory.sol';
+import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {RoleRegistry} from 'contracts/RoleRegistry.sol';
+import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
+import {Script, console} from 'forge-std/Script.sol';
+import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /// @notice Stub ENS subdomain registrar for local development — records calls without ENS logic
 contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
   mapping(bytes32 => address) public subnameTargets;
 
-  function registerSubnode(bytes32 _label, address _targetAddress) external {
+  function registerSubnode(
+    bytes32 _label,
+    address _targetAddress
+  ) external {
     subnameTargets[_label] = _targetAddress;
   }
 }
@@ -58,17 +59,10 @@ contract DeployLocal is Script {
     MeetingComponentsFactory meetingFactory =
       new MeetingComponentsFactory(address(meetingImpl), address(actionVotingImpl));
 
-    // ── 4. HolGovernorFactory ───────────────────────────────────────────────
-    HolGovernorFactory govFactory = new HolGovernorFactory();
+    // ── 4. OrganizationFactory ──────────────────────────────────────────────
+    OrganizationFactory factory = new OrganizationFactory(address(roleRegistryImpl), address(ensRegistrar));
 
-    // ── 5. OrganizationFactory ──────────────────────────────────────────────
-    OrganizationFactory factory = new OrganizationFactory(
-      address(roleRegistryImpl),
-      address(govFactory),
-      address(ensRegistrar)
-    );
-
-    // ── 6. Create a sample organization with fast governance for testing ─────
+    // ── 5. Create a sample organization ─────────────────────────────────────
     address[] memory holders = new address[](1);
     holders[0] = deployer;
     uint256[] memory amounts = new uint256[](1);
@@ -77,16 +71,8 @@ contract DeployLocal is Script {
     uint256 orgId = factory.createOrganization(
       'demo',
       'A demo Holacracy organization',
-      IOrganizationFactory.GovernanceConfig({
-        tokenName: 'Demo Token',
-        tokenSymbol: 'DEMO',
-        initialHolders: holders,
-        initialAmounts: amounts,
-        timelockDelay: 0,
-        votingDelay: 1,
-        votingPeriod: 50,
-        proposalThreshold: 0,
-        quorumNumerator: 4
+      IOrganizationFactory.TokenConfig({
+        tokenName: 'Demo Token', tokenSymbol: 'DEMO', initialHolders: holders, initialAmounts: amounts
       })
     );
 
@@ -97,7 +83,6 @@ contract DeployLocal is Script {
     console.log('');
     console.log('--- Factories ---');
     console.log('OrganizationFactory:      ', address(factory));
-    console.log('HolGovernorFactory:       ', address(govFactory));
     console.log('MeetingComponentsFactory: ', address(meetingFactory));
     console.log('');
     console.log('--- Standalone Contracts ---');
@@ -109,16 +94,11 @@ contract DeployLocal is Script {
     console.log('Subname:              ', org.subname);
     console.log('Creator:              ', org.creator);
     console.log('RoleRegistry:         ', org.roleRegistry);
-    console.log('CircleRegistry:       ', org.circleRegistry);
-    console.log('GovernanceProcess:    ', org.governanceProcess);
-    console.log('Governor:             ', org.governor);
     console.log('GovToken:             ', org.token);
-    console.log('Timelock:             ', org.timelock);
 
     // ── Write JSON artifact for tooling ──────────────────────────────────────
     string memory obj = 'local';
     vm.serializeAddress(obj, 'orgFactory', address(factory));
-    vm.serializeAddress(obj, 'govFactory', address(govFactory));
     vm.serializeAddress(obj, 'meetingFactory', address(meetingFactory));
     vm.serializeAddress(obj, 'ensRegistrar', address(ensRegistrar));
     vm.serializeUint(obj, 'chainId', block.chainid);

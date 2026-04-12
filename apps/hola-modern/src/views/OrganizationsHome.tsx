@@ -1,13 +1,13 @@
 import type { Organization } from "@hollab-io/indexing-client";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, ExternalLink, LogIn, Plus, Users, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 import logoSvg from "../assets/logo.svg";
 import ChainSwitcher from "../components/ChainSwitcher";
-import DynamicAuthControl from "../components/DynamicAuthControl";
 import ThemeToggle from "../components/ThemeToggle";
-import { useOrganizationFactory } from "../hooks/useOrganizationFactory";
+import WalletAuthControl from "../components/WalletAuthControl";
+import { useDeployOrganization } from "../hooks/useOrganizationFactory";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 import JoinOrganizationPanel from "./JoinOrganizationPanel";
 
@@ -20,10 +20,9 @@ type Props = {
     /** Select an existing org — goes straight to dashboard */
     onSelect: (id: string) => void;
     /** Select a freshly-created org — goes through member onboarding */
-    onSelectNew: (id: string) => void;
+    onSelectNew: (id: string, org: Organization) => void;
     /** Preview an org from Discover (guest mode — shows join banner inside workspace) */
     onPreview: (id: string) => void;
-    pollUntil: (predicate: (orgs: Organization[]) => boolean) => Promise<Organization[]>;
 };
 
 const ACCENT_PALETTE = [
@@ -145,23 +144,17 @@ export default function OrganizationsHome({
     onSelect,
     onSelectNew,
     onPreview,
-    pollUntil,
 }: Props) {
     const { authenticatedWalletAddress } = useWorkspaceSnapshot();
-    const { deployOrganization } = useOrganizationFactory();
+    const deploy = useDeployOrganization();
 
     // ── Discover: all orgs the user is not a member/creator of ───────────────
-    const [discoverOrgs, setDiscoverOrgs] = useState<Organization[]>([]);
-
-    useEffect(() => {
+    const discoverOrgs = useMemo(() => {
         const myOrgIds = new Set(organizations.map((o) => o.id));
-
-        setDiscoverOrgs(
-            discoverOrganizations.filter(
-                (o) =>
-                    !myOrgIds.has(o.id) &&
-                    o.creator.toLowerCase() !== authenticatedWalletAddress?.toLowerCase(),
-            ),
+        return discoverOrganizations.filter(
+            (o) =>
+                !myOrgIds.has(o.id) &&
+                o.creator.toLowerCase() !== authenticatedWalletAddress?.toLowerCase(),
         );
     }, [organizations, discoverOrganizations, authenticatedWalletAddress]);
 
@@ -172,58 +165,39 @@ export default function OrganizationsHome({
     >(undefined);
     const [orgName, setOrgName] = useState("");
     const [purpose, setPurpose] = useState("");
-    const [txState, setTxState] = useState<"idle" | "wallet" | "pending" | "error">("idle");
-    const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
-    const [txError, setTxError] = useState<string | null>(null);
+
+    const txState = deploy.isPending ? "pending" : deploy.isError ? "error" : "idle";
+    const txHash = deploy.data?.txHash ?? null;
+    const txError = deploy.error?.message ?? null;
 
     const canCreate =
-        Boolean(authenticatedWalletAddress) &&
-        orgName.trim().length > 2 &&
-        (txState === "idle" || txState === "error");
+        Boolean(authenticatedWalletAddress) && orgName.trim().length > 2 && !deploy.isPending;
 
-    const handleCreate = async () => {
+    const handleCreate = () => {
         if (!authenticatedWalletAddress || orgName.trim().length < 3) return;
-        if (txState === "wallet" || txState === "pending") return;
+        if (deploy.isPending) return;
 
-        setTxState("wallet");
-        setTxError(null);
-        setTxHash(null);
-
-        try {
-            const hash = await deployOrganization({
+        deploy.mutate(
+            {
                 name: orgName.trim(),
                 purpose:
                     purpose.trim() ||
                     "Run circles, governance, and tactical work in one shared organizational workspace.",
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
-            });
-
-            setTxHash(hash);
-            setTxState("pending");
-
-            // Poll the indexer — when the org appears, the tx has confirmed and been indexed
-            const prevCount = organizations.length;
-            const updated = await pollUntil((orgs) => orgs.length > prevCount);
-            const newOrg = updated[0]; // ordered by createdAt desc, so first is newest
-            if (newOrg) {
-                setShowCreate(false);
-                setTxState("idle");
-                onSelectNew(newOrg.id);
-            }
-        } catch (err) {
-            const message =
-                err instanceof Error ? err.message : "Transaction failed. Please try again.";
-            setTxState("error");
-            setTxError(message);
-        }
+            },
+            {
+                onSuccess: ({ organization: newOrg }) => {
+                    setShowCreate(false);
+                    onSelectNew(newOrg.id, newOrg);
+                },
+            },
+        );
     };
 
     const openCreate = () => {
         setOrgName("");
         setPurpose("");
-        setTxState("idle");
-        setTxError(null);
-        setTxHash(null);
+        deploy.reset();
         setShowCreate(true);
     };
 
@@ -276,7 +250,7 @@ export default function OrganizationsHome({
                     <div className="flex flex-shrink-0 items-center gap-3 pt-1">
                         <ThemeToggle />
                         <ChainSwitcher />
-                        <DynamicAuthControl />
+                        <WalletAuthControl />
                     </div>
                 </motion.div>
 
@@ -604,7 +578,7 @@ export default function OrganizationsHome({
                                         <button
                                             type="button"
                                             onClick={() => setShowCreate(false)}
-                                            disabled={txState === "wallet" || txState === "pending"}
+                                            disabled={txState === "pending"}
                                             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full
                                                 bg-slate-100 dark:bg-white/[0.05]
                                                 ring-1 ring-slate-200 dark:ring-white/[0.08]
@@ -760,7 +734,6 @@ export default function OrganizationsHome({
                                                 }`}
                                             style={{ transitionTimingFunction: SPRING }}
                                         >
-                                            {txState === "wallet" && "Confirm in wallet…"}
                                             {txState === "pending" && "Deploying…"}
                                             {txState === "error" && "Retry"}
                                             {txState === "idle" && "Create workspace"}

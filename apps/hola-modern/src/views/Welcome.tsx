@@ -2,15 +2,15 @@ import { motion } from "framer-motion";
 import { BookOpen } from "lucide-react";
 
 import logoSvg from "../assets/logo.svg";
-import DynamicAuthControl from "../components/DynamicAuthControl";
+import WalletAuthControl from "../components/WalletAuthControl";
 
 const EXPO = [0.16, 1, 0.3, 1] as const;
 
 const FEATURES = [
-    "Org chart & circles",
-    "Governance & proposals",
-    "Actions & OKRs",
-    "Wallet-native auth",
+    "Roles & teams",
+    "Proposals & voting",
+    "Actions & execution",
+    "Agent-ready SDK",
 ] as const;
 
 export default function WelcomeScreen({ onShowConstitution }: { onShowConstitution?: () => void }) {
@@ -102,7 +102,7 @@ export default function WelcomeScreen({ onShowConstitution }: { onShowConstituti
                             style={{ boxShadow: "0 0 8px rgba(52,129,255,0.9)" }}
                         />
                         <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-white/50">
-                            Holacracy · Web3 native
+                            Onchain · Autonomous · Verifiable
                         </span>
                     </span>
                 </motion.div>
@@ -124,8 +124,8 @@ export default function WelcomeScreen({ onShowConstitution }: { onShowConstituti
                     transition={{ duration: 0.9, delay: 0.22, ease: EXPO }}
                     className="mt-4 max-w-[300px] text-balance text-[14px] font-medium leading-relaxed text-slate-500 dark:text-white/35"
                 >
-                    The decentralized operating system for organizations — governance, execution,
-                    and strategy in one workspace.
+                    The onchain operating system for autonomous organizations — structure,
+                    governance, and execution without managers.
                 </motion.p>
 
                 {/* Feature pills */}
@@ -171,7 +171,7 @@ export default function WelcomeScreen({ onShowConstitution }: { onShowConstituti
                             </p>
 
                             <div className="flex w-full justify-center">
-                                <DynamicAuthControl />
+                                <WalletAuthControl />
                             </div>
                         </div>
                     </div>

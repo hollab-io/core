@@ -161,10 +161,8 @@ library HolacracyTypes {
     address accessManager;
     uint256 anchorCircleId;
     uint256 createdAt;
-    // On-chain governance
-    address governor;
+    // Governance token (ERC20Votes) — used by ActionVoting for vote weight
     address token;
-    address timelock;
   }
 
   /// @notice A recurring checklist item attached to a role

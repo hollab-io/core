@@ -1,26 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Script, console} from 'forge-std/Script.sol';
 import {DeployConfig} from './DeployConfig.sol';
-import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
-import {HolGovernorFactory} from 'contracts/governance/HolGovernorFactory.sol';
+import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {ENSSubdomainRegistrar} from 'ens/ENSSubdomainRegistrar.sol';
+import {Script, console} from 'forge-std/Script.sol';
 
 interface IENS {
-  function owner(bytes32 node) external view returns (address);
-  function setApprovalForAll(address operator, bool approved) external;
+  function owner(
+    bytes32 node
+  ) external view returns (address);
+  function setApprovalForAll(
+    address operator,
+    bool approved
+  ) external;
 }
 
 /**
  * @title DeployInfrastructure
  * @notice Deploys the complete HolLab infrastructure to any EVM chain.
  *         This is a one-time deployment per chain. Organizations are created
- *         separately via CreateOrganization.
+ *         separately via OrganizationFactory.createOrganization().
  *
  * Secrets:
  *   Use an encrypted keystore (recommended):
@@ -60,12 +64,10 @@ contract DeployInfrastructure is Script {
     address meetingImpl;
     address actionVotingImpl;
     address meetingFactory;
-    address govFactory;
     address orgFactory;
   }
 
   function run() external returns (Infrastructure memory infra) {
-    // Support both keystore (`--account`) and env var fallback for CI
     address deployer = msg.sender;
     uint256 chainId = block.chainid;
 
@@ -99,15 +101,8 @@ contract DeployInfrastructure is Script {
     // ── 3. MeetingComponentsFactory ─────────────────────────────────────────
     infra.meetingFactory = address(new MeetingComponentsFactory(infra.meetingImpl, infra.actionVotingImpl));
 
-    // ── 4. HolGovernorFactory ───────────────────────────────────────────────
-    infra.govFactory = address(new HolGovernorFactory());
-
     // ── 4. OrganizationFactory ──────────────────────────────────────────────
-    OrganizationFactory orgFactory = new OrganizationFactory(
-      infra.roleRegistryImpl,
-      infra.govFactory,
-      infra.ensRegistrar
-    );
+    OrganizationFactory orgFactory = new OrganizationFactory(infra.roleRegistryImpl, infra.ensRegistrar);
     infra.orgFactory = address(orgFactory);
 
     // Authorize factory for ENS registration
@@ -124,26 +119,30 @@ contract DeployInfrastructure is Script {
     return infra;
   }
 
-  function _writeArtifacts(Infrastructure memory _infra, uint256 _chainId) internal {
+  function _writeArtifacts(
+    Infrastructure memory _infra,
+    uint256 _chainId
+  ) internal {
     string memory obj = 'infra';
     vm.serializeAddress(obj, 'ensRegistrar', _infra.ensRegistrar);
     vm.serializeAddress(obj, 'roleRegistryImpl', _infra.roleRegistryImpl);
     vm.serializeAddress(obj, 'meetingImpl', _infra.meetingImpl);
     vm.serializeAddress(obj, 'actionVotingImpl', _infra.actionVotingImpl);
     vm.serializeAddress(obj, 'meetingFactory', _infra.meetingFactory);
-    vm.serializeAddress(obj, 'govFactory', _infra.govFactory);
     vm.serializeAddress(obj, 'orgFactory', _infra.orgFactory);
     string memory json = vm.serializeUint(obj, 'chainId', _chainId);
     vm.writeJson(json, string.concat('./deployments/', vm.toString(_chainId), '-infrastructure.json'));
   }
 
-  function _logDeployment(Infrastructure memory _infra, uint256 _chainId) internal pure {
+  function _logDeployment(
+    Infrastructure memory _infra,
+    uint256 _chainId
+  ) internal pure {
     console.log('');
     console.log('=== Infrastructure Deployed (chain ', _chainId, ') ===');
     console.log('');
     console.log('--- Factories ---');
     console.log('OrganizationFactory:    ', _infra.orgFactory);
-    console.log('HolGovernorFactory:     ', _infra.govFactory);
     console.log('');
     console.log('--- Implementations (clone sources) ---');
     console.log('RoleRegistry:           ', _infra.roleRegistryImpl);
@@ -164,7 +163,10 @@ contract DeployInfrastructure is Script {
 contract MockENSRegistrar {
   mapping(bytes32 => address) public subnameTargets;
 
-  function registerSubnode(bytes32 _label, address _targetAddress) external {
+  function registerSubnode(
+    bytes32 _label,
+    address _targetAddress
+  ) external {
     subnameTargets[_label] = _targetAddress;
   }
 }
