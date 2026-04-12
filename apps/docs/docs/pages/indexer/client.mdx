@@ -1,0 +1,90 @@
+# Indexing Client
+
+The `indexing-client` package (`packages/indexing-client/`) provides a typed GraphQL client for querying the Ponder indexer.
+
+## Setup
+
+```ts
+import { createIndexingClient } from "@hollab-io/indexing-client";
+
+const client = createIndexingClient("http://localhost:42069");
+```
+
+## Query Methods
+
+All queries return paginated results with `PageInfo` for cursor-based pagination.
+
+### Organizations
+
+```ts
+const org = await client.getOrganization(orgId);
+const orgs = await client.listOrganizations({ limit: 10 });
+const myOrgs = await client.listOrganizationsByCreator(address);
+```
+
+### Circles & Roles
+
+```ts
+const circle = await client.getCircle(circleId);
+const circles = await client.listCirclesByOrg(orgId);
+
+const role = await client.getRole(roleId);
+const roles = await client.listRolesByOrg(orgId);
+const circleRoles = await client.listRolesByCircle(registryAddress, circleId);
+```
+
+### Tactical Meetings
+
+```ts
+const meetings = await client.listTacticalMeetingsByCircle(contractAddress, circleId);
+const outputs = await client.listMeetingOutputs(contractAddress, meetingId);
+const checklist = await client.listChecklistItemsByRole(contractAddress, roleId);
+const metrics = await client.listMetricsByRole(contractAddress, roleId);
+```
+
+### Governance Meetings
+
+```ts
+const govMeetings = await client.listGovernanceMeetingsByCircle(contractAddress, circleId);
+const proposals = await client.listProposalsByCircle(processAddress, circleId);
+const objections = await client.listObjectionsByProposal(processAddress, proposalId);
+```
+
+### Members & Voting
+
+```ts
+const members = await client.listOrgMembersByOrg(factoryAddress, orgId);
+const pending = await client.listPendingJoinRequestsByOrg(contractAddress, orgId);
+const votes = await client.listActionVotes(contractAddress);
+const casts = await client.listActionVoteCasts(contractAddress, voteId);
+```
+
+## Type Notes
+
+All numeric values are returned as **strings** (Ponder serializes bigints as strings over GraphQL). The client uses `BigIntStr` and `HexStr` type aliases to indicate this:
+
+```ts
+type BigIntStr = string; // e.g., "1000000000000000000"
+type HexStr = string; // e.g., "0xabc..."
+```
+
+## Pagination
+
+```ts
+interface PaginatedResult<T> {
+    items: T[];
+    pageInfo: PageInfo;
+}
+
+interface PageInfo {
+    hasNextPage: boolean;
+    endCursor: string | null;
+}
+
+// Paginate through results
+const page1 = await client.listOrganizations({ limit: 10 });
+const page2 = await client.listOrganizations({
+    limit: 10,
+    after: page1.pageInfo.endCursor,
+});
+```

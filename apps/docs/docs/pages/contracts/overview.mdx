@@ -1,0 +1,66 @@
+# Contracts Overview
+
+The smart contracts live in `packages/contracts/` and implement the Holacracy governance model using Foundry and OpenZeppelin.
+
+## Contract Map
+
+```
+OrganizationFactory (singleton)
+├── creates → RoleRegistry (ERC-1167 clone per org)
+├── creates → GovToken (ERC20Votes, one per org)
+├── creates → AccessManager (one per org)
+└── registers → ENS subname via ENSSubdomainRegistrar
+
+MeetingComponentsFactory (singleton)
+├── clones → MeetingFactory (per org/circle)
+└── clones → ActionVoting (per org/circle)
+
+MeetingFactory
+└── set as governanceProcess on RoleRegistry
+    (only contract that can modify roles)
+```
+
+## Core Contracts
+
+| Contract                                               | Type             | Purpose                                 |
+| ------------------------------------------------------ | ---------------- | --------------------------------------- |
+| [OrganizationFactory](/contracts/organization-factory) | Singleton        | Deploy orgs, manage membership          |
+| [RoleRegistry](/contracts/role-registry)               | Clone per org    | Store roles, circles, assignments       |
+| [MeetingFactory](/contracts/meeting-factory)           | Clone per org    | Meeting lifecycle, governance execution |
+| [ActionVoting](/contracts/action-voting)               | Clone per org    | Token-weighted + collaborator voting    |
+| [GovToken](/contracts/gov-token)                       | Instance per org | ERC20Votes for governance power         |
+| [ENSSubdomainRegistrar](/contracts/ens)                | Singleton        | `myorg.hollab.eth` registration         |
+
+## Supporting Contracts
+
+| Contract                 | Purpose                                                        |
+| ------------------------ | -------------------------------------------------------------- |
+| GovTokenDeployer         | Helper to deploy GovToken (extracted for contract size limits) |
+| MeetingComponentsFactory | Deploy MeetingFactory + ActionVoting clones                    |
+| HolacracyTypes           | Shared enums and structs                                       |
+
+## Design Patterns
+
+### Minimal Proxies (ERC-1167)
+
+Per-org contracts are deployed as [minimal proxy clones](https://eips.ethereum.org/EIPS/eip-1167) of implementation contracts. This reduces deployment gas from ~3M to ~100K while preserving the full contract interface.
+
+Implementation contracts are deployed once as part of infrastructure. Each `createOrganization()` or `MeetingComponentsFactory.deploy()` call creates a cheap clone pointing to the implementation.
+
+### Governance Lock
+
+RoleRegistry accepts a `governanceProcess` address during initialization. Only this address (the MeetingFactory) can call `createRole`, `updateRole`, and `removeRole`. This enforces the Holacracy principle that organizational structure only changes through governance meetings.
+
+### Event-First Data
+
+Contracts emit rich events for all state changes. The Ponder indexer processes these events into a queryable GraphQL API. This keeps contracts lightweight while providing the frontend with structured data.
+
+## Deployed Addresses (Sepolia)
+
+| Contract                 | Address                                      |
+| ------------------------ | -------------------------------------------- |
+| OrganizationFactory      | `0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3` |
+| MeetingComponentsFactory | `0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F` |
+| RoleRegistry (impl)      | `0x5D4930b5701e68C31921089119a445B4a2e7C903` |
+| ActionVoting (impl)      | `0x33932d11D8EB83306cB23AE8EAF5Ed1b0b86e028` |
+| ENSSubdomainRegistrar    | `0x2C4a4F3c9Eb1238f04fC2F9263e098ba0FC521F6` |

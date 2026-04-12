@@ -1,0 +1,71 @@
+# OrganizationFactory
+
+The entry point for creating and managing hollab.eth organizations. Deployed once per chain as a singleton.
+
+**Source:** `packages/contracts/src/contracts/OrganizationFactory.sol`
+
+## Creating an Organization
+
+```solidity
+function createOrganization(
+    string calldata name,
+    string calldata subname
+) external returns (uint256 orgId)
+```
+
+This deploys the full org infrastructure in a single transaction:
+
+1. Clones a new **RoleRegistry** (minimal proxy)
+2. Deploys a **GovToken** (ERC20Votes) via GovTokenDeployer
+3. Creates an **AccessManager** for role-based permissions
+4. Registers an **ENS subname** (`subname.hollab.eth`)
+5. Stores the Organization struct and emits discovery events
+
+The caller becomes the org creator and first admin.
+
+## Membership
+
+Organizations have two roles: **admin** and **member**.
+
+```solidity
+// Admin management (owner only)
+function addOrgAdmin(uint256 orgId, address admin) external
+function removeOrgAdmin(uint256 orgId, address admin) external
+
+// Member management (admin only)
+function addOrgMember(uint256 orgId, address member) external
+function removeOrgMember(uint256 orgId, address member) external
+```
+
+### Join Requests
+
+External users can request to join an organization:
+
+```solidity
+function requestToJoin(uint256 orgId) external
+function approveJoinRequest(uint256 orgId, uint256 requestId) external
+function rejectJoinRequest(uint256 orgId, uint256 requestId) external
+```
+
+## Queries
+
+```solidity
+function getOrganization(uint256 orgId) external view returns (Organization memory)
+function getOrganizations() external view returns (Organization[] memory)
+function getOrganizationBySubname(string calldata subname) external view returns (Organization memory)
+```
+
+## Organization Struct
+
+```solidity
+struct Organization {
+    uint256 id;
+    string name;
+    string subname;           // ENS label
+    address creator;
+    address roleRegistry;     // Cloned RoleRegistry
+    address accessManager;    // OpenZeppelin AccessManager
+    address token;            // GovToken address
+    // ...
+}
+```

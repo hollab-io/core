@@ -1,0 +1,73 @@
+# Docker & CI/CD
+
+## Docker Setup
+
+The project uses multi-stage Docker builds for production deployment.
+
+### Services
+
+`docker-compose.yml` defines four services:
+
+| Service         | Image               | Port     | Purpose                 |
+| --------------- | ------------------- | -------- | ----------------------- |
+| postgres        | postgres:16-alpine  | internal | Ponder indexer database |
+| indexing-server | Custom (Node 24)    | 42069    | Ponder GraphQL API      |
+| hola-modern     | Custom (nginx:1.27) | internal | Static frontend         |
+| nginx           | nginx:1.27          | 80, 443  | Reverse proxy           |
+
+### Build
+
+```bash
+docker compose build \
+    --build-arg VITE_WALLETCONNECT_PROJECT_ID=your_id \
+    --build-arg VITE_INDEXER_URL=https://your-indexer.com
+
+docker compose up
+```
+
+### Architecture
+
+```
+Internet → nginx (80/443)
+            ├── /api/* → indexing-server (42069)
+            └── /*     → hola-modern (static)
+
+indexing-server → postgres (5432)
+indexing-server → RPC endpoint (external)
+```
+
+## CI/CD (GitHub Actions)
+
+### PR Workflow
+
+On every PR to `dev` or `main`, the `main-workflow.yml` orchestrates:
+
+1. **Build** — Install deps (Node 24, pnpm, Foundry), compile, type-check
+2. **Lint** — ESLint + Prettier
+3. **Test** — Vitest unit tests
+4. **Integration tests** — Contract integration tests
+5. **E2E tests** — Playwright with Chromium
+
+Concurrency groups cancel in-progress runs on the same branch.
+
+### IPFS Deployment
+
+On push to `release` branch (or manual trigger), `deploy-ipfs.yml`:
+
+1. Builds the frontend with production env vars
+2. Deploys to IPFS via **omnipin** (Filecoin pinning)
+3. Updates the `hollab.eth` ENS **contenthash** through a Safe multisig transaction
+
+Required secrets:
+
+-   `OMNIPIN_FILECOIN_TOKEN` — Filecoin pinning API token
+-   `OMNIPIN_PK` — Deployer private key
+-   `SAFE_ADDRESS` — Safe multisig address for ENS updates
+
+### Shared Setup
+
+All workflows use `.github/actions/setup/action.yml`:
+
+-   Node 24 with pnpm cache
+-   Foundry (stable channel)
+-   Frozen lockfile install
