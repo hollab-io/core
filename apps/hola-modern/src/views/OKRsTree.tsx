@@ -1146,13 +1146,13 @@ export default function OKRsTree({ onNavigateToTab, view }: OKRsTreeProps) {
                                 Strategic alignment
                             </p>
                             <h2 className="mt-3 text-3xl font-semibold text-slate-900">
-                                OKRs across circles, roles, and execution
+                                OKRs across teams, roles, and execution
                             </h2>
                             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">
-                                Holacracy gives your circles purpose and clear accountabilities.
-                                This OKR layer adds cycle focus on top of that structure, then
-                                connects each objective back to the projects, actions, and
-                                governance moves already living in the workspace.
+                                Your teams have purpose and clear responsibilities. This OKR layer
+                                adds cycle focus on top of that structure, then connects each
+                                objective back to the projects, actions, and proposals already
+                                living in the workspace.
                             </p>
                         </div>
 

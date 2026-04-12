@@ -10,10 +10,10 @@
  * Only hasPendingRequest is checked on-chain (lightweight single-slot read).
  */
 import type { Abi, Address } from "viem";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { createIndexingClient } from "@hollab-io/indexing-client";
 import { useCallback } from "react";
 import { createPublicClient, http, isAddress } from "viem";
+import { useAccount } from "wagmi";
 
 import { useChain } from "../context/ChainContext";
 import { useSendTransaction } from "./useSendTransaction";
@@ -125,7 +125,7 @@ export type JoinRequestEntry = {
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
 export function useJoinRequest() {
-    const { primaryWallet } = useDynamicContext();
+    const { address: connectedAddress } = useAccount();
     const { send } = useSendTransaction();
     const { chainConfig } = useChain();
 
@@ -134,7 +134,7 @@ export function useJoinRequest() {
         chain: chainConfig.chain,
         transport: http(chainConfig.chain.rpcUrls.default.http[0]),
     });
-    const account = () => (primaryWallet?.address ?? "0x") as Address;
+    const account = () => (connectedAddress ?? "0x") as Address;
 
     // ── Write ──────────────────────────────────────────────────────────────────
 
@@ -227,7 +227,7 @@ export function useJoinRequest() {
         [chainConfig.indexerUrl],
     );
 
-    const walletAddress = primaryWallet?.address;
+    const walletAddress = connectedAddress;
     const hasPendingRequest = useCallback(
         async (orgId: bigint): Promise<boolean> => {
             if (!walletAddress) return false;

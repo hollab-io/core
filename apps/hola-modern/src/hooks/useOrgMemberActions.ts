@@ -1,11 +1,11 @@
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { organizationFactoryAbi } from "@hollab-io/viem-extension";
+import { useAccount } from "wagmi";
 
 import { useSendTransaction } from "./useSendTransaction";
 
 /** Add members via OrganizationFactory.addOrgMember (org admin only). */
 export function useOrgMemberActions() {
-    const { primaryWallet } = useDynamicContext();
+    const { address } = useAccount();
     const { send } = useSendTransaction();
 
     const addOrgMembers = async (params: {
@@ -14,7 +14,7 @@ export function useOrgMemberActions() {
         memberAddresses: `0x${string}`[];
         walletAddress: `0x${string}`;
     }): Promise<`0x${string}`> => {
-        const account = (primaryWallet?.address ?? params.walletAddress) as `0x${string}`;
+        const account = (address ?? params.walletAddress) as `0x${string}`;
         const calls = params.memberAddresses.map((member) => ({
             to: params.orgFactoryAddress,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

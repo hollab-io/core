@@ -1,7 +1,7 @@
 import type { Organization } from "@hollab-io/indexing-client";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, ExternalLink, LogIn, Plus, Users, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 import logoSvg from "../assets/logo.svg";
 import ChainSwitcher from "../components/ChainSwitcher";
@@ -149,17 +149,12 @@ export default function OrganizationsHome({
     const deploy = useDeployOrganization();
 
     // ── Discover: all orgs the user is not a member/creator of ───────────────
-    const [discoverOrgs, setDiscoverOrgs] = useState<Organization[]>([]);
-
-    useEffect(() => {
+    const discoverOrgs = useMemo(() => {
         const myOrgIds = new Set(organizations.map((o) => o.id));
-
-        setDiscoverOrgs(
-            discoverOrganizations.filter(
-                (o) =>
-                    !myOrgIds.has(o.id) &&
-                    o.creator.toLowerCase() !== authenticatedWalletAddress?.toLowerCase(),
-            ),
+        return discoverOrganizations.filter(
+            (o) =>
+                !myOrgIds.has(o.id) &&
+                o.creator.toLowerCase() !== authenticatedWalletAddress?.toLowerCase(),
         );
     }, [organizations, discoverOrganizations, authenticatedWalletAddress]);
 
@@ -583,7 +578,7 @@ export default function OrganizationsHome({
                                         <button
                                             type="button"
                                             onClick={() => setShowCreate(false)}
-                                            disabled={txState === "wallet" || txState === "pending"}
+                                            disabled={txState === "pending"}
                                             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full
                                                 bg-slate-100 dark:bg-white/[0.05]
                                                 ring-1 ring-slate-200 dark:ring-white/[0.08]
@@ -739,7 +734,6 @@ export default function OrganizationsHome({
                                                 }`}
                                             style={{ transitionTimingFunction: SPRING }}
                                         >
-                                            {txState === "wallet" && "Confirm in wallet…"}
                                             {txState === "pending" && "Deploying…"}
                                             {txState === "error" && "Retry"}
                                             {txState === "idle" && "Create workspace"}

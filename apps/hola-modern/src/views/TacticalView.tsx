@@ -10,7 +10,7 @@ import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 const PHASES = [
-    { label: "Check-in", desc: "Each partner shares current state" },
+    { label: "Check-in", desc: "Each member shares current state" },
     { label: "Checklist", desc: "Verify recurring actions" },
     { label: "Metrics", desc: "Share reported metrics" },
     { label: "Progress", desc: "Highlight project updates" },
@@ -80,13 +80,13 @@ export default function TacticalView({
                     className="mb-10"
                 >
                     <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                        Tactical
+                        Team sync
                     </p>
                     <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-slate-900 dark:text-white">
                         Operational sync
                     </h1>
                     <p className="mt-3 max-w-[48ch] text-sm leading-relaxed text-slate-400">
-                        A structured ceremony to process tensions, capture next actions, and advance
+                        A structured sync to surface issues, capture next actions, and advance
                         projects — in seven phases.
                     </p>
                 </motion.div>
@@ -235,7 +235,7 @@ export default function TacticalView({
                                         <p className="mt-0.5 text-xs text-slate-500">
                                             {!tacticalMeetingAddress
                                                 ? "Deploy huddle contracts for this workspace"
-                                                : "7-phase tactical ceremony"}
+                                                : "7-phase team sync"}
                                         </p>
                                     </div>
                                 </div>
@@ -267,7 +267,7 @@ export default function TacticalView({
                     className="mb-8"
                 >
                     <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-                        Huddle phases
+                        Sync phases
                     </p>
                     <div
                         className="grid grid-cols-1 gap-px rounded-[1.5rem] overflow-hidden

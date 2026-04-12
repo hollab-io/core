@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {IMeetingFactory} from 'interfaces/IMeetingFactory.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
 import {IRoleRegistry} from 'interfaces/IRoleRegistry.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
  * @title MeetingFactory
@@ -37,7 +37,10 @@ contract MeetingFactory is IMeetingFactory {
     _initialized = true;
   }
 
-  function initialize(address _orgFactory, address _roleRegistry) external initializer {
+  function initialize(
+    address _orgFactory,
+    address _roleRegistry
+  ) external initializer {
     orgFactory = IOrganizationFactory(_orgFactory);
     roleRegistry = IRoleRegistry(_roleRegistry);
   }
@@ -46,7 +49,10 @@ contract MeetingFactory is IMeetingFactory {
                         MEETING LIFECYCLE
   //////////////////////////////////////////////////////////////*/
 
-  function startMeeting(uint256 _orgId, MeetingKind _kind) external returns (uint256 _meetingId) {
+  function startMeeting(
+    uint256 _orgId,
+    MeetingKind _kind
+  ) external returns (uint256 _meetingId) {
     if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
     }
@@ -55,7 +61,11 @@ contract MeetingFactory is IMeetingFactory {
     emit MeetingStarted(_meetingId, _orgId, _kind, msg.sender, block.timestamp);
   }
 
-  function endMeeting(uint256 _meetingId, uint256 _orgId, MeetingKind _kind) external {
+  function endMeeting(
+    uint256 _meetingId,
+    uint256 _orgId,
+    MeetingKind _kind
+  ) external {
     if (!orgFactory.isOrgAdmin(_orgId, msg.sender)) {
       revert MeetingFactory_NotOrgAdmin(_orgId, msg.sender);
     }

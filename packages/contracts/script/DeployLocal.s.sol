@@ -1,21 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Script, console} from 'forge-std/Script.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
-import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
-import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
-import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
-import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
+import {MeetingFactory} from 'contracts/MeetingFactory.sol';
+import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {RoleRegistry} from 'contracts/RoleRegistry.sol';
+import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
+import {Script, console} from 'forge-std/Script.sol';
+import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /// @notice Stub ENS subdomain registrar for local development — records calls without ENS logic
 contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
   mapping(bytes32 => address) public subnameTargets;
 
-  function registerSubnode(bytes32 _label, address _targetAddress) external {
+  function registerSubnode(
+    bytes32 _label,
+    address _targetAddress
+  ) external {
     subnameTargets[_label] = _targetAddress;
   }
 }
@@ -57,10 +60,7 @@ contract DeployLocal is Script {
       new MeetingComponentsFactory(address(meetingImpl), address(actionVotingImpl));
 
     // ── 4. OrganizationFactory ──────────────────────────────────────────────
-    OrganizationFactory factory = new OrganizationFactory(
-      address(roleRegistryImpl),
-      address(ensRegistrar)
-    );
+    OrganizationFactory factory = new OrganizationFactory(address(roleRegistryImpl), address(ensRegistrar));
 
     // ── 5. Create a sample organization ─────────────────────────────────────
     address[] memory holders = new address[](1);
@@ -72,10 +72,7 @@ contract DeployLocal is Script {
       'demo',
       'A demo Holacracy organization',
       IOrganizationFactory.TokenConfig({
-        tokenName: 'Demo Token',
-        tokenSymbol: 'DEMO',
-        initialHolders: holders,
-        initialAmounts: amounts
+        tokenName: 'Demo Token', tokenSymbol: 'DEMO', initialHolders: holders, initialAmounts: amounts
       })
     );
 
