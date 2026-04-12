@@ -3,9 +3,24 @@ import {
     meetingComponentsFactoryAddress,
     organizationFactoryAddress,
 } from "@hollab-io/contracts/actions";
+import { defineChain } from "viem";
 import { foundry, mainnet, sepolia } from "viem/chains";
 
 const ZERO: Address = "0x0000000000000000000000000000000000000000";
+
+/** 0G Galileo Testnet chain definition */
+export const zgTestnet = defineChain({
+    id: 16602,
+    name: "0G Galileo Testnet",
+    nativeCurrency: { name: "A0GI", symbol: "A0GI", decimals: 18 },
+    rpcUrls: {
+        default: { http: ["https://evmrpc-testnet.0g.ai"] },
+    },
+    blockExplorers: {
+        default: { name: "0G Explorer", url: "https://chainscan-galileo.0g.ai" },
+    },
+    testnet: true,
+});
 
 /** Look up a chain-keyed address map, falling back to zero. */
 function addr(map: Record<number, string>, chainId: number): Address {
@@ -52,11 +67,22 @@ const mainnetConfig: ChainConfig = {
     indexerUrl: import.meta.env.VITE_INDEXER_URL_MAINNET ?? import.meta.env.VITE_INDEXER_URL ?? "",
 };
 
+// ── 0G Testnet (Galileo) ────────────────────────────────────────────────────
+const zgTestnetConfig: ChainConfig = {
+    chain: zgTestnet,
+    label: "0G Testnet",
+    enabled: true,
+    orgFactoryAddress: addr(organizationFactoryAddress, zgTestnet.id),
+    meetingFactoryAddress: addr(meetingComponentsFactoryAddress, zgTestnet.id),
+    indexerUrl: import.meta.env.VITE_INDEXER_URL_0G ?? "",
+};
+
 // ── Registry ─────────────────────────────────────────────────────────────────
 const configs: Record<number, ChainConfig> = {
     [foundry.id]: localhostConfig,
     [sepolia.id]: sepoliaConfig,
     [mainnet.id]: mainnetConfig,
+    [zgTestnet.id]: zgTestnetConfig,
 };
 
 // Default to localhost when local addresses are available, otherwise Sepolia
