@@ -106,11 +106,11 @@ const GOVERNANCE_PHASES: { id: GovernancePhaseId; label: string; description: st
     },
 ];
 
-const IDM_STEPS = [
+const REVIEW_STEPS = [
     {
         step: "a",
         label: "Present proposal",
-        desc: "Proposer describes the Tension and shares a Proposal",
+        desc: "Proposer describes the issue and shares a proposal",
     },
     {
         step: "b",
@@ -122,16 +122,16 @@ const IDM_STEPS = [
         label: "Reaction round",
         desc: "Each participant shares reactions, one at a time",
     },
-    { step: "d", label: "Option to clarify", desc: "Proposer may amend the Proposal" },
+    { step: "d", label: "Option to clarify", desc: "Proposer may amend the proposal" },
     {
         step: "e",
-        label: "Objection round",
-        desc: "Each participant raises concerns; Facilitator captures Objections",
+        label: "Challenge round",
+        desc: "Each participant raises concerns; facilitator captures challenges",
     },
     {
         step: "f",
         label: "Integration",
-        desc: "Resolve each Objection until the Proposal is adopted",
+        desc: "Resolve each challenge until the proposal is adopted",
     },
 ] as const;
 
@@ -402,7 +402,7 @@ function PhaseStepper({
 function IdmSubSteps({ activeSubStep }: { activeSubStep: number }) {
     return (
         <div className="space-y-1.5">
-            {IDM_STEPS.map((step, i) => {
+            {REVIEW_STEPS.map((step, i) => {
                 const active = i === activeSubStep;
                 const done = i < activeSubStep;
                 return (
@@ -765,7 +765,7 @@ function ProposalWizard({
                                         }
                                         rows={4}
                                         placeholder={
-                                            "Reviewing governance proposals\nFacilitating the IDM process\nMaintaining governance records"
+                                            "Reviewing governance proposals\nFacilitating the proposal review process\nMaintaining governance records"
                                         }
                                         className={textareaCls}
                                     />
@@ -1099,7 +1099,7 @@ function PhaseContent({
                                                 Back
                                             </button>
                                             <div className="flex-1" />
-                                            {idmSubStep < IDM_STEPS.length - 1 ? (
+                                            {idmSubStep < REVIEW_STEPS.length - 1 ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => setIdmSubStep((s) => s + 1)}
@@ -1167,7 +1167,7 @@ function PhaseContent({
                                         <div className="grid gap-3 sm:grid-cols-2">
                                             <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3.5">
                                                 <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                                                    Tension
+                                                    Issue
                                                 </div>
                                                 <p className="mt-1.5 text-[12px] leading-relaxed text-slate-200">
                                                     {linkedProposal.tension}
@@ -1185,7 +1185,7 @@ function PhaseContent({
                                         <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-4">
                                             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                                                 <ShieldAlert size={12} />
-                                                Objections
+                                                Challenges
                                             </div>
                                             <div className="mt-3 space-y-2">
                                                 {linkedObjections.length > 0 ? (
@@ -1527,7 +1527,7 @@ export default function GovernanceMeetingRoom({
         setGovernanceMeetingPhase,
         snapshot,
     } = useWorkspaceSnapshot();
-    const { completeMeeting: completeMeetingOnChain, linkProposal } = useGovernanceMeeting();
+    const { linkProposal } = useGovernanceMeeting();
 
     const [activePhaseIndex, setActivePhaseIndex] = useState(0);
     const [drawerTab, setDrawerTab] = useState<DrawerTab>("meeting");
@@ -1616,7 +1616,7 @@ export default function GovernanceMeetingRoom({
             const onChainId =
                 activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id;
             const meetingIdBigInt = /^\d+$/.test(onChainId) ? BigInt(onChainId) : BigInt(0);
-            const orgIdForMeeting = BigInt(orgId ?? activeGovernanceMeeting.orgId ?? "0");
+            const orgIdForMeeting = BigInt(orgId ?? "0");
             const meetingKindGovernance = 1;
 
             // Build governance execution calls from adopted proposals
@@ -1703,7 +1703,7 @@ export default function GovernanceMeetingRoom({
                     meetingId: BigInt(
                         activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id,
                     ),
-                    orgId: BigInt(orgId ?? activeGovernanceMeeting.orgId ?? "0"),
+                    orgId: BigInt(orgId ?? "0"),
                     proposalId: BigInt(proposalId),
                     walletAddress: authenticatedWalletAddress as `0x${string}`,
                 });

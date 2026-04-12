@@ -1,7 +1,5 @@
 import { useState } from "react";
 
-import DynamicGasSponsorshipCard from "../components/DynamicGasSponsorshipCard";
-
 const INTEGRATIONS = [
     {
         id: "trello",
@@ -110,8 +108,6 @@ export default function IntegrationsSettings() {
                 </div>
             ) : (
                 <div className="flex flex-col gap-3">
-                    <DynamicGasSponsorshipCard />
-
                     {INTEGRATIONS.map((item) => {
                         const isEnabled = enabledIntegrations[item.id];
                         return (

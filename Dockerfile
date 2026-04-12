@@ -63,10 +63,10 @@ COPY --from=hola-modern-pruner /app/out/full/ .
 # Root tsconfig not included in turbo prune output; packages extend it
 COPY tsconfig*.json ./
 # VITE_ vars are inlined at build time — declare as ARG then promote to ENV
-ARG VITE_DYNAMIC_ENVIRONMENT_ID
+ARG VITE_WALLETCONNECT_PROJECT_ID
 ARG VITE_INDEXER_URL
 ARG VITE_JOIN_REQUEST_ADDRESS
-ENV VITE_DYNAMIC_ENVIRONMENT_ID=$VITE_DYNAMIC_ENVIRONMENT_ID
+ENV VITE_WALLETCONNECT_PROJECT_ID=$VITE_WALLETCONNECT_PROJECT_ID
 ENV VITE_INDEXER_URL=$VITE_INDEXER_URL
 ENV VITE_JOIN_REQUEST_ADDRESS=$VITE_JOIN_REQUEST_ADDRESS
 # Build workspace deps first (viem-extension, indexing-client), then hola-modern.

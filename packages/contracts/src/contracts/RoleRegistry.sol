@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {IRoleRegistry} from 'interfaces/IRoleRegistry.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
  * @title RoleRegistry
@@ -79,7 +79,9 @@ contract RoleRegistry is IRoleRegistry {
 
   /// @notice Sets the governance process address (can only be set once)
   /// @param _governanceProcess The address of the governance process (MeetingFactory)
-  function setGovernanceProcess(address _governanceProcess) external {
+  function setGovernanceProcess(
+    address _governanceProcess
+  ) external {
     if (governanceProcess != address(0)) revert RoleRegistry_Unauthorized();
     governanceProcess = _governanceProcess;
   }
@@ -94,38 +96,51 @@ contract RoleRegistry is IRoleRegistry {
   }
 
   /// @inheritdoc IRoleRegistry
-  function getRole(uint256 _roleId) external view returns (HolacracyTypes.Role memory _role) {
+  function getRole(
+    uint256 _roleId
+  ) external view returns (HolacracyTypes.Role memory _role) {
     _role = _roles[_roleId];
     if (!_role.exists) revert RoleRegistry_RoleNotFound(_roleId);
   }
 
   /// @inheritdoc IRoleRegistry
-  function getRoleDomains(uint256 _roleId) external view returns (string[] memory _domains) {
+  function getRoleDomains(
+    uint256 _roleId
+  ) external view returns (string[] memory _domains) {
     if (!_roles[_roleId].exists) revert RoleRegistry_RoleNotFound(_roleId);
     _domains = _roles[_roleId].domains;
   }
 
   /// @inheritdoc IRoleRegistry
-  function getRoleAccountabilities(uint256 _roleId) external view returns (string[] memory _accountabilities) {
+  function getRoleAccountabilities(
+    uint256 _roleId
+  ) external view returns (string[] memory _accountabilities) {
     if (!_roles[_roleId].exists) revert RoleRegistry_RoleNotFound(_roleId);
     _accountabilities = _roles[_roleId].accountabilities;
   }
 
   /// @inheritdoc IRoleRegistry
-  function getRoleLeads(uint256 _roleId) external view returns (address[] memory _leads) {
+  function getRoleLeads(
+    uint256 _roleId
+  ) external view returns (address[] memory _leads) {
     if (!_roles[_roleId].exists) revert RoleRegistry_RoleNotFound(_roleId);
     _leads = _roleLeads[_roleId];
   }
 
   /// @inheritdoc IRoleRegistry
-  function isRoleLead(uint256 _roleId, address _account) external view returns (bool _isLead) {
+  function isRoleLead(
+    uint256 _roleId,
+    address _account
+  ) external view returns (bool _isLead) {
     _isLead = _isRoleLead[_roleId][_account];
   }
 
   /// @notice Returns all role IDs within a circle
   /// @param _circleId The circle ID
   /// @return _roleIds The role IDs
-  function getCircleRoleIds(uint256 _circleId) external view returns (uint256[] memory _roleIds) {
+  function getCircleRoleIds(
+    uint256 _circleId
+  ) external view returns (uint256[] memory _roleIds) {
     _roleIds = _circleRoles[_circleId];
   }
 
@@ -156,7 +171,9 @@ contract RoleRegistry is IRoleRegistry {
   }
 
   /// @inheritdoc IRoleRegistry
-  function removeRole(uint256 _roleId) external onlyGovernanceProcess {
+  function removeRole(
+    uint256 _roleId
+  ) external onlyGovernanceProcess {
     HolacracyTypes.Role storage _role = _roles[_roleId];
     if (!_role.exists) revert RoleRegistry_RoleNotFound(_roleId);
 
@@ -186,7 +203,10 @@ contract RoleRegistry is IRoleRegistry {
   }
 
   /// @inheritdoc IRoleRegistry
-  function assignRoleLead(uint256 _roleId, address _lead) external onlyGovernanceProcess {
+  function assignRoleLead(
+    uint256 _roleId,
+    address _lead
+  ) external onlyGovernanceProcess {
     if (!_roles[_roleId].exists) revert RoleRegistry_RoleNotFound(_roleId);
     if (_isRoleLead[_roleId][_lead]) revert RoleRegistry_AlreadyRoleLead(_roleId, _lead);
 
@@ -197,7 +217,10 @@ contract RoleRegistry is IRoleRegistry {
   }
 
   /// @inheritdoc IRoleRegistry
-  function unassignRoleLead(uint256 _roleId, address _lead) external onlyGovernanceProcess {
+  function unassignRoleLead(
+    uint256 _roleId,
+    address _lead
+  ) external onlyGovernanceProcess {
     if (!_roles[_roleId].exists) revert RoleRegistry_RoleNotFound(_roleId);
     if (!_isRoleLead[_roleId][_lead]) revert RoleRegistry_NotRoleLead(_roleId, _lead);
 

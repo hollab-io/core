@@ -1,21 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Script, console} from 'forge-std/Script.sol';
 import {DeployConfig} from './DeployConfig.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
-import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
-import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
-import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
+import {MeetingFactory} from 'contracts/MeetingFactory.sol';
+import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {ENSSubdomainRegistrar} from 'ens/ENSSubdomainRegistrar.sol';
+import {Script, console} from 'forge-std/Script.sol';
+import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 interface IENS {
-  function owner(bytes32 node) external view returns (address);
+  function owner(
+    bytes32 node
+  ) external view returns (address);
 
-  function setApprovalForAll(address operator, bool approved) external;
+  function setApprovalForAll(
+    address operator,
+    bool approved
+  ) external;
 }
 
 /**
@@ -75,10 +80,7 @@ contract DeploySepolia is Script {
       new MeetingComponentsFactory(address(meetingImpl), address(actionVotingImpl));
 
     // ── 4. OrganizationFactory ────────────────────────────────────────────────
-    OrganizationFactory orgFactory = new OrganizationFactory(
-      address(roleRegistryImpl),
-      address(ensRegistrar)
-    );
+    OrganizationFactory orgFactory = new OrganizationFactory(address(roleRegistryImpl), address(ensRegistrar));
     ensRegistrar.authorize(address(orgFactory));
 
     // ── 5. Create the first organization ──────────────────────────────────────

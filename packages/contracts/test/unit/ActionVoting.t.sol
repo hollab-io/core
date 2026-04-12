@@ -1,19 +1,21 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
+import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
 import {ActionVoting, IActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingFactory} from 'contracts/MeetingFactory.sol';
-import {OrganizationFactory, IOrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {GovToken} from 'contracts/governance/GovToken.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
-import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
+import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {Test} from 'forge-std/Test.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 contract StubENSRegistrarForActionVoting is IENSSubdomainRegistrar {
-  // solhint-disable-next-line no-empty-blocks
-  function registerSubnode(bytes32, address) external {}
+  function registerSubnode(
+    bytes32,
+    address
+  ) external {} // solhint-disable-line no-empty-blocks
 }
 
 contract UnitActionVoting is Test {
@@ -36,18 +38,12 @@ contract UnitActionVoting is Test {
     uint256[] memory _amounts = new uint256[](1);
     _amounts[0] = 1_000_000e18;
     _cfg = IOrganizationFactory.TokenConfig({
-      tokenName: 'HolLab Gov',
-      tokenSymbol: 'GOV',
-      initialHolders: _holders,
-      initialAmounts: _amounts
+      tokenName: 'HolLab Gov', tokenSymbol: 'GOV', initialHolders: _holders, initialAmounts: _amounts
     });
   }
 
   function setUp() external {
-    _orgFactory = new OrganizationFactory(
-      address(new RoleRegistry()),
-      address(new StubENSRegistrarForActionVoting())
-    );
+    _orgFactory = new OrganizationFactory(address(new RoleRegistry()), address(new StubENSRegistrarForActionVoting()));
     _meetingFactory = MeetingFactory(Clones.clone(address(new MeetingFactory())));
     _actionVoting = ActionVoting(Clones.clone(address(new ActionVoting())));
     _govToken = new GovToken('HolLab Gov', 'GOV', address(this));

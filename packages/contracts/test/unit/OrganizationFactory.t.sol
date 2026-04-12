@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
-import {OrganizationFactory, IOrganizationFactory} from 'contracts/OrganizationFactory.sol';
-import {RoleRegistry, IRoleRegistry} from 'contracts/RoleRegistry.sol';
+import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {IRoleRegistry, RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {Test} from 'forge-std/Test.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /// @notice Mock ENS subdomain registrar that records calls without ENS logic
 contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
@@ -16,7 +16,10 @@ contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
 
   SubnodeCall[] public calls;
 
-  function registerSubnode(bytes32 _label, address _targetAddress) external {
+  function registerSubnode(
+    bytes32 _label,
+    address _targetAddress
+  ) external {
     calls.push(SubnodeCall(_label, _targetAddress));
   }
 
@@ -24,7 +27,9 @@ contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
     return calls.length;
   }
 
-  function getCall(uint256 _idx) external view returns (SubnodeCall memory) {
+  function getCall(
+    uint256 _idx
+  ) external view returns (SubnodeCall memory) {
     return calls[_idx];
   }
 }
@@ -43,10 +48,7 @@ contract UnitOrganizationFactory is Test {
 
     address roleRegistryImpl = address(new RoleRegistry());
 
-    _factory = new OrganizationFactory(
-      roleRegistryImpl,
-      address(_mockRegistrar)
-    );
+    _factory = new OrganizationFactory(roleRegistryImpl, address(_mockRegistrar));
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -60,10 +62,7 @@ contract UnitOrganizationFactory is Test {
     amounts[0] = 1_000_000e18;
 
     return IOrganizationFactory.TokenConfig({
-      tokenName: 'OrgToken',
-      tokenSymbol: 'ORG',
-      initialHolders: holders,
-      initialAmounts: amounts
+      tokenName: 'OrgToken', tokenSymbol: 'ORG', initialHolders: holders, initialAmounts: amounts
     });
   }
 
@@ -205,27 +204,19 @@ contract UnitOrganizationFactory is Test {
     vm.startPrank(_creator1);
 
     // it reverts with uppercase
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'MyOrg')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'MyOrg'));
     _factory.createOrganization('MyOrg', 'Purpose', _cfg);
 
     // it reverts with spaces
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my org')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my org'));
     _factory.createOrganization('my org', 'Purpose', _cfg);
 
     // it reverts with underscores
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my_org')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my_org'));
     _factory.createOrganization('my_org', 'Purpose', _cfg);
 
     // it reverts with dots
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my.org')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my.org'));
     _factory.createOrganization('my.org', 'Purpose', _cfg);
 
     vm.stopPrank();
@@ -237,15 +228,11 @@ contract UnitOrganizationFactory is Test {
     vm.startPrank(_creator1);
 
     // it reverts with leading hyphen
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, '-myorg')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, '-myorg'));
     _factory.createOrganization('-myorg', 'Purpose', _cfg);
 
     // it reverts with trailing hyphen
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'myorg-')
-    );
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'myorg-'));
     _factory.createOrganization('myorg-', 'Purpose', _cfg);
 
     vm.stopPrank();

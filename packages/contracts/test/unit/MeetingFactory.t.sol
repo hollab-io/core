@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
-import {MeetingFactory, IMeetingFactory} from 'contracts/MeetingFactory.sol';
-import {OrganizationFactory, IOrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
+import {IMeetingFactory, MeetingFactory} from 'contracts/MeetingFactory.sol';
+import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
-import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
 import {Test} from 'forge-std/Test.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 contract StubENSRegistrarForMeetingFactory is IENSSubdomainRegistrar {
-  // solhint-disable-next-line no-empty-blocks
-  function registerSubnode(bytes32, address) external {}
+  function registerSubnode(
+    bytes32,
+    address
+  ) external {} // solhint-disable-line no-empty-blocks
 }
 
 contract UnitMeetingFactory is Test {
@@ -30,18 +32,12 @@ contract UnitMeetingFactory is Test {
     uint256[] memory _amounts = new uint256[](1);
     _amounts[0] = 1_000_000e18;
     _cfg = IOrganizationFactory.TokenConfig({
-      tokenName: 'Meeting Token',
-      tokenSymbol: 'MFG',
-      initialHolders: _holders,
-      initialAmounts: _amounts
+      tokenName: 'Meeting Token', tokenSymbol: 'MFG', initialHolders: _holders, initialAmounts: _amounts
     });
   }
 
   function setUp() external {
-    _orgFactory = new OrganizationFactory(
-      address(new RoleRegistry()),
-      address(new StubENSRegistrarForMeetingFactory())
-    );
+    _orgFactory = new OrganizationFactory(address(new RoleRegistry()), address(new StubENSRegistrarForMeetingFactory()));
     _meetingFactory = MeetingFactory(Clones.clone(address(new MeetingFactory())));
 
     vm.prank(_deployer);

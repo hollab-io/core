@@ -1,7 +1,7 @@
 import { Moon, Sun } from "lucide-react";
 
 import type { AppTabId } from "../config/navigation";
-import DynamicAuthControl from "./DynamicAuthControl";
+import WalletAuthControl from "./WalletAuthControl";
 
 type TopbarProps = {
     activeTab: AppTabId;
@@ -132,7 +132,7 @@ export default function Topbar({
                     </button>
 
                     {/* Wallet auth */}
-                    <DynamicAuthControl />
+                    <WalletAuthControl />
                 </div>
             </div>
         </header>
