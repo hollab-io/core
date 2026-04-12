@@ -25,9 +25,15 @@ interface IMeetingFactory {
   //////////////////////////////////////////////////////////////*/
 
   event MeetingStarted(
-    uint256 indexed _meetingId, uint256 indexed _orgId, MeetingKind indexed _kind, address _startedBy, uint256 _timestamp
+    uint256 indexed _meetingId,
+    uint256 indexed _orgId,
+    MeetingKind indexed _kind,
+    address _startedBy,
+    uint256 _timestamp
   );
-  event MeetingEnded(uint256 indexed _meetingId, uint256 indexed _orgId, MeetingKind indexed _kind, address _endedBy, uint256 _timestamp);
+  event MeetingEnded(
+    uint256 indexed _meetingId, uint256 indexed _orgId, MeetingKind indexed _kind, address _endedBy, uint256 _timestamp
+  );
   event MeetingOutputRecorded(
     uint256 indexed _meetingId,
     uint256 indexed _itemId,
@@ -37,7 +43,9 @@ interface IMeetingFactory {
     uint256 _roleId,
     string _description
   );
-  event MeetingProposalLinked(uint256 indexed _meetingId, uint256 indexed _itemId, uint256 indexed _orgId, uint256 _proposalId);
+  event MeetingProposalLinked(
+    uint256 indexed _meetingId, uint256 indexed _itemId, uint256 indexed _orgId, uint256 _proposalId
+  );
 
   /// @notice Emitted when a governance proposal is executed on-chain (role created/amended/removed)
   event GovernanceExecuted(
@@ -61,9 +69,19 @@ interface IMeetingFactory {
                             LOGIC
   //////////////////////////////////////////////////////////////*/
 
-  function initialize(address _orgFactory, address _roleRegistry) external;
-  function startMeeting(uint256 _orgId, MeetingKind _kind) external returns (uint256 _meetingId);
-  function endMeeting(uint256 _meetingId, uint256 _orgId, MeetingKind _kind) external;
+  function initialize(
+    address _orgFactory,
+    address _roleRegistry
+  ) external;
+  function startMeeting(
+    uint256 _orgId,
+    MeetingKind _kind
+  ) external returns (uint256 _meetingId);
+  function endMeeting(
+    uint256 _meetingId,
+    uint256 _orgId,
+    MeetingKind _kind
+  ) external;
   function recordOutput(
     uint256 _meetingId,
     uint256 _orgId,

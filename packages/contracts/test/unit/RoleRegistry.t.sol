@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
-import {RoleRegistry, IRoleRegistry} from 'contracts/RoleRegistry.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
+import {IRoleRegistry, RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {Test} from 'forge-std/Test.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 contract UnitRoleRegistry is Test {
   RoleRegistry internal _roleRegistry;
@@ -130,7 +130,9 @@ contract UnitRoleRegistry is Test {
     assertEq(_storedAccs.length, 1);
   }
 
-  function test_CreateRoleWhenCalledByNonGovernanceProcess(address _caller) external {
+  function test_CreateRoleWhenCalledByNonGovernanceProcess(
+    address _caller
+  ) external {
     vm.assume(_caller != _governanceProcess);
     vm.prank(_caller);
 

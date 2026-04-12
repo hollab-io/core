@@ -3,10 +3,10 @@ pragma solidity 0.8.28;
 
 import {Test} from 'forge-std/Test.sol';
 
-import {OrganizationFactory, IOrganizationFactory} from 'contracts/OrganizationFactory.sol';
-import {MeetingComponentsFactory, IMeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
-import {MeetingFactory, IMeetingFactory} from 'contracts/MeetingFactory.sol';
 import {ActionVoting, IActionVoting} from 'contracts/ActionVoting.sol';
+import {IMeetingComponentsFactory, MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
+import {IMeetingFactory, MeetingFactory} from 'contracts/MeetingFactory.sol';
+import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {GovToken} from 'contracts/governance/GovToken.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
@@ -14,8 +14,7 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /// @notice Stub ENS registrar for testing
 contract StubENSRegistrar is IENSSubdomainRegistrar {
-  // solhint-disable-next-line no-empty-blocks
-  function registerSubnode(bytes32, address) external {}
+  function registerSubnode(bytes32, address) external {} // solhint-disable-line no-empty-blocks
 }
 
 /**
@@ -55,10 +54,7 @@ contract E2EJourney is Test {
     _amounts[0] = 1_000_000e18;
 
     _cfg = IOrganizationFactory.TokenConfig({
-      tokenName: 'Journey Token',
-      tokenSymbol: 'JRN',
-      initialHolders: _holders,
-      initialAmounts: _amounts
+      tokenName: 'Journey Token', tokenSymbol: 'JRN', initialHolders: _holders, initialAmounts: _amounts
     });
   }
 
@@ -166,17 +162,13 @@ contract E2EJourney is Test {
 
     vm.prank(_bob);
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IOrganizationFactory.OrganizationFactory_JoinRequestUnauthorized.selector, _bob, _orgId
-      )
+      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_JoinRequestUnauthorized.selector, _bob, _orgId)
     );
     _orgFactory.approveJoinRequest(_orgId, _alice);
 
     vm.prank(_bob);
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IOrganizationFactory.OrganizationFactory_JoinRequestUnauthorized.selector, _bob, _orgId
-      )
+      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_JoinRequestUnauthorized.selector, _bob, _orgId)
     );
     _orgFactory.rejectJoinRequest(_orgId, _alice);
   }
@@ -231,15 +223,13 @@ contract E2EJourney is Test {
     assertEq(_meetingId, 1);
 
     vm.prank(_alice);
-    uint256 _itemId1 = _mf.recordOutput(
-      _meetingId, _orgId, HolacracyTypes.OutputType.NextAction, 'Set up project board', _alice, 0
-    );
+    uint256 _itemId1 =
+      _mf.recordOutput(_meetingId, _orgId, HolacracyTypes.OutputType.NextAction, 'Set up project board', _alice, 0);
     assertEq(_itemId1, 1);
 
     vm.prank(_founder);
-    uint256 _itemId2 = _mf.recordOutput(
-      _meetingId, _orgId, HolacracyTypes.OutputType.Project, 'Launch website', _founder, 0
-    );
+    uint256 _itemId2 =
+      _mf.recordOutput(_meetingId, _orgId, HolacracyTypes.OutputType.Project, 'Launch website', _founder, 0);
     assertEq(_itemId2, 2);
 
     vm.prank(_founder);
@@ -251,9 +241,7 @@ contract E2EJourney is Test {
     _deployMeetingComponents();
 
     vm.prank(_stranger);
-    vm.expectRevert(
-      abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotOrgMember.selector, _orgId, _stranger)
-    );
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotOrgMember.selector, _orgId, _stranger));
     _mf.startMeeting(_orgId, IMeetingFactory.MeetingKind.Tactical);
   }
 
@@ -357,9 +345,7 @@ contract E2EJourney is Test {
     _av.setCircleMintCap(_orgId, 100e18);
     _av.grantCollaboratorWeight(_orgId, _alice, 80e18);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(IActionVoting.ActionVoting_MintCapExceeded.selector, _orgId, 30e18, 20e18)
-    );
+    vm.expectRevert(abi.encodeWithSelector(IActionVoting.ActionVoting_MintCapExceeded.selector, _orgId, 30e18, 20e18));
     _av.grantCollaboratorWeight(_orgId, _bob, 30e18);
 
     _av.grantCollaboratorWeight(_orgId, _bob, 20e18);

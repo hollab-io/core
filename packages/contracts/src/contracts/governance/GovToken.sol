@@ -11,37 +11,48 @@ import {Nonces} from 'lib/openzeppelin-contracts/contracts/utils/Nonces.sol';
 ///         A designated minter address can mint new tokens and transfer the minter
 ///         role to another address (e.g. the org creator after initial minting).
 contract GovToken is ERC20, ERC20Permit, ERC20Votes {
-    address public minter;
+  address public minter;
 
-    error NotMinter();
+  error NotMinter();
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        address _minter
-    ) ERC20(_name, _symbol) ERC20Permit(_name) {
-        minter = _minter;
-    }
+  constructor(
+    string memory _name,
+    string memory _symbol,
+    address _minter
+  ) ERC20(_name, _symbol) ERC20Permit(_name) {
+    minter = _minter;
+  }
 
-    /// @notice Mint `amount` tokens to `to`. Only callable by the current minter.
-    function mint(address to, uint256 amount) external {
-        if (msg.sender != minter) revert NotMinter();
-        _mint(to, amount);
-    }
+  /// @notice Mint `amount` tokens to `to`. Only callable by the current minter.
+  function mint(
+    address to,
+    uint256 amount
+  ) external {
+    if (msg.sender != minter) revert NotMinter();
+    _mint(to, amount);
+  }
 
-    /// @notice Transfer the minter role to `_newMinter`. Only callable by the current minter.
-    function setMinter(address _newMinter) external {
-        if (msg.sender != minter) revert NotMinter();
-        minter = _newMinter;
-    }
+  /// @notice Transfer the minter role to `_newMinter`. Only callable by the current minter.
+  function setMinter(
+    address _newMinter
+  ) external {
+    if (msg.sender != minter) revert NotMinter();
+    minter = _newMinter;
+  }
 
-    // Required overrides
+  // Required overrides
 
-    function _update(address from, address to, uint256 value) internal override(ERC20, ERC20Votes) {
-        super._update(from, to, value);
-    }
+  function _update(
+    address from,
+    address to,
+    uint256 value
+  ) internal override(ERC20, ERC20Votes) {
+    super._update(from, to, value);
+  }
 
-    function nonces(address owner) public view override(ERC20Permit, Nonces) returns (uint256) {
-        return super.nonces(owner);
-    }
+  function nonces(
+    address owner
+  ) public view override(ERC20Permit, Nonces) returns (uint256) {
+    return super.nonces(owner);
+  }
 }
