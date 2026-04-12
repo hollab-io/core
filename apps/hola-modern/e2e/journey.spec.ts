@@ -608,7 +608,7 @@ test.describe("Voting", () => {
         }
 
         // Mine a block so snapshots are available
-        await pub.request({ method: "evm_mine" as any, params: [] });
+        await pub.request({ method: "evm_mine" as never, params: [] });
 
         // Set quorum
         await pub.waitForTransactionReceipt({
@@ -870,7 +870,7 @@ test.describe("Data display", () => {
         expect(orgCreatedLogs.length).toBeGreaterThan(0);
 
         // Alice and Bob request to join
-        const aliceJoinReceipt = await pub.waitForTransactionReceipt({
+        await pub.waitForTransactionReceipt({
             hash: await aliceWc.writeContract({
                 address: ADDRESSES.orgFactory,
                 abi: orgFactoryAbi,
@@ -886,18 +886,6 @@ test.describe("Data display", () => {
                 args: [orgId, "Bob joining"],
             }),
         });
-
-        // Query JoinRequested logs from the chain (mimics indexer backfill)
-        const joinRequestedTopic =
-            "0x" +
-            Buffer.from(
-                new Uint8Array(
-                    await crypto.subtle.digest(
-                        "SHA-256",
-                        new TextEncoder().encode("unused"), // we'll use getLogs filter instead
-                    ),
-                ),
-            ).toString("hex");
 
         // Use getLogs to find all JoinRequested events for this org
         const joinLogs = await pub.getLogs({
@@ -1056,7 +1044,7 @@ test.describe("Data display", () => {
                 }),
             });
         }
-        await pub.request({ method: "evm_mine" as any, params: [] });
+        await pub.request({ method: "evm_mine" as never, params: [] });
 
         // Setup quorum + create vote
         await pub.waitForTransactionReceipt({

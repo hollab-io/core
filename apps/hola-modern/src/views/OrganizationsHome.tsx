@@ -1,7 +1,7 @@
 import type { Organization } from "@hollab-io/indexing-client";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, ExternalLink, LogIn, Plus, Users, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
 import logoSvg from "../assets/logo.svg";
 import ChainSwitcher from "../components/ChainSwitcher";
@@ -149,17 +149,12 @@ export default function OrganizationsHome({
     const deploy = useDeployOrganization();
 
     // ── Discover: all orgs the user is not a member/creator of ───────────────
-    const [discoverOrgs, setDiscoverOrgs] = useState<Organization[]>([]);
-
-    useEffect(() => {
+    const discoverOrgs = useMemo(() => {
         const myOrgIds = new Set(organizations.map((o) => o.id));
-
-        setDiscoverOrgs(
-            discoverOrganizations.filter(
-                (o) =>
-                    !myOrgIds.has(o.id) &&
-                    o.creator.toLowerCase() !== authenticatedWalletAddress?.toLowerCase(),
-            ),
+        return discoverOrganizations.filter(
+            (o) =>
+                !myOrgIds.has(o.id) &&
+                o.creator.toLowerCase() !== authenticatedWalletAddress?.toLowerCase(),
         );
     }, [organizations, discoverOrganizations, authenticatedWalletAddress]);
 
