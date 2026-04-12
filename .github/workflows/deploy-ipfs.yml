@@ -1,0 +1,46 @@
+name: Deploy to IPFS (eth.limo)
+
+on:
+    push:
+        branches:
+            - release
+    workflow_dispatch:
+
+concurrency:
+    group: deploy-ipfs
+    cancel-in-progress: false
+
+jobs:
+    deploy:
+        name: Build & pin to IPFS
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 1
+
+            - name: Setup environment
+              uses: ./.github/actions/setup
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Build frontend
+              run: pnpm --filter hola-modern build
+
+            - name: Install omnipin
+              run: npm install -g omnipin
+
+            # Deploy built assets to IPFS via Filecoin and update
+            # the hollab.eth contenthash through a Safe multisig.
+            #
+            # Required secrets:
+            #   OMNIPIN_FILECOIN_TOKEN — Filecoin storage provider token
+            #   OMNIPIN_PK            — Private key of the Safe proposer address
+            - name: Deploy to IPFS & update ENS
+              run: omnipin deploy apps/hola-modern/dist --ens hollab.eth --safe ${{ secrets.SAFE_ADDRESS }}
+              env:
+                  OMNIPIN_FILECOIN_TOKEN: ${{ secrets.OMNIPIN_FILECOIN_TOKEN }}
+                  OMNIPIN_PK: ${{ secrets.OMNIPIN_PK }}
