@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import {IVotes} from '@openzeppelin/contracts/governance/utils/IVotes.sol';
 import {IActionVoting} from 'interfaces/IActionVoting.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
-import {IVotes} from '@openzeppelin/contracts/governance/utils/IVotes.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
