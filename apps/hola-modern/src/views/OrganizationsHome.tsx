@@ -583,7 +583,7 @@ export default function OrganizationsHome({
                                         <button
                                             type="button"
                                             onClick={() => setShowCreate(false)}
-                                            disabled={txState === "wallet" || txState === "pending"}
+                                            disabled={txState === "pending"}
                                             className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full
                                                 bg-slate-100 dark:bg-white/[0.05]
                                                 ring-1 ring-slate-200 dark:ring-white/[0.08]
@@ -739,7 +739,6 @@ export default function OrganizationsHome({
                                                 }`}
                                             style={{ transitionTimingFunction: SPRING }}
                                         >
-                                            {txState === "wallet" && "Confirm in wallet…"}
                                             {txState === "pending" && "Deploying…"}
                                             {txState === "error" && "Retry"}
                                             {txState === "idle" && "Create workspace"}

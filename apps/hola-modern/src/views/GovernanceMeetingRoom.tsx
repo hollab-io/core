@@ -1527,7 +1527,7 @@ export default function GovernanceMeetingRoom({
         setGovernanceMeetingPhase,
         snapshot,
     } = useWorkspaceSnapshot();
-    const { completeMeeting: completeMeetingOnChain, linkProposal } = useGovernanceMeeting();
+    const { linkProposal } = useGovernanceMeeting();
 
     const [activePhaseIndex, setActivePhaseIndex] = useState(0);
     const [drawerTab, setDrawerTab] = useState<DrawerTab>("meeting");
@@ -1616,7 +1616,7 @@ export default function GovernanceMeetingRoom({
             const onChainId =
                 activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id;
             const meetingIdBigInt = /^\d+$/.test(onChainId) ? BigInt(onChainId) : BigInt(0);
-            const orgIdForMeeting = BigInt(orgId ?? activeGovernanceMeeting.orgId ?? "0");
+            const orgIdForMeeting = BigInt(orgId ?? "0");
             const meetingKindGovernance = 1;
 
             // Build governance execution calls from adopted proposals
@@ -1703,7 +1703,7 @@ export default function GovernanceMeetingRoom({
                     meetingId: BigInt(
                         activeGovernanceMeeting.onChainMeetingId ?? activeGovernanceMeeting.id,
                     ),
-                    orgId: BigInt(orgId ?? activeGovernanceMeeting.orgId ?? "0"),
+                    orgId: BigInt(orgId ?? "0"),
                     proposalId: BigInt(proposalId),
                     walletAddress: authenticatedWalletAddress as `0x${string}`,
                 });

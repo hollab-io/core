@@ -299,7 +299,7 @@ export default function TacticalMeetingRoom({
                 outputId: `${Date.now()}${i}`,
                 contractAddress: contractAddr,
                 meetingId: activeMeeting.meetingId,
-                outputType: po.outputType,
+                outputType: po.outputType as MeetingOutput["outputType"],
                 description: po.description,
                 assignedTo: ((po.assignedTo || authenticatedWalletAddress) ??
                     "0x") as `0x${string}`,
