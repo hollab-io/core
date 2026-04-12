@@ -14,7 +14,10 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /// @notice Stub ENS registrar for testing
 contract StubENSRegistrar is IENSSubdomainRegistrar {
-  function registerSubnode(bytes32, address) external {} // solhint-disable-line no-empty-blocks
+  function registerSubnode(
+    bytes32,
+    address
+  ) external {} // solhint-disable-line no-empty-blocks
 }
 
 /**

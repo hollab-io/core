@@ -10,7 +10,10 @@ import {Test} from 'forge-std/Test.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 contract StubENSRegistrarForMeetingFactory is IENSSubdomainRegistrar {
-  function registerSubnode(bytes32, address) external {} // solhint-disable-line no-empty-blocks
+  function registerSubnode(
+    bytes32,
+    address
+  ) external {} // solhint-disable-line no-empty-blocks
 }
 
 contract UnitMeetingFactory is Test {
