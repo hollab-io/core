@@ -1,0 +1,99 @@
+# User Journey
+
+The application guides users through wallet connection, org creation, and collaborative governance.
+
+## 1. Connect Wallet
+
+Users land on the Welcome page and connect their wallet via RainbowKit. No authentication beyond wallet ownership — the connected address is the user's identity.
+
+## 2. Organization Selection
+
+After connecting, users see OrganizationsHome with:
+
+-   **Their organizations** — Orgs they created or are a member of
+-   **Discoverable organizations** — Other orgs on the network (guest preview mode)
+-   **Create new** — Start the org creation flow
+
+## 3. Create an Organization
+
+### Organization Onboarding
+
+The creator sets:
+
+-   Organization name
+-   ENS subname (e.g., `myorg` → `myorg.hollab.eth`)
+-   Purpose statement
+
+This calls `OrganizationFactory.createOrganization()`, deploying the full infrastructure in one transaction.
+
+### Member Onboarding
+
+The creator invites initial members by wallet address or ENS name. Members are added via `addOrgMember()` and receive governance tokens via `GovToken.mint()`.
+
+## 4. Workspace
+
+Once an org is set up, the workspace shows five tabs in a floating pill navigation at the bottom:
+
+### Tactical
+
+Seven-phase operational meetings following the Holacracy tactical process:
+
+1. **Check-in** — Each participant shares what's on their mind
+2. **Checklist** — Review recurring actions
+3. **Metrics** — Review quantitative health indicators
+4. **Progress** — Update on projects
+5. **Agenda** — Build agenda from tensions
+6. **Triage** — Process each agenda item → next actions, projects, requests
+7. **Closing** — Reflections on the meeting
+
+Outputs (next actions, projects) are recorded on-chain via `MeetingFactory.recordOutput()`.
+
+### Governance
+
+Integrative Decision-Making for structural changes:
+
+1. **Present proposal** — Describe the tension and proposed change
+2. **Clarifying questions** — Ask questions (no reactions)
+3. **Reaction round** — Each person reacts (no discussion)
+4. **Amend & clarify** — Proposer can modify
+5. **Objection round** — Raise valid objections (or none)
+6. **Integration** — Integrate objections into the proposal
+
+Adopted proposals execute via `MeetingFactory.executeGovernance()`, which modifies roles on the RoleRegistry.
+
+### Actions
+
+Lists all next actions and projects from tactical meetings. Tracks status and assignees.
+
+### Structure
+
+Visual org chart showing:
+
+-   Circles (sub-organizations) as nested groups
+-   Roles within each circle
+-   Role leads (people assigned to roles)
+-   Add/remove member controls
+
+Uses D3 force/hierarchy for interactive visualization.
+
+### Constitution
+
+Read-only reference to the Holacracy Constitution rules — the governance framework the system implements.
+
+## 5. Join an Organization
+
+External users can:
+
+1. Preview an organization in guest mode
+2. Submit a join request via `OrganizationFactory.requestToJoin()`
+3. Wait for an admin to approve via `approveJoinRequest()`
+4. On approval, gain membership and sync into the workspace
+
+## Roles
+
+| Role        | Capabilities                                                  |
+| ----------- | ------------------------------------------------------------- |
+| **Creator** | Full admin, creates org, invites members, manages structure   |
+| **Admin**   | Convene meetings, record outputs, create votes, approve joins |
+| **Member**  | Attend meetings, cast votes, view structure, create tensions  |
+| **Guest**   | Preview org (read-only), request to join                      |

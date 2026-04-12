@@ -1,0 +1,71 @@
+# Key Management
+
+The SDK uses a hierarchical key derivation scheme based on HKDF-SHA256 to generate encryption keys scoped to organizations, circles, and roles.
+
+## Key Hierarchy
+
+```
+Wallet Signature
+  └─ HKDF → Master Key (per org)
+       ├─ HKDF("org" + orgId)    → Org Key
+       ├─ HKDF("circle" + circleId) → Circle Key
+       │    └─ HKDF("role" + roleId)   → Role Key
+       └─ ...
+```
+
+## Derivation Flow
+
+### 1. Master Key
+
+The master key is derived from a deterministic wallet signature:
+
+```
+message = MASTER_KEY_MESSAGE_PREFIX + orgId
+signature = wallet.signMessage(message)
+masterKey = HKDF(signature)
+```
+
+This ties all encryption to the user's wallet — no separate passwords or seed phrases. The same wallet + org always produces the same master key.
+
+### 2. Scoped Keys
+
+From the master key, scoped keys are derived for each level:
+
+| Key        | Derivation                             | Scope                                    |
+| ---------- | -------------------------------------- | ---------------------------------------- |
+| Org key    | `HKDF(masterKey, "org" + orgId)`       | Org-wide data (metadata, member list)    |
+| Circle key | `HKDF(masterKey, "circle" + circleId)` | Circle-level data (tensions, proposals)  |
+| Role key   | `HKDF(circleKey, "role" + roleId)`     | Role-specific data (descriptions, notes) |
+
+## Data Visibility
+
+Content stored via the SDK has a visibility level that determines which key encrypts it:
+
+```solidity
+enum DataVisibility {
+    Public,          // No encryption
+    OrgEncrypted,    // Encrypted with org key (all members can decrypt)
+    RoleEncrypted    // Encrypted with role key (only role leads can decrypt)
+}
+```
+
+This maps directly to the `ContentRef` struct used in RoleRegistry for on-chain content references.
+
+## Stream IDs
+
+Data is addressed on the 0G Network using stream IDs built from org/circle/role identifiers:
+
+```ts
+import { buildCircleMetaKey, buildOrgMetaKey, buildStreamId } from "@hollab-io/hollab-sdk";
+
+const streamId = buildStreamId(orgId);
+const orgKey = buildOrgMetaKey();
+const circleKey = buildCircleMetaKey(circleId);
+```
+
+## Security Properties
+
+-   **Deterministic** — Same wallet + org always produces the same keys (no key storage needed)
+-   **Hierarchical** — Org admins with the master key can derive all child keys
+-   **Scoped** — Role keys cannot derive sibling role keys or parent circle keys
+-   **Wallet-bound** — Keys cannot be derived without access to the wallet's signing capability

@@ -1,0 +1,100 @@
+# App Structure
+
+The frontend (`apps/hola-modern/`) is a React 19 + Vite app using Wagmi for wallet interactions and RainbowKit for connection UI.
+
+## Tech Stack
+
+| Layer         | Library                             |
+| ------------- | ----------------------------------- |
+| Framework     | React 19, Vite                      |
+| Wallet        | Wagmi 2, RainbowKit 2               |
+| Styling       | TailwindCSS 3                       |
+| Animation     | Framer Motion                       |
+| Visualization | D3 (force/hierarchy for org charts) |
+| Calendar      | FullCalendar                        |
+| Icons         | Lucide React                        |
+| Testing       | Playwright (E2E)                    |
+
+## Directory Layout
+
+```
+apps/hola-modern/src/
+├── views/              # Page-level components
+├── components/         # Shared UI components
+├── hooks/              # React hooks (data, transactions, state)
+├── config/             # Chain & wallet configuration
+├── main.tsx            # App entry point
+└── vite-env.d.ts       # Vite type declarations
+```
+
+## Views
+
+| View                   | Path                    | Purpose                             |
+| ---------------------- | ----------------------- | ----------------------------------- |
+| Welcome                | `/`                     | Landing page, wallet connection     |
+| OrganizationsHome      | `/home`                 | List user's orgs, discover others   |
+| OrganizationOnboarding | `/onboard`              | Create new org (name, purpose)      |
+| MemberOnboarding       | `/members`              | Invite initial members              |
+| TacticalView           | `/org/:id/tactical`     | Tactical meeting list & conduct     |
+| GovernanceView         | `/org/:id/governance`   | Governance meetings & proposals     |
+| ActionItemsView        | `/org/:id/actions`      | Next actions & projects             |
+| StructureView          | `/org/:id/structure`    | Org chart (circles, roles, members) |
+| ConstitutionView       | `/org/:id/constitution` | Holacracy rules reference           |
+| IntegrationsSettings   | `/org/:id/settings`     | Chain & integration config          |
+
+## Key Components
+
+| Component             | Purpose                                      |
+| --------------------- | -------------------------------------------- |
+| WalletAuthControl     | Connect/disconnect wallet, show address      |
+| WalletWorkspaceSync   | Sync authenticated wallet to workspace state |
+| ChainSwitcher         | Switch between Sepolia, mainnet, localhost   |
+| Topbar / Sidebar      | Navigation chrome                            |
+| TacticalMeetingRoom   | Modal for conducting tactical meetings       |
+| GovernanceMeetingRoom | Modal for governance process                 |
+
+## Key Hooks
+
+### Data (from Indexer)
+
+| Hook                               | Source                     |
+| ---------------------------------- | -------------------------- |
+| `useOrganizationsFromIndexer`      | On-chain org factory reads |
+| `useOrgMembersFromIndexer`         | GraphQL → Ponder           |
+| `useCirclesFromIndexer`            | GraphQL → Ponder           |
+| `useRolesFromIndexer`              | GraphQL → Ponder           |
+| `useTacticalMeetingsFromIndexer`   | GraphQL → Ponder           |
+| `useGovernanceMeetingsFromIndexer` | GraphQL → Ponder           |
+
+### Transactions
+
+| Hook                          | Contract                        |
+| ----------------------------- | ------------------------------- |
+| `useOrganizationFactory`      | Deploy organizations            |
+| `useMeetingComponentsFactory` | Deploy meeting contracts        |
+| `useTacticalMeeting`          | Convene tactical meetings       |
+| `useGovernanceMeeting`        | Convene governance meetings     |
+| `useExecuteGovernance`        | Execute adopted proposals       |
+| `useOrgMemberActions`         | Add/remove members              |
+| `useJoinRequest`              | Request to join, approve/reject |
+| `useSendTransaction`          | Generic transaction sending     |
+
+### State
+
+| Hook                   | Purpose                                                             |
+| ---------------------- | ------------------------------------------------------------------- |
+| `useWorkspaceSnapshot` | Central client-side state (orgs, members, circles, roles, projects) |
+| `useHashRouter`        | Hash-based routing (`#/org/:id/tab`)                                |
+
+## Routing
+
+The app uses hash-based routing for browser history support and IPFS compatibility (no server-side routing needed):
+
+```
+#/                    → Welcome
+#/home                → OrganizationsHome
+#/org/:id/tactical    → TacticalView
+#/org/:id/governance  → GovernanceView
+#/org/:id/structure   → StructureView
+#/join/:id            → JoinOrganizationPanel
+```

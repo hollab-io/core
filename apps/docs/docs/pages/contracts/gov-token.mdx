@@ -1,0 +1,59 @@
+# GovToken
+
+ERC20 governance token with voting power delegation. One token is deployed per organization.
+
+**Source:** `packages/contracts/src/contracts/governance/GovToken.sol`
+
+## Overview
+
+GovToken extends OpenZeppelin's ERC20 with two critical features:
+
+-   **ERC20Permit** — Gasless approvals via EIP-2612 signatures
+-   **ERC20Votes** — Voting power checkpoints and delegation
+
+Each organization gets its own GovToken with a custom name and symbol, deployed by the GovTokenDeployer helper during `createOrganization()`.
+
+## Minting
+
+```solidity
+function mint(address to, uint256 amount) external
+```
+
+Only the current **minter** can mint tokens. The minter is initially set to the OrganizationFactory, then transferred to the org creator after setup.
+
+```solidity
+function setMinter(address newMinter) external
+```
+
+Only the current minter can transfer the minter role.
+
+## Delegation
+
+Token holders must **delegate** their voting power to activate it — either to themselves or to another address:
+
+```solidity
+// Self-delegate to activate voting power
+token.delegate(myAddress);
+
+// Delegate to someone else
+token.delegate(delegateAddress);
+```
+
+Without delegation, tokens exist but carry no voting weight. This is standard ERC20Votes behavior.
+
+## Checkpoints
+
+ERC20Votes maintains historical voting power checkpoints. When ActionVoting creates a vote, it captures the current block as the snapshot. Voting power is read from the checkpoint at that block, so token transfers after vote creation don't affect the outcome.
+
+## GovTokenDeployer
+
+The token deployment logic is extracted into a separate `GovTokenDeployer` contract to keep OrganizationFactory under the Solidity contract size limit (24KB).
+
+```solidity
+// GovTokenDeployer.sol
+function deploy(
+    string memory name,
+    string memory symbol,
+    address minter
+) external returns (address)
+```

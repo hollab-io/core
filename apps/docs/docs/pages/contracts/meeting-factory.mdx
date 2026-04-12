@@ -1,0 +1,81 @@
+# MeetingFactory
+
+Manages the meeting lifecycle and executes governance changes. One clone per organization, set as the `governanceProcess` on RoleRegistry.
+
+**Source:** `packages/contracts/src/contracts/MeetingFactory.sol`
+
+## Meeting Lifecycle
+
+```solidity
+// Start a meeting (org members only)
+function startMeeting(uint256 circleId, uint8 meetingType) external returns (uint256 meetingId)
+
+// End a meeting (org admins only)
+function endMeeting(uint256 meetingId) external
+```
+
+Meeting types:
+
+-   `0` — **Tactical** (operational sync: check-ins, metrics, triage)
+-   `1` — **Governance** (structural changes: roles, circles, policies)
+
+## Recording Outputs
+
+Tactical meetings produce outputs that are recorded on-chain:
+
+```solidity
+function recordOutput(
+    uint256 meetingId,
+    uint8 outputType,    // 0=NextAction, 1=Project, 2=Request, 3=Information
+    bytes calldata data
+) external
+```
+
+Output types map to the Holacracy tactical process:
+
+| Type | Name        | Description                              |
+| ---- | ----------- | ---------------------------------------- |
+| 0    | NextAction  | A concrete next step assigned to someone |
+| 1    | Project     | A multi-step outcome to track            |
+| 2    | Request     | A request for another role               |
+| 3    | Information | Shared context for the circle            |
+
+## Governance Execution
+
+The critical function — executing adopted governance proposals to modify org structure:
+
+```solidity
+function executeGovernance(
+    uint256 meetingId,
+    uint8 changeType,
+    bytes calldata governanceData
+) external
+```
+
+Change types:
+
+| Value | Type       | Effect                                      |
+| ----- | ---------- | ------------------------------------------- |
+| 0     | CreateRole | Decode and call `roleRegistry.createRole()` |
+| 1     | AmendRole  | Decode and call `roleRegistry.updateRole()` |
+| 2     | RemoveRole | Decode and call `roleRegistry.removeRole()` |
+| 3     | Election   | Assign a lead to an elected role            |
+
+The function ABI-decodes `governanceData` and forwards the call to RoleRegistry. Since MeetingFactory is the only authorized `governanceProcess`, this is the sole path for structural changes.
+
+## Linking Proposals
+
+Governance proposals can be linked to meetings for traceability:
+
+```solidity
+function linkProposal(uint256 meetingId, uint256 proposalId) external
+```
+
+## Events
+
+All lifecycle transitions emit events consumed by the Ponder indexer:
+
+-   `MeetingStarted(meetingId, circleId, meetingType, facilitator)`
+-   `MeetingEnded(meetingId)`
+-   `MeetingOutputRecorded(meetingId, outputType, data)`
+-   `MeetingProposalLinked(meetingId, proposalId)`
