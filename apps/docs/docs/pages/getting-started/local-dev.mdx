@@ -1,0 +1,77 @@
+# Local Development
+
+The project includes a one-command script that spins up a complete local stack: Anvil chain, deployed contracts, Ponder indexer, and Vite dev server.
+
+## Quick Start
+
+```bash
+pnpm dev:local
+```
+
+This runs `scripts/dev-local.sh`, which:
+
+1. Starts **Anvil** (local Ethereum node) on port 8545
+2. Deploys the full contract stack via `forge script DeployLocal.s.sol`
+3. Funds test addresses from `scripts/fund-addresses.local`
+4. Regenerates **wagmi bindings** to pick up deployment addresses
+5. Writes `.env.local` files for the indexer and frontend
+6. Starts **Ponder** indexer (GraphQL on port 42069)
+7. Starts **Vite** dev server (frontend on port 5173)
+
+All processes are managed with traps — `Ctrl+C` cleans everything up.
+
+### Deploy Only
+
+To start Anvil and deploy contracts without the frontend/indexer:
+
+```bash
+pnpm dev:local --deploy
+```
+
+## Running Individual Services
+
+### Contracts
+
+```bash
+cd packages/contracts
+forge build          # Compile
+forge test           # Run Solidity tests
+forge test -vvv      # Verbose test output
+```
+
+### Indexer
+
+```bash
+pnpm --filter hollab-indexing dev    # Start Ponder in dev mode
+```
+
+The indexer serves a GraphQL playground at `http://localhost:42069`.
+
+### Frontend
+
+```bash
+pnpm --filter hola-modern dev       # Start Vite dev server
+```
+
+Available at `http://localhost:5173`.
+
+### Documentation
+
+```bash
+pnpm --filter docs dev              # Start Vocs dev server
+```
+
+Available at `http://localhost:5173` (or next available port).
+
+## Turbo Commands
+
+From the repo root, Turbo orchestrates all packages:
+
+```bash
+pnpm dev              # Start all dev servers
+pnpm build            # Build everything
+pnpm test             # Run all unit tests
+pnpm test:integration # Run integration tests
+pnpm lint             # Lint all packages
+pnpm format:fix       # Auto-format all files
+```

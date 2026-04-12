@@ -92,28 +92,39 @@ interface IRoleRegistry {
   /// @notice Returns a role by its ID
   /// @param _roleId The role ID
   /// @return _role The role data
-  function getRole(uint256 _roleId) external view returns (HolacracyTypes.Role memory _role);
+  function getRole(
+    uint256 _roleId
+  ) external view returns (HolacracyTypes.Role memory _role);
 
   /// @notice Returns the domains of a role
   /// @param _roleId The role ID
   /// @return _domains The role's domains
-  function getRoleDomains(uint256 _roleId) external view returns (string[] memory _domains);
+  function getRoleDomains(
+    uint256 _roleId
+  ) external view returns (string[] memory _domains);
 
   /// @notice Returns the accountabilities of a role
   /// @param _roleId The role ID
   /// @return _accountabilities The role's accountabilities
-  function getRoleAccountabilities(uint256 _roleId) external view returns (string[] memory _accountabilities);
+  function getRoleAccountabilities(
+    uint256 _roleId
+  ) external view returns (string[] memory _accountabilities);
 
   /// @notice Returns the role leads for a role
   /// @param _roleId The role ID
   /// @return _leads The addresses of role leads
-  function getRoleLeads(uint256 _roleId) external view returns (address[] memory _leads);
+  function getRoleLeads(
+    uint256 _roleId
+  ) external view returns (address[] memory _leads);
 
   /// @notice Checks if an address is a role lead for a given role
   /// @param _roleId The role ID
   /// @param _account The address to check
   /// @return _isLead Whether the address is a role lead
-  function isRoleLead(uint256 _roleId, address _account) external view returns (bool _isLead);
+  function isRoleLead(
+    uint256 _roleId,
+    address _account
+  ) external view returns (bool _isLead);
 
   /*///////////////////////////////////////////////////////////////
                             LOGIC
@@ -153,17 +164,25 @@ interface IRoleRegistry {
 
   /// @notice Removes a role
   /// @param _roleId The role ID to remove
-  function removeRole(uint256 _roleId) external;
+  function removeRole(
+    uint256 _roleId
+  ) external;
 
   /// @notice Assigns a role lead to a role
   /// @param _roleId The role ID
   /// @param _lead The address to assign as role lead
-  function assignRoleLead(uint256 _roleId, address _lead) external;
+  function assignRoleLead(
+    uint256 _roleId,
+    address _lead
+  ) external;
 
   /// @notice Unassigns a role lead from a role
   /// @param _roleId The role ID
   /// @param _lead The address to unassign
-  function unassignRoleLead(uint256 _roleId, address _lead) external;
+  function unassignRoleLead(
+    uint256 _roleId,
+    address _lead
+  ) external;
 
   /// @notice Creates a new role with content refs for off-chain encrypted fields
   /// @param _circleId The circle ID this role belongs to

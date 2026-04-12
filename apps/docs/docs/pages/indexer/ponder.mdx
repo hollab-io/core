@@ -1,0 +1,79 @@
+# Ponder Indexer
+
+The Ponder indexer (`apps/hollab-indexing/`) watches smart contract events and builds a queryable GraphQL API.
+
+## How It Works
+
+Ponder subscribes to on-chain events from the factory contracts and their per-org clones. Events are processed into a PostgreSQL database and exposed as a GraphQL API.
+
+### Indexed Contracts
+
+| Contract                 | Discovery               | Events                                                                             |
+| ------------------------ | ----------------------- | ---------------------------------------------------------------------------------- |
+| OrganizationFactory      | Fixed address           | `OrganizationCreated`, `OrgComponentsDeployed`                                     |
+| MeetingComponentsFactory | Fixed address           | `MeetingComponentsDeployed`                                                        |
+| RoleRegistry             | Auto-discovered per org | Circle/role creation, updates, removals                                            |
+| MeetingFactory           | Auto-discovered per org | `MeetingStarted`, `MeetingEnded`, `MeetingOutputRecorded`, `MeetingProposalLinked` |
+| ActionVoting             | Auto-discovered per org | `VoteCreated`, `VoteCast`                                                          |
+
+### Contract Discovery
+
+Ponder starts by watching the two factory contracts. When an `OrgComponentsDeployed` or `MeetingComponentsDeployed` event fires, Ponder dynamically registers the new clone addresses and starts indexing their events too.
+
+This means the indexer automatically picks up new organizations without reconfiguration.
+
+## Database Schema
+
+Key tables maintained by the indexer:
+
+| Table                                  | Source                     |
+| -------------------------------------- | -------------------------- |
+| `organization`                         | OrganizationFactory events |
+| `circle`, `role`, `policy`             | RoleRegistry events        |
+| `tacticalMeeting`, `governanceMeeting` | MeetingFactory events      |
+| `meetingOutput`                        | Meeting output recordings  |
+| `orgMember`, `joinRequest`             | Membership events          |
+| `actionVote`, `actionVoteCast`         | ActionVoting events        |
+| `meetingComponentSet`                  | Factory deployment events  |
+| `governanceMeetingLink`                | Proposal-meeting links     |
+
+## Configuration
+
+**`apps/hollab-indexing/ponder.config.ts`**
+
+The chain is selected via the `PONDER_CHAIN` environment variable:
+
+| Value       | Chain ID | RPC Source                |
+| ----------- | -------- | ------------------------- |
+| `localhost` | 31337    | `http://localhost:8545`   |
+| `sepolia`   | 11155111 | `PONDER_RPC_URL_11155111` |
+| `mainnet`   | 1        | `PONDER_RPC_URL_1`        |
+
+RPC URLs support comma-separated fallbacks for redundancy.
+
+## Running
+
+```bash
+# Development (hot reload, GraphQL playground)
+pnpm --filter hollab-indexing dev
+
+# Production
+pnpm --filter hollab-indexing start
+```
+
+The GraphQL playground is available at `http://localhost:42069` in dev mode.
+
+## Docker
+
+In production, the indexer runs as a Docker service with a PostgreSQL dependency:
+
+```yaml
+indexing-server:
+    build:
+        target: indexing-server
+    ports:
+        - "42069:42069"
+    depends_on:
+        postgres:
+            condition: service_healthy
+```

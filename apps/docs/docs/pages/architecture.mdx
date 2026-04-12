@@ -1,0 +1,93 @@
+# Architecture
+
+hollab.eth is a monorepo with smart contracts, an event indexer, a TypeScript SDK, and a React frontend.
+
+## System Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        Frontend                             │
+│              React 19 + Wagmi + RainbowKit                  │
+│         (wallet auth, workspace views, meetings)            │
+└──────────┬──────────────────────────┬───────────────────────┘
+           │ write (transactions)      │ read (GraphQL)
+           ▼                           ▼
+┌──────────────────────┐    ┌─────────────────────────────────┐
+│   Smart Contracts    │    │      Ponder Indexer             │
+│   (Sepolia / L1)     │───▶│  (indexes events → GraphQL)    │
+│                      │    │                                 │
+│  OrganizationFactory │    │  Organizations, Roles, Circles  │
+│  RoleRegistry        │    │  Meetings, Outputs, Proposals   │
+│  MeetingFactory      │    │  Members, Votes, Policies       │
+│  ActionVoting        │    └─────────────────────────────────┘
+│  GovToken            │
+│  ENSSubdomainReg.    │
+└──────────────────────┘
+```
+
+## Monorepo Structure
+
+```
+hollab-cannes-26/
+├── apps/
+│   ├── hola-modern/         # React frontend (Vite)
+│   ├── hollab-indexing/     # Ponder event indexer
+│   └── docs/                # This documentation (Vocs)
+├── packages/
+│   ├── contracts/           # Solidity contracts (Foundry)
+│   ├── hollab-sdk/          # TypeScript SDK (encryption, key mgmt)
+│   ├── indexing-client/     # GraphQL client for Ponder
+│   └── viem-extension/      # Typed viem client extensions
+├── specs/                   # Holacracy → contract specifications
+├── scripts/                 # Dev tooling (local stack, funding)
+└── docker-compose.yml       # Production containerization
+```
+
+## Data Flow
+
+### Writing (Transactions)
+
+The frontend uses Wagmi hooks to send transactions to the smart contracts:
+
+1. User connects wallet via RainbowKit
+2. Frontend calls contract functions through typed hooks (`useOrganizationFactory`, `useMeetingComponentsFactory`, etc.)
+3. Transactions execute on-chain, emitting events
+4. Ponder picks up the events and updates its GraphQL schema
+
+### Reading (Indexed Data)
+
+The frontend reads data through the Ponder indexer:
+
+1. Ponder watches contract events on the configured chain
+2. Events are processed into a PostgreSQL database
+3. Frontend queries the GraphQL API via `indexing-client`
+4. Data is synced into a client-side workspace snapshot (persisted in localStorage)
+
+### Contract Discovery
+
+Ponder uses **contract discovery** — it starts by watching the factory contracts (OrganizationFactory, MeetingComponentsFactory), then automatically registers per-org clones (RoleRegistry, MeetingFactory, ActionVoting) as they're deployed.
+
+## Key Design Decisions
+
+### ERC-1167 Minimal Proxies
+
+All per-organization contracts (RoleRegistry, MeetingFactory, ActionVoting) are deployed as [ERC-1167 minimal proxy clones](https://eips.ethereum.org/EIPS/eip-1167). This reduces deployment gas from ~3M to ~100K per org while keeping the same interface.
+
+### Governance-Only Structure Changes
+
+Only the MeetingFactory contract (set as the `governanceProcess` on RoleRegistry) can create, update, or remove roles. This enforces the protocol rule that organizational structure can only change through the proposal review process.
+
+### Event-Driven Voting
+
+ActionVoting stores minimal on-chain data (vote ID, snapshot block, deadline). Individual vote tallies are computed off-chain from `VoteCast` events by the Ponder indexer — reducing gas costs while maintaining full auditability.
+
+### Hybrid Voting Power
+
+Voting power combines two sources:
+
+-   **GovToken (ERC20Votes)** — Token-weighted voting with delegation support
+-   **Collaborator weight** — Per-team weight granted to non-token-holders (collaborators, advisors)
+
+### ENS Subdomains
+
+Each organization gets an ENS subdomain under `hollab.eth` (e.g., `myorg.hollab.eth`) pointing to its AccessManager contract. This provides human-readable identity for onchain organizations.

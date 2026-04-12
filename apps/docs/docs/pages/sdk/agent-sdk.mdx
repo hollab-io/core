@@ -1,0 +1,193 @@
+# Agent SDK
+
+The `@hollab-io/agent-sdk` package provides a unified, framework-agnostic API for AI agents and automated systems to interact with hollab.eth governance.
+
+## Installation
+
+```bash
+pnpm add @hollab-io/agent-sdk viem
+```
+
+## Quick Start
+
+```ts
+import { HollabAgent } from "@hollab-io/agent-sdk";
+import { createPublicClient, createWalletClient, http } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { sepolia } from "viem/chains";
+
+const account = privateKeyToAccount("0x...");
+
+const agent = new HollabAgent({
+    walletClient: createWalletClient({
+        account,
+        chain: sepolia,
+        transport: http(),
+    }),
+    publicClient: createPublicClient({
+        chain: sepolia,
+        transport: http(),
+    }),
+    indexerUrl: "https://indexer.hollab.eth/graphql",
+    orgFactoryAddress: "0x...",
+});
+```
+
+## Modules
+
+The `HollabAgent` class exposes six modules:
+
+| Module             | Purpose                                                          |
+| ------------------ | ---------------------------------------------------------------- |
+| `agent.org`        | Create organizations, manage members                             |
+| `agent.roles`      | Query roles by org or team                                       |
+| `agent.circles`    | Query teams (circles)                                            |
+| `agent.meetings`   | Start/end syncs and proposal reviews, record outputs             |
+| `agent.governance` | Execute structure changes (create/amend/remove roles, elections) |
+| `agent.voting`     | Create votes, cast votes, manage collaborator weight             |
+
+## Reading Data
+
+All read operations query the Ponder indexer via GraphQL:
+
+```ts
+// Get org details
+const org = await agent.org.get("1");
+
+// List all roles in an org
+const { items: roles } = await agent.roles.listByOrg("1");
+
+// List teams
+const { items: teams } = await agent.circles.listByOrg("1");
+
+// List members
+const { items: members } = await agent.org.listMembers("1");
+
+// List votes
+const { items: votes } = await agent.voting.listByCircle(votingAddress, "1");
+```
+
+## Managing Organizations
+
+```ts
+// Create a new org (deploys governance token + registers ENS subname)
+const { orgId } = await agent.org.create("My DAO", "MDAO");
+
+// Add / remove members
+await agent.org.addMember(orgId, "0xAlice...");
+await agent.org.removeMember(orgId, "0xBob...");
+```
+
+## Running Meetings
+
+```ts
+// Start a team sync
+const { meetingId } = await agent.meetings.startSync(meetingFactoryAddr, orgId);
+
+// Record outputs during the sync
+await agent.meetings.recordOutput(meetingFactoryAddr, {
+    meetingId,
+    outputType: 0, // 0=NextAction, 1=Project, 2=Request, 3=Information
+    description: "Publish blog post by Friday",
+    assignedTo: "0xAlice...",
+});
+
+// End the meeting
+await agent.meetings.end(meetingFactoryAddr, meetingId);
+```
+
+## Executing Governance
+
+All structural changes go through the governance module. This enforces the protocol rule that org structure can only change through the proposal review process.
+
+```ts
+// Create a new role
+const { resultId } = await agent.governance.createRole(meetingFactoryAddr, orgId, {
+    circleId: 1n,
+    name: "Marketing Lead",
+    purpose: "Drive community growth",
+    accountabilities: ["Social media strategy", "Content calendar"],
+});
+
+// Amend an existing role
+await agent.governance.amendRole(meetingFactoryAddr, orgId, {
+    roleId: resultId,
+    name: "Growth Lead",
+    purpose: "Drive community and ecosystem growth",
+    accountabilities: ["Social media strategy", "Content calendar", "Partnership outreach"],
+});
+
+// Assign a role lead
+await agent.governance.electLead(meetingFactoryAddr, orgId, {
+    roleId: resultId,
+    lead: "0xAlice...",
+});
+
+// Remove a role
+await agent.governance.removeRole(meetingFactoryAddr, orgId, resultId);
+```
+
+## Voting
+
+```ts
+// Create a vote on a meeting output
+const { voteId } = await agent.voting.create(votingAddr, {
+    circleId: 1n,
+    outputId: 42n,
+    reason: "Approve marketing budget allocation",
+    duration: 86400, // 24 hours
+});
+
+// Cast a vote (0=Against, 1=For, 2=Abstain)
+await agent.voting.cast(votingAddr, { voteId, support: 1 });
+
+// Grant voting weight to an external collaborator
+await agent.voting.grantCollaboratorWeight(votingAddr, 1n, "0xAdvisor...", 100n);
+```
+
+## Types
+
+The SDK exports comprehensive TypeScript types:
+
+```ts
+import type {
+    AmendRoleInput,
+    CastVoteInput,
+    CreateOrgResult,
+    CreateRoleInput,
+    CreateVoteInput,
+    CreateVoteResult,
+    ElectionInput,
+    ExecuteGovernanceResult,
+    HollabAgentConfig,
+    RecordOutputInput,
+    StartMeetingResult,
+    TxResult,
+} from "@hollab-io/agent-sdk";
+```
+
+## Encoding Helpers
+
+For advanced use cases, the SDK exports low-level ABI encoding helpers:
+
+```ts
+import {
+    ChangeType,
+    encodeAmendRole,
+    encodeCreateRole,
+    encodeElection,
+    encodeRemoveRole,
+} from "@hollab-io/agent-sdk";
+
+// Build raw governance execution data
+const data = encodeCreateRole({ circleId: 1n, name: "Ops", purpose: "Operations" });
+await agent.governance.execute(meetingFactoryAddr, orgId, ChangeType.CreateRole, data);
+```
+
+## Design Principles
+
+-   **Framework-agnostic** — Pure TypeScript, works in Node.js, Deno, or browser. No React dependency.
+-   **Read via indexer** — All queries go through the Ponder GraphQL API. No expensive RPC calls for reads.
+-   **Write via contracts** — All mutations use viem contract actions with proper ABI encoding.
+-   **Governance-enforced** — Structural changes must go through the governance module, matching the onchain protocol rules.
+-   **Agent-first** — Every method is self-contained with explicit parameters. No shared state, no method chaining required.

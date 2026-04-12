@@ -10,9 +10,9 @@ export type NavItem = {
 };
 
 export const NAV_ITEMS: NavItem[] = [
-    { id: "tactical", icon: Users, label: "Tactical" },
-    { id: "governance", icon: Scale, label: "Governance" },
+    { id: "tactical", icon: Users, label: "Sync" },
+    { id: "governance", icon: Scale, label: "Proposals" },
     { id: "actions", icon: CheckSquare, label: "Actions" },
     { id: "structure", icon: Network, label: "Structure" },
-    { id: "constitution", icon: BookOpen, label: "Constitution" },
+    { id: "constitution", icon: BookOpen, label: "About" },
 ];

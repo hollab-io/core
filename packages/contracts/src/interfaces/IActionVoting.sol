@@ -27,9 +27,7 @@ interface IActionVoting {
   );
 
   /// @notice Emitted when a vote is cast
-  event VoteCast(
-    uint256 indexed _voteId, address indexed _voter, HolacracyTypes.VoteSupport _support, uint256 _weight
-  );
+  event VoteCast(uint256 indexed _voteId, address indexed _voter, HolacracyTypes.VoteSupport _support, uint256 _weight);
 
   /// @notice Emitted when collaborator weight is granted
   event CollaboratorWeightGranted(uint256 indexed _circleId, address indexed _collaborator, uint256 _weight);
@@ -65,29 +63,48 @@ interface IActionVoting {
   //////////////////////////////////////////////////////////////*/
 
   /// @notice Returns the voting weight of a voter for a given vote
-  function getVoteWeight(uint256 _voteId, address _voter) external view returns (uint256 _weight);
+  function getVoteWeight(
+    uint256 _voteId,
+    address _voter
+  ) external view returns (uint256 _weight);
 
   /// @notice Returns the collaborator weight for a given circle and address
-  function getCollaboratorWeight(uint256 _circleId, address _collaborator) external view returns (uint256 _weight);
+  function getCollaboratorWeight(
+    uint256 _circleId,
+    address _collaborator
+  ) external view returns (uint256 _weight);
 
   /// @notice Returns whether a voter has voted on a given vote
-  function hasVoted(uint256 _voteId, address _voter) external view returns (bool _voted);
+  function hasVoted(
+    uint256 _voteId,
+    address _voter
+  ) external view returns (bool _voted);
 
   /// @notice Returns the quorum for a circle
-  function getCircleQuorum(uint256 _circleId) external view returns (uint256 _quorum);
+  function getCircleQuorum(
+    uint256 _circleId
+  ) external view returns (uint256 _quorum);
 
   /// @notice Returns the collaborator mint cap for a circle
-  function getCircleMintCap(uint256 _circleId) external view returns (uint256 _cap);
+  function getCircleMintCap(
+    uint256 _circleId
+  ) external view returns (uint256 _cap);
 
   /// @notice Returns the total collaborator weight minted for a circle
-  function getCircleMintedTotal(uint256 _circleId) external view returns (uint256 _total);
+  function getCircleMintedTotal(
+    uint256 _circleId
+  ) external view returns (uint256 _total);
 
   /*///////////////////////////////////////////////////////////////
                             LOGIC
   //////////////////////////////////////////////////////////////*/
 
   /// @notice Initializes a clone of ActionVoting
-  function initialize(address _orgFactory, address _meetingFactory, address _govToken) external;
+  function initialize(
+    address _orgFactory,
+    address _meetingFactory,
+    address _govToken
+  ) external;
 
   /// @notice Creates a vote on a meeting output
   function createVote(
@@ -98,17 +115,33 @@ interface IActionVoting {
   ) external returns (uint256 _voteId);
 
   /// @notice Casts a vote on an active vote
-  function castVote(uint256 _voteId, HolacracyTypes.VoteSupport _support) external;
+  function castVote(
+    uint256 _voteId,
+    HolacracyTypes.VoteSupport _support
+  ) external;
 
   /// @notice Grants collaborator weight for a circle
-  function grantCollaboratorWeight(uint256 _circleId, address _collaborator, uint256 _weight) external;
+  function grantCollaboratorWeight(
+    uint256 _circleId,
+    address _collaborator,
+    uint256 _weight
+  ) external;
 
   /// @notice Revokes collaborator weight for a circle
-  function revokeCollaboratorWeight(uint256 _circleId, address _collaborator) external;
+  function revokeCollaboratorWeight(
+    uint256 _circleId,
+    address _collaborator
+  ) external;
 
   /// @notice Sets the quorum for a circle's action votes
-  function setCircleQuorum(uint256 _circleId, uint256 _quorum) external;
+  function setCircleQuorum(
+    uint256 _circleId,
+    uint256 _quorum
+  ) external;
 
   /// @notice Sets the collaborator mint cap for a circle
-  function setCircleMintCap(uint256 _circleId, uint256 _cap) external;
+  function setCircleMintCap(
+    uint256 _circleId,
+    uint256 _cap
+  ) external;
 }

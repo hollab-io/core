@@ -1,6 +1,5 @@
 import type { Organization } from "@hollab-io/indexing-client";
 import type { PublicClient } from "viem";
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     ArrowRight,
@@ -16,6 +15,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPublicClient, http, isAddress } from "viem";
 import { normalize } from "viem/ens";
+import { useAccount } from "wagmi";
 
 import { useChain } from "../context/ChainContext";
 import { useOrgMemberActions } from "../hooks/useOrgMemberActions";
@@ -174,7 +174,7 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const { primaryWallet } = useDynamicContext();
+    const { address } = useAccount();
     const { addOrgMembers } = useOrgMemberActions();
 
     const resolvedCount = entries.filter((e) => e.status === "resolved").length;
@@ -184,7 +184,7 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
             .filter((e) => e.status === "resolved" && e.address)
             .map((e) => e.address as `0x${string}`);
 
-        if (resolvedAddresses.length === 0 || !primaryWallet) {
+        if (resolvedAddresses.length === 0 || !address) {
             onComplete();
             return;
         }
@@ -197,7 +197,7 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
                 orgFactoryAddress: chainConfig.orgFactoryAddress,
                 orgId: BigInt(org.id),
                 memberAddresses: resolvedAddresses,
-                walletAddress: primaryWallet.address as `0x${string}`,
+                walletAddress: address as `0x${string}`,
             });
             onComplete();
         } catch (err) {

@@ -20,7 +20,7 @@ jobs:
               run: pnpm install --frozen-lockfile
 
             - name: Install Playwright browsers
-              run: npx playwright install chromium --with-deps
+              run: pnpm --filter hola-modern exec playwright install chromium --with-deps
 
             - name: Run E2E tests
               run: pnpm --filter hola-modern test:e2e

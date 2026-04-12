@@ -1,18 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Script, console} from 'forge-std/Script.sol';
 import {DeployConfig} from './DeployConfig.sol';
-import {RoleRegistry} from 'contracts/RoleRegistry.sol';
-import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
+import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {ENSSubdomainRegistrar} from 'ens/ENSSubdomainRegistrar.sol';
+import {Script, console} from 'forge-std/Script.sol';
 
 interface IENS {
-  function owner(bytes32 node) external view returns (address);
-  function setApprovalForAll(address operator, bool approved) external;
+  function owner(
+    bytes32 node
+  ) external view returns (address);
+  function setApprovalForAll(
+    address operator,
+    bool approved
+  ) external;
 }
 
 /**
@@ -21,9 +26,8 @@ interface IENS {
  *         This is a one-time deployment per chain. Organizations are created
  *         separately via OrganizationFactory.createOrganization().
  *
- * Secrets:
- *   Use an encrypted keystore (recommended):
- *     cast wallet import deployer --interactive
+ * Signing:
+ *   Uses --browser to open a local page for wallet signing (MetaMask, etc.)
  *
  * Required env vars for ENS chains (Ethereum mainnet, Sepolia):
  *   ENS_PARENT_NODE   — bytes32 namehash (e.g. cast namehash hollab.eth)
@@ -31,22 +35,19 @@ interface IENS {
  * Dry-run (simulation only):
  *   forge script script/DeployInfrastructure.s.sol \
  *     --rpc-url sepolia \
- *     --account deployer \
+ *     --browser \
  *     -vvvv
  *
- * Production broadcast:
- *   forge script script/DeployInfrastructure.s.sol \
- *     --rpc-url sepolia \
- *     --account deployer \
- *     --broadcast \
- *     --verify \
- *     --slow \
- *     -vvvv
+ * Production broadcast (Sepolia):
+ *   pnpm deploy:infra:sepolia
+ *
+ * Production broadcast (0G testnet):
+ *   pnpm deploy:infra:0g-testnet
  *
  * Resume a failed broadcast:
  *   forge script script/DeployInfrastructure.s.sol \
  *     --rpc-url sepolia \
- *     --account deployer \
+ *     --browser \
  *     --broadcast \
  *     --verify \
  *     --slow \
@@ -97,10 +98,7 @@ contract DeployInfrastructure is Script {
     infra.meetingFactory = address(new MeetingComponentsFactory(infra.meetingImpl, infra.actionVotingImpl));
 
     // ── 4. OrganizationFactory ──────────────────────────────────────────────
-    OrganizationFactory orgFactory = new OrganizationFactory(
-      infra.roleRegistryImpl,
-      infra.ensRegistrar
-    );
+    OrganizationFactory orgFactory = new OrganizationFactory(infra.roleRegistryImpl, infra.ensRegistrar);
     infra.orgFactory = address(orgFactory);
 
     // Authorize factory for ENS registration
@@ -117,7 +115,10 @@ contract DeployInfrastructure is Script {
     return infra;
   }
 
-  function _writeArtifacts(Infrastructure memory _infra, uint256 _chainId) internal {
+  function _writeArtifacts(
+    Infrastructure memory _infra,
+    uint256 _chainId
+  ) internal {
     string memory obj = 'infra';
     vm.serializeAddress(obj, 'ensRegistrar', _infra.ensRegistrar);
     vm.serializeAddress(obj, 'roleRegistryImpl', _infra.roleRegistryImpl);
@@ -129,7 +130,10 @@ contract DeployInfrastructure is Script {
     vm.writeJson(json, string.concat('./deployments/', vm.toString(_chainId), '-infrastructure.json'));
   }
 
-  function _logDeployment(Infrastructure memory _infra, uint256 _chainId) internal pure {
+  function _logDeployment(
+    Infrastructure memory _infra,
+    uint256 _chainId
+  ) internal pure {
     console.log('');
     console.log('=== Infrastructure Deployed (chain ', _chainId, ') ===');
     console.log('');
@@ -155,7 +159,10 @@ contract DeployInfrastructure is Script {
 contract MockENSRegistrar {
   mapping(bytes32 => address) public subnameTargets;
 
-  function registerSubnode(bytes32 _label, address _targetAddress) external {
+  function registerSubnode(
+    bytes32 _label,
+    address _targetAddress
+  ) external {
     subnameTargets[_label] = _targetAddress;
   }
 }

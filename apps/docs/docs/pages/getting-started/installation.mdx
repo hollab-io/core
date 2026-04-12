@@ -1,0 +1,58 @@
+# Installation
+
+## Prerequisites
+
+-   **Node.js 24+**
+-   **pnpm 9+** — `corepack enable && corepack prepare pnpm@9.7.1 --activate`
+-   **Foundry** — `curl -L https://foundry.paradigm.xyz | bash && foundryup`
+
+## Clone & Install
+
+```bash
+git clone https://github.com/hollab-eth/hollab-cannes-26.git
+cd hollab-cannes-26
+pnpm install
+```
+
+## Environment Setup
+
+Copy the example env files and fill in the required values:
+
+```bash
+cp .env.example .env
+cp apps/hola-modern/.env.example apps/hola-modern/.env
+```
+
+### Required Variables
+
+**Frontend** (`apps/hola-modern/.env`):
+
+| Variable                        | Description                    |
+| ------------------------------- | ------------------------------ |
+| `VITE_WALLETCONNECT_PROJECT_ID` | WalletConnect Cloud project ID |
+| `VITE_INDEXER_URL`              | Ponder GraphQL endpoint URL    |
+
+**Indexer** (`.env`):
+
+| Variable                             | Description                                         |
+| ------------------------------------ | --------------------------------------------------- |
+| `PONDER_RPC_URL_11155111`            | Sepolia RPC endpoint (comma-separated for fallback) |
+| `START_BLOCK`                        | Block to start indexing from                        |
+| `ORGANIZATION_FACTORY_ADDRESS`       | Deployed OrganizationFactory address                |
+| `MEETING_COMPONENTS_FACTORY_ADDRESS` | Deployed MeetingComponentsFactory address           |
+
+## Build
+
+```bash
+pnpm build
+```
+
+This runs Turbo across all packages and apps — compiling contracts, generating ABIs, building the SDK, indexer, and frontend.
+
+## Verify
+
+```bash
+pnpm check-types   # TypeScript type checking
+pnpm lint           # ESLint + Prettier
+pnpm test           # Vitest unit tests
+```

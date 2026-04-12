@@ -2,10 +2,10 @@
 pragma solidity 0.8.28;
 
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
-import {IMeetingComponentsFactory} from 'interfaces/IMeetingComponentsFactory.sol';
-import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
+import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
+import {IMeetingComponentsFactory} from 'interfaces/IMeetingComponentsFactory.sol';
 
 /**
  * @title MeetingComponentsFactory
@@ -32,7 +32,10 @@ contract MeetingComponentsFactory is IMeetingComponentsFactory {
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
-  constructor(address _meetingFactoryImpl, address _actionVotingImpl) {
+  constructor(
+    address _meetingFactoryImpl,
+    address _actionVotingImpl
+  ) {
     if (_meetingFactoryImpl == address(0) || _actionVotingImpl == address(0)) {
       revert MeetingComponentsFactory_ZeroAddress();
     }
@@ -67,10 +70,7 @@ contract MeetingComponentsFactory is IMeetingComponentsFactory {
     }
 
     // ── 4. Emit for indexer auto-discovery ───────────────────────────────────────
-    deployment = Deployment({
-      meetingFactory: address(meetingFactory),
-      actionVoting: address(actionVoting)
-    });
+    deployment = Deployment({meetingFactory: address(meetingFactory), actionVoting: address(actionVoting)});
 
     emit MeetingComponentsDeployed(_orgId, address(meetingFactory), address(actionVoting));
   }

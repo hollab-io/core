@@ -22,6 +22,10 @@ export const ChangeType = {
     RemovePolicy: 5,
     MoveRole: 6,
     Election: 7,
+    CreateRoleWithRefs: 8,
+    AmendRoleWithRefs: 9,
+    CreatePolicyWithRefs: 10,
+    AmendPolicyWithRefs: 11,
 } as const;
 
 export type ChangeTypeValue = (typeof ChangeType)[keyof typeof ChangeType];
@@ -91,6 +95,71 @@ export function encodeRemoveRole(roleId: bigint): `0x${string}` {
 /** Encode an Election change (assign role lead): abi.encode(roleId, lead) */
 export function encodeElection(roleId: bigint, lead: `0x${string}`): `0x${string}` {
     return encodeAbiParameters([{ type: "uint256" }, { type: "address" }], [roleId, lead]);
+}
+
+// ── WithRefs encoding helpers ───────────────────────────────────────────────
+
+type ContentRefInput = {
+    contentHash: `0x${string}`;
+    visibility: number; // 0 = Public, 1 = OrgEncrypted, 2 = RoleEncrypted
+};
+
+const roleWithRefsParamTypes = [
+    { type: "uint256" as const },
+    { type: "string" as const },
+    { type: "string" as const },
+    { type: "string[]" as const },
+    { type: "string[]" as const },
+    { type: "bytes32[]" as const },
+    {
+        type: "tuple[]" as const,
+        components: [
+            { type: "bytes32" as const, name: "contentHash" },
+            { type: "uint8" as const, name: "visibility" },
+        ],
+    },
+] as const;
+
+/** Encode a CreateRoleWithRefs change */
+export function encodeCreateRoleWithRefs(params: {
+    circleId: bigint;
+    name: string;
+    purpose: string;
+    domains: string[];
+    accountabilities: string[];
+    fieldNames: `0x${string}`[];
+    refs: ContentRefInput[];
+}): `0x${string}` {
+    return encodeAbiParameters(roleWithRefsParamTypes, [
+        params.circleId,
+        params.name,
+        params.purpose,
+        params.domains,
+        params.accountabilities,
+        params.fieldNames,
+        params.refs.map((r) => ({ contentHash: r.contentHash, visibility: r.visibility })),
+    ]);
+}
+
+/** Encode an AmendRoleWithRefs change */
+export function encodeAmendRoleWithRefs(params: {
+    roleId: bigint;
+    name: string;
+    purpose: string;
+    domains: string[];
+    accountabilities: string[];
+    fieldNames: `0x${string}`[];
+    refs: ContentRefInput[];
+}): `0x${string}` {
+    return encodeAbiParameters(roleWithRefsParamTypes, [
+        params.roleId,
+        params.name,
+        params.purpose,
+        params.domains,
+        params.accountabilities,
+        params.fieldNames,
+        params.refs.map((r) => ({ contentHash: r.contentHash, visibility: r.visibility })),
+    ]);
 }
 
 // ── Mutation hook ────────────────────────────────────────────────────────────

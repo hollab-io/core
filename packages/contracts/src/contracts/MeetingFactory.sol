@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {IMeetingFactory} from 'interfaces/IMeetingFactory.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
 import {IRoleRegistry} from 'interfaces/IRoleRegistry.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
  * @title MeetingFactory
@@ -37,7 +37,10 @@ contract MeetingFactory is IMeetingFactory {
     _initialized = true;
   }
 
-  function initialize(address _orgFactory, address _roleRegistry) external initializer {
+  function initialize(
+    address _orgFactory,
+    address _roleRegistry
+  ) external initializer {
     orgFactory = IOrganizationFactory(_orgFactory);
     roleRegistry = IRoleRegistry(_roleRegistry);
   }
@@ -46,7 +49,10 @@ contract MeetingFactory is IMeetingFactory {
                         MEETING LIFECYCLE
   //////////////////////////////////////////////////////////////*/
 
-  function startMeeting(uint256 _orgId, MeetingKind _kind) external returns (uint256 _meetingId) {
+  function startMeeting(
+    uint256 _orgId,
+    MeetingKind _kind
+  ) external returns (uint256 _meetingId) {
     if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
     }
@@ -55,7 +61,11 @@ contract MeetingFactory is IMeetingFactory {
     emit MeetingStarted(_meetingId, _orgId, _kind, msg.sender, block.timestamp);
   }
 
-  function endMeeting(uint256 _meetingId, uint256 _orgId, MeetingKind _kind) external {
+  function endMeeting(
+    uint256 _meetingId,
+    uint256 _orgId,
+    MeetingKind _kind
+  ) external {
     if (!orgFactory.isOrgAdmin(_orgId, msg.sender)) {
       revert MeetingFactory_NotOrgAdmin(_orgId, msg.sender);
     }
@@ -105,11 +115,12 @@ contract MeetingFactory is IMeetingFactory {
   /// @return _resultId The ID of the created/affected entity (roleId for role changes)
   ///
   /// Encoding for each change type:
-  ///   CreateRole:       abi.encode(circleId, name, purpose, domains[], accountabilities[])
-  ///   AmendRole:        abi.encode(roleId, name, purpose, domains[], accountabilities[])
-  ///   RemoveRole:       abi.encode(roleId)
-  ///   AssignRoleLead:   abi.encode(roleId, lead)
-  ///   UnassignRoleLead: abi.encode(roleId, lead)
+  ///   CreateRole:         abi.encode(circleId, name, purpose, domains[], accountabilities[])
+  ///   AmendRole:          abi.encode(roleId, name, purpose, domains[], accountabilities[])
+  ///   RemoveRole:         abi.encode(roleId)
+  ///   Election:           abi.encode(roleId, lead)
+  ///   CreateRoleWithRefs: abi.encode(circleId, name, purpose, domains[], accountabilities[], fieldNames[], refs[])
+  ///   AmendRoleWithRefs:  abi.encode(roleId, name, purpose, domains[], accountabilities[], fieldNames[], refs[])
   function executeGovernance(
     uint256 _orgId,
     HolacracyTypes.ChangeType _changeType,
@@ -146,6 +157,29 @@ contract MeetingFactory is IMeetingFactory {
       // Election: assign a role lead
       (uint256 roleId, address lead) = abi.decode(_data, (uint256, address));
       roleRegistry.assignRoleLead(roleId, lead);
+      _resultId = roleId;
+    } else if (_changeType == HolacracyTypes.ChangeType.CreateRoleWithRefs) {
+      (
+        uint256 circleId,
+        string memory name,
+        string memory purpose,
+        string[] memory domains,
+        string[] memory accountabilities,
+        bytes32[] memory fieldNames,
+        HolacracyTypes.ContentRef[] memory refs
+      ) = abi.decode(_data, (uint256, string, string, string[], string[], bytes32[], HolacracyTypes.ContentRef[]));
+      _resultId = roleRegistry.createRoleWithRefs(circleId, name, purpose, domains, accountabilities, fieldNames, refs);
+    } else if (_changeType == HolacracyTypes.ChangeType.AmendRoleWithRefs) {
+      (
+        uint256 roleId,
+        string memory name,
+        string memory purpose,
+        string[] memory domains,
+        string[] memory accountabilities,
+        bytes32[] memory fieldNames,
+        HolacracyTypes.ContentRef[] memory refs
+      ) = abi.decode(_data, (uint256, string, string, string[], string[], bytes32[], HolacracyTypes.ContentRef[]));
+      roleRegistry.updateRoleWithRefs(roleId, name, purpose, domains, accountabilities, fieldNames, refs);
       _resultId = roleId;
     } else {
       revert MeetingFactory_UnsupportedChangeType();

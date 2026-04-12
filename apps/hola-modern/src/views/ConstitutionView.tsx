@@ -25,12 +25,12 @@ export default function ConstitutionView() {
                 {/* ── Hero ── */}
                 <motion.div {...fade(0)} className="mb-16">
                     <h1 className="text-[2.6rem] font-bold leading-[1.05] tracking-[-0.035em] text-slate-900 dark:text-white">
-                        DAO-aligned overview
+                        How it works
                     </h1>
                     <div className="mt-6 border-l border-slate-200 dark:border-white/[0.08] pl-5">
                         <p className="text-[15px] leading-[1.7] text-slate-500 dark:text-slate-400">
-                            A rule-based operating system for organizations — authority distributed,
-                            roles explicit, governance defined. No managers, no politics, no
+                            An onchain operating system for organizations — authority distributed,
+                            roles explicit, governance verifiable. No managers, no politics, no
                             unwritten norms.
                         </p>
                     </div>
@@ -40,15 +40,15 @@ export default function ConstitutionView() {
                 <motion.section {...fade(0.08)} className="mb-14">
                     <Cap n="01">What it is</Cap>
                     <p className="text-[17px] font-semibold leading-[1.5] tracking-[-0.02em] text-slate-700 dark:text-slate-200">
-                        The Holacracy Constitution defines how authority is distributed, how roles
-                        are structured, how decisions are made, and how governance changes over
-                        time.
+                        The protocol constitution defines how authority is distributed, how roles
+                        are structured, how decisions are made, and how governance changes over time
+                        — all verifiable onchain.
                     </p>
                     <blockquote className="mt-6 border-l-2 border-[#3481FF]/40 pl-5">
                         <p className="text-[15px] italic leading-snug text-slate-500 dark:text-slate-400">
                             "Instead of managers and unwritten norms —{" "}
                             <span className="font-semibold not-italic text-slate-700 dark:text-slate-200">
-                                explicit rules.
+                                verifiable rules, enforced by code.
                             </span>
                             "
                         </p>
@@ -116,16 +116,16 @@ export default function ConstitutionView() {
                         Not flat structure — explicit power design
                     </h2>
                     <p className="mb-7 text-[14px] leading-[1.7] text-slate-500 dark:text-slate-400">
-                        Holacracy turns an organization from a hierarchy of people into a system of
-                        interconnected building blocks.
+                        The protocol turns an organization from a hierarchy of people into a system
+                        of interconnected building blocks — each one verifiable onchain.
                     </p>
 
                     <div className="space-y-1">
                         {[
                             "Roles",
-                            "Circles",
+                            "Teams",
                             "Policies",
-                            "Governance processes",
+                            "Proposal processes",
                             "Operational routines",
                         ].map((term, i) => (
                             <div
@@ -163,17 +163,17 @@ export default function ConstitutionView() {
                     </h2>
                     <p className="mb-7 text-[14px] leading-[1.7] text-slate-500 dark:text-slate-400">
                         DAOs already aim to distribute power, coordinate contributors, and reduce
-                        dependence on centralized operators. Holacracy gives that ambition more
-                        structure.
+                        dependence on centralized operators. This protocol gives that ambition
+                        verifiable structure.
                     </p>
 
                     <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/[0.06]">
                         {[
                             ["Roles", "contributors, stewards, working group operators"],
-                            ["Circles", "pods, guilds, subDAOs, working groups"],
+                            ["Teams", "pods, guilds, subDAOs, working groups"],
                             ["Policies", "governance rules, mandates, treasury constraints"],
                             [
-                                "Governance meetings",
+                                "Proposal reviews",
                                 "proposal formation and internal decision processes",
                             ],
                             [
@@ -271,9 +271,9 @@ export default function ConstitutionView() {
                         </span>
                     </p>
                     <p className="mt-5 text-[14px] leading-[1.75] text-slate-500 dark:text-slate-400">
-                        It does not replace onchain governance. It makes DAO management more
-                        structured, transparent, modular, and scalable — a coordination layer that
-                        sits beneath the token vote.
+                        It does not replace onchain governance. It makes autonomous organizations
+                        more structured, transparent, modular, and scalable — a coordination
+                        protocol that sits beneath the token vote.
                     </p>
 
                     <div className="mt-8 flex flex-wrap gap-x-8 gap-y-2">

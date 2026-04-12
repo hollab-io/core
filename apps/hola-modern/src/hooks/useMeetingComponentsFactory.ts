@@ -116,7 +116,15 @@ export function useDeployMeetingComponents() {
 
             queryClient.setQueryData(
                 ["tacticalMeetings", orgId],
-                (old: { components: MeetingComponentSet | null } | undefined) => ({
+                (
+                    old:
+                        | {
+                              components: MeetingComponentSet | null;
+                              meetings?: unknown[];
+                              outputs?: unknown[];
+                          }
+                        | undefined,
+                ) => ({
                     components: componentSet,
                     meetings: old?.meetings ?? [],
                     outputs: old?.outputs ?? [],

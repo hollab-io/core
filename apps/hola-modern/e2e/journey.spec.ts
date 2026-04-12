@@ -42,8 +42,8 @@ const CAROL = privateKeyToAccount(ANVIL_ACCOUNTS[3].privateKey as `0x${string}`)
 // ── ABIs (minimal, matching what the frontend hooks use) ────────────────────
 
 const orgFactoryAbi = parseAbi([
-    "function createOrganization(string _subname, string _purpose, (string tokenName, string tokenSymbol, address[] initialHolders, uint256[] initialAmounts, uint256 timelockDelay, uint48 votingDelay, uint32 votingPeriod, uint256 proposalThreshold, uint256 quorumNumerator) _govConfig) external returns (uint256)",
-    "function getOrganization(uint256 _orgId) external view returns ((uint256 id, string name, string subname, address creator, address roleRegistry, address circleRegistry, address governanceProcess, address meetingFactory, address accessManager, uint256 anchorCircleId, uint256 createdAt, address governor, address token, address timelock))",
+    "function createOrganization(string _subname, string _purpose, (string tokenName, string tokenSymbol, address[] initialHolders, uint256[] initialAmounts) _tokenConfig) external returns (uint256)",
+    "function getOrganization(uint256 _orgId) external view returns ((uint256 id, string name, string subname, address creator, address roleRegistry, address circleRegistry, address governanceProcess, address meetingFactory, address accessManager, uint256 anchorCircleId, uint256 createdAt, address token))",
     "function organizationCount() external view returns (uint256)",
     "function requestToJoin(uint256 orgId, string message) external returns (uint256)",
     "function approveJoinRequest(uint256 orgId, address requester) external",
@@ -61,7 +61,7 @@ const orgFactoryAbi = parseAbi([
 ]);
 
 const meetingComponentsFactoryAbi = parseAbi([
-    "function deploy(uint256 _orgId, address _orgFactory, address _govToken) external returns ((address meetingFactory, address actionVoting))",
+    "function deploy(uint256 _orgId, address _orgFactory, address _roleRegistry, address _govToken) external returns ((address meetingFactory, address actionVoting))",
     "event MeetingComponentsDeployed(uint256 indexed _orgId, address indexed _meetingFactory, address _actionVoting)",
 ]);
 
@@ -107,11 +107,6 @@ const GOV_CONFIG = {
     tokenSymbol: "E2E",
     initialHolders: [FOUNDER.address],
     initialAmounts: [1_000_000n * 10n ** 18n],
-    timelockDelay: 0n,
-    votingDelay: 1,
-    votingPeriod: 50,
-    proposalThreshold: 0n,
-    quorumNumerator: 4n,
 } as const;
 
 // ── Test setup ──────────────────────────────────────────────────────────────
@@ -184,7 +179,6 @@ test.describe("Org creation", () => {
         });
         expect(org.subname).toBe("e2e-org");
         expect(getAddress(org.creator)).toBe(getAddress(FOUNDER.address));
-        expect(org.governor).not.toBe("0x0000000000000000000000000000000000000000");
         expect(org.token).not.toBe("0x0000000000000000000000000000000000000000");
 
         // Founder is auto-seeded as admin + member
@@ -412,7 +406,7 @@ test.describe("Meeting lifecycle", () => {
             address: ADDRESSES.meetingFactory,
             abi: meetingComponentsFactoryAbi,
             functionName: "deploy",
-            args: [orgId, ADDRESSES.orgFactory, tokenAddress],
+            args: [orgId, ADDRESSES.orgFactory, org.roleRegistry, tokenAddress],
         });
         const deployReceipt = await pub.waitForTransactionReceipt({ hash: deployHash });
 
@@ -538,7 +532,7 @@ test.describe("Voting", () => {
             address: ADDRESSES.meetingFactory,
             abi: meetingComponentsFactoryAbi,
             functionName: "deploy",
-            args: [orgId, ADDRESSES.orgFactory, tokenAddress],
+            args: [orgId, ADDRESSES.orgFactory, org.roleRegistry, tokenAddress],
         });
         const deployReceipt = await pub.waitForTransactionReceipt({ hash: deployHash });
         for (const log of deployReceipt.logs) {
@@ -608,7 +602,7 @@ test.describe("Voting", () => {
         }
 
         // Mine a block so snapshots are available
-        await pub.request({ method: "evm_mine" as any, params: [] });
+        await pub.request({ method: "evm_mine" as never, params: [] });
 
         // Set quorum
         await pub.waitForTransactionReceipt({
@@ -870,7 +864,7 @@ test.describe("Data display", () => {
         expect(orgCreatedLogs.length).toBeGreaterThan(0);
 
         // Alice and Bob request to join
-        const aliceJoinReceipt = await pub.waitForTransactionReceipt({
+        await pub.waitForTransactionReceipt({
             hash: await aliceWc.writeContract({
                 address: ADDRESSES.orgFactory,
                 abi: orgFactoryAbi,
@@ -886,18 +880,6 @@ test.describe("Data display", () => {
                 args: [orgId, "Bob joining"],
             }),
         });
-
-        // Query JoinRequested logs from the chain (mimics indexer backfill)
-        const joinRequestedTopic =
-            "0x" +
-            Buffer.from(
-                new Uint8Array(
-                    await crypto.subtle.digest(
-                        "SHA-256",
-                        new TextEncoder().encode("unused"), // we'll use getLogs filter instead
-                    ),
-                ),
-            ).toString("hex");
 
         // Use getLogs to find all JoinRequested events for this org
         const joinLogs = await pub.getLogs({
@@ -993,7 +975,7 @@ test.describe("Data display", () => {
                 address: ADDRESSES.meetingFactory,
                 abi: meetingComponentsFactoryAbi,
                 functionName: "deploy",
-                args: [orgId, ADDRESSES.orgFactory, org.token],
+                args: [orgId, ADDRESSES.orgFactory, org.roleRegistry, org.token],
             }),
         });
         let avAddr: Address = "0x";
@@ -1056,7 +1038,7 @@ test.describe("Data display", () => {
                 }),
             });
         }
-        await pub.request({ method: "evm_mine" as any, params: [] });
+        await pub.request({ method: "evm_mine" as never, params: [] });
 
         // Setup quorum + create vote
         await pub.waitForTransactionReceipt({

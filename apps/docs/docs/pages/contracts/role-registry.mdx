@@ -1,0 +1,96 @@
+# RoleRegistry
+
+Stores the organizational structure — roles, their properties, and who fills them. One clone is deployed per organization.
+
+**Source:** `packages/contracts/src/contracts/RoleRegistry.sol`
+
+## Roles
+
+A role is the fundamental unit in Holacracy. Each role has:
+
+-   **Name** (required)
+-   **Purpose** — Why the role exists
+-   **Domains** — What the role exclusively controls
+-   **Accountabilities** — What the role is expected to do
+
+At least one of purpose, domains, or accountabilities must be set alongside the name.
+
+```solidity
+struct Role {
+    uint256 id;
+    uint256 circleId;
+    string name;
+    string purpose;
+    string[] domains;
+    string[] accountabilities;
+    bool exists;
+}
+```
+
+## Governance-Only Modification
+
+Only the `governanceProcess` address (set during initialization to the MeetingFactory) can modify roles:
+
+```solidity
+function createRole(
+    uint256 circleId,
+    string calldata name,
+    string calldata purpose,
+    string[] calldata domains,
+    string[] calldata accountabilities
+) external returns (uint256 roleId)
+
+function updateRole(
+    uint256 roleId,
+    string calldata name,
+    string calldata purpose,
+    string[] calldata domains,
+    string[] calldata accountabilities
+) external
+
+function removeRole(uint256 roleId) external
+```
+
+Direct calls from any other address will revert.
+
+## Role Leads
+
+People are assigned to roles as **leads**:
+
+```solidity
+function assignRoleLead(uint256 roleId, address lead) external
+function unassignRoleLead(uint256 roleId, address lead) external
+```
+
+A role can have multiple leads. Leads gain the authority defined by the role's domains and accountabilities.
+
+## Content References
+
+Roles can store off-chain content references (e.g., encrypted IPFS hashes) for extended descriptions:
+
+```solidity
+struct ContentRef {
+    bytes32 contentHash;        // IPFS CID or encrypted hash
+    DataVisibility visibility;  // Public, OrgEncrypted, RoleEncrypted
+}
+
+function createRoleWithRefs(
+    uint256 circleId,
+    string calldata name,
+    string calldata purpose,
+    string[] calldata domains,
+    string[] calldata accountabilities,
+    bytes32[] calldata fieldNameHashes,
+    ContentRef[] calldata refs
+) external returns (uint256 roleId)
+```
+
+This supports the hybrid on-chain/off-chain model — role names and structure live on-chain, while detailed descriptions can be stored encrypted on 0G Network or IPFS.
+
+## Circle Tracking
+
+Roles belong to circles (sub-organizations). The registry tracks which roles belong to which circle:
+
+```solidity
+function getRolesForCircle(uint256 circleId) external view returns (uint256[] memory)
+```
