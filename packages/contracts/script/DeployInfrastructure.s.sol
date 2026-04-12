@@ -26,9 +26,8 @@ interface IENS {
  *         This is a one-time deployment per chain. Organizations are created
  *         separately via OrganizationFactory.createOrganization().
  *
- * Secrets:
- *   Use an encrypted keystore (recommended):
- *     cast wallet import deployer --interactive
+ * Signing:
+ *   Uses --browser to open a local page for wallet signing (MetaMask, etc.)
  *
  * Required env vars for ENS chains (Ethereum mainnet, Sepolia):
  *   ENS_PARENT_NODE   — bytes32 namehash (e.g. cast namehash hollab.eth)
@@ -36,22 +35,19 @@ interface IENS {
  * Dry-run (simulation only):
  *   forge script script/DeployInfrastructure.s.sol \
  *     --rpc-url sepolia \
- *     --account deployer \
+ *     --browser \
  *     -vvvv
  *
- * Production broadcast:
- *   forge script script/DeployInfrastructure.s.sol \
- *     --rpc-url sepolia \
- *     --account deployer \
- *     --broadcast \
- *     --verify \
- *     --slow \
- *     -vvvv
+ * Production broadcast (Sepolia):
+ *   pnpm deploy:infra:sepolia
+ *
+ * Production broadcast (0G testnet):
+ *   pnpm deploy:infra:0g-testnet
  *
  * Resume a failed broadcast:
  *   forge script script/DeployInfrastructure.s.sol \
  *     --rpc-url sepolia \
- *     --account deployer \
+ *     --browser \
  *     --broadcast \
  *     --verify \
  *     --slow \
