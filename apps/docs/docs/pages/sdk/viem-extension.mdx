@@ -1,0 +1,100 @@
+# Viem Extension
+
+The `viem-extension` package (`packages/viem-extension/`) provides typed viem client extensions for interacting with hollab.eth contracts.
+
+## Setup
+
+```ts
+import { holLabContractActions } from "@hollab-io/viem-extension";
+import { createWalletClient, http } from "viem";
+import { sepolia } from "viem/chains";
+
+const client = createWalletClient({
+    chain: sepolia,
+    transport: http(),
+}).extend(holLabContractActions());
+```
+
+## Contract Actions
+
+The extension adds typed action builders for each contract:
+
+```ts
+// OrganizationFactory
+await client.organizationFactory.write({
+    address: factoryAddress,
+    functionName: "createOrganization",
+    args: ["My Org", "myorg"],
+});
+
+// RoleRegistry
+await client.roleRegistry.write({
+    address: registryAddress,
+    functionName: "assignRoleLead",
+    args: [roleId, leadAddress],
+});
+
+// MeetingFactory
+await client.meetingFactory.write({
+    address: meetingFactoryAddress,
+    functionName: "startMeeting",
+    args: [circleId, 0], // 0 = Tactical
+});
+
+// GovToken
+await client.govToken.write({
+    address: tokenAddress,
+    functionName: "delegate",
+    args: [myAddress],
+});
+```
+
+Each action builder supports both `write` (send transaction) and `simulate` (dry run).
+
+## Types
+
+The package exports comprehensive TypeScript types for the Holacracy data model:
+
+```ts
+import type {
+    CircleRecord,
+    GovernanceProposalRecord,
+    OrganizationRecord,
+    PartnerRecord,
+    PolicyRecord,
+    RoleRecord,
+    TacticalMeetingRecord,
+    WorkspaceSnapshot,
+} from "@hollab-io/viem-extension";
+```
+
+## Selectors
+
+Utility functions for querying a `WorkspaceSnapshot`:
+
+```ts
+import {
+    getAnchorCircle,
+    getSubCircles,
+    getRolesForCircle,
+    createPartnerMap,
+    createCircleMap,
+    createRoleMap,
+} from "@hollab-io/viem-extension";
+
+const snapshot: WorkspaceSnapshot = /* ... */;
+const anchor = getAnchorCircle(snapshot);
+const subs = getSubCircles(snapshot, anchor.id);
+const roles = getRolesForCircle(snapshot, anchor.id);
+```
+
+## Enums
+
+```ts
+import {
+    GovernanceChangeType, // create-role, amend-role, remove-role, election
+    GovernanceProposalStatus, // draft, active, objected, integrating, adopted, withdrawn, discarded
+    MeetingStatus, // scheduled, in_progress, completed
+    ProjectStage, // future, waiting, current, top, done
+} from "@hollab-io/viem-extension";
+```

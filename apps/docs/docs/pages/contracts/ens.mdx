@@ -1,0 +1,37 @@
+# ENS Integration
+
+Each organization gets an ENS subdomain under `hollab.eth`, providing human-readable onchain identity.
+
+**Source:** `packages/contracts/src/ens/ENSSubdomainRegistrar.sol`
+
+## How It Works
+
+When `OrganizationFactory.createOrganization()` is called with a `subname` parameter, the factory calls the ENSSubdomainRegistrar to register `subname.hollab.eth`.
+
+```
+createOrganization("My Org", "myorg")
+→ registers myorg.hollab.eth
+→ points to the org's AccessManager address
+```
+
+## ENSSubdomainRegistrar
+
+The registrar manages a single parent ENS node (e.g., `hollab.eth`):
+
+```solidity
+function registerSubnode(
+    bytes32 label,
+    address target
+) external
+
+function authorize(address registrant) external   // owner only
+function deauthorize(address registrant) external  // owner only
+```
+
+-   Only the owner and authorized addresses (like OrganizationFactory) can register subdomains
+-   The registrar takes ownership of the subnode, sets the resolver, and points it to the target address
+-   Re-registration is allowed if the registrar already owns the subnode
+
+## Local Development
+
+On local Anvil chains, a `MockENSRegistrar` is deployed instead, which skips actual ENS interactions. The deployment script (`DeployLocal.s.sol`) handles this automatically.
