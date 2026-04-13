@@ -230,6 +230,22 @@ importers:
                 specifier: ^5.3.2
                 version: 5.9.3
 
+    packages/agent-sdk:
+        dependencies:
+            "@hollab-io/contracts":
+                specifier: workspace:*
+                version: link:../contracts
+            "@hollab-io/indexing-client":
+                specifier: workspace:*
+                version: link:../indexing-client
+            viem:
+                specifier: 2.21.4
+                version: 2.21.4(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@3.25.76)
+        devDependencies:
+            tsup:
+                specifier: ^8.0.0
+                version: 8.5.1(jiti@2.4.2)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.5.1)
+
     packages/contracts:
         dependencies:
             "@wagmi/cli":
