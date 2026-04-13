@@ -1,3 +1,4 @@
+import type { IndexingClient } from "@/client.js";
 import type {
     ActionVote,
     ActionVoteCast,
@@ -292,8 +293,11 @@ const MOCK_OBJECTION: Objection = {
 
 // ─── Test setup ───────────────────────────────────────────────────────────────
 
+// vi.mock("graphql-request") replaces GraphQLClient with a mock constructor.
+// TypeScript still sees the original class types — no type assertions needed
+// on the client returned by createIndexingClient.
 let mockRequest: ReturnType<typeof vi.fn>;
-let client: ReturnType<typeof createIndexingClient>;
+let client: IndexingClient;
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -308,7 +312,7 @@ beforeEach(() => {
 
 describe("getOrganization", () => {
     it("returns the organization when found", async () => {
-        mockRequest.mockResolvedValue({ organization: MOCK_ORG });
+        mockRequest.mockResolvedValueOnce({ organization: MOCK_ORG });
 
         const result = await client.getOrganization("1");
 
@@ -317,7 +321,7 @@ describe("getOrganization", () => {
     });
 
     it("returns null when the organization does not exist", async () => {
-        mockRequest.mockResolvedValue({ organization: null });
+        mockRequest.mockResolvedValueOnce({ organization: null });
 
         const result = await client.getOrganization("999");
 
@@ -325,7 +329,7 @@ describe("getOrganization", () => {
     });
 
     it("propagates GraphQL errors", async () => {
-        mockRequest.mockRejectedValue(new Error("network error"));
+        mockRequest.mockRejectedValueOnce(new Error("network error"));
 
         await expect(client.getOrganization("1")).rejects.toThrow("network error");
     });
@@ -333,7 +337,7 @@ describe("getOrganization", () => {
 
 describe("listOrganizations", () => {
     it("returns paginated organizations with default options", async () => {
-        mockRequest.mockResolvedValue({ organizations: paginated([MOCK_ORG]) });
+        mockRequest.mockResolvedValueOnce({ organizations: paginated([MOCK_ORG]) });
 
         const result = await client.listOrganizations();
 
@@ -343,7 +347,7 @@ describe("listOrganizations", () => {
     });
 
     it("forwards pagination options to the query", async () => {
-        mockRequest.mockResolvedValue({ organizations: paginated([]) });
+        mockRequest.mockResolvedValueOnce({ organizations: paginated([]) });
 
         await client.listOrganizations({ limit: 10, after: "cursor-abc" });
 
@@ -360,7 +364,7 @@ describe("listOrganizations", () => {
             hasPreviousPage: false,
             hasNextPage: true,
         };
-        mockRequest.mockResolvedValue({ organizations: { items: [MOCK_ORG], pageInfo } });
+        mockRequest.mockResolvedValueOnce({ organizations: { items: [MOCK_ORG], pageInfo } });
 
         const result = await client.listOrganizations();
 
@@ -371,7 +375,7 @@ describe("listOrganizations", () => {
 
 describe("listOrganizationsByCreator", () => {
     it("lowercases the creator address before querying", async () => {
-        mockRequest.mockResolvedValue({ organizations: paginated([MOCK_ORG]) });
+        mockRequest.mockResolvedValueOnce({ organizations: paginated([MOCK_ORG]) });
 
         await client.listOrganizationsByCreator("0xABC123");
 
@@ -381,7 +385,7 @@ describe("listOrganizationsByCreator", () => {
     });
 
     it("forwards pagination options alongside the lowercased creator", async () => {
-        mockRequest.mockResolvedValue({ organizations: paginated([]) });
+        mockRequest.mockResolvedValueOnce({ organizations: paginated([]) });
 
         await client.listOrganizationsByCreator("0xDEF456", { limit: 5, before: "cursor-z" });
 
@@ -397,7 +401,7 @@ describe("listOrganizationsByCreator", () => {
 
 describe("getCircle", () => {
     it("returns the circle when found", async () => {
-        mockRequest.mockResolvedValue({ circle: MOCK_CIRCLE });
+        mockRequest.mockResolvedValueOnce({ circle: MOCK_CIRCLE });
 
         const result = await client.getCircle("circle-1");
 
@@ -406,7 +410,7 @@ describe("getCircle", () => {
     });
 
     it("returns null when the circle does not exist", async () => {
-        mockRequest.mockResolvedValue({ circle: null });
+        mockRequest.mockResolvedValueOnce({ circle: null });
 
         expect(await client.getCircle("nope")).toBeNull();
     });
@@ -414,7 +418,7 @@ describe("getCircle", () => {
 
 describe("listCirclesByOrg", () => {
     it("returns circles for an org", async () => {
-        mockRequest.mockResolvedValue({ circles: paginated([MOCK_CIRCLE]) });
+        mockRequest.mockResolvedValueOnce({ circles: paginated([MOCK_CIRCLE]) });
 
         const result = await client.listCirclesByOrg("1");
 
@@ -427,7 +431,7 @@ describe("listCirclesByOrg", () => {
 
 describe("getRole", () => {
     it("returns the role when found", async () => {
-        mockRequest.mockResolvedValue({ role: MOCK_ROLE });
+        mockRequest.mockResolvedValueOnce({ role: MOCK_ROLE });
 
         const result = await client.getRole("role-1");
 
@@ -436,7 +440,7 @@ describe("getRole", () => {
     });
 
     it("returns null when the role does not exist", async () => {
-        mockRequest.mockResolvedValue({ role: null });
+        mockRequest.mockResolvedValueOnce({ role: null });
 
         expect(await client.getRole("nope")).toBeNull();
     });
@@ -444,7 +448,7 @@ describe("getRole", () => {
 
 describe("listRolesByCircle", () => {
     it("passes registryAddress and circleId to the query", async () => {
-        mockRequest.mockResolvedValue({ roles: paginated([MOCK_ROLE]) });
+        mockRequest.mockResolvedValueOnce({ roles: paginated([MOCK_ROLE]) });
 
         const result = await client.listRolesByCircle("0xrr", "1");
 
@@ -458,7 +462,7 @@ describe("listRolesByCircle", () => {
 
 describe("listRolesByOrg", () => {
     it("passes orgId and pagination to the query", async () => {
-        mockRequest.mockResolvedValue({ roles: paginated([MOCK_ROLE]) });
+        mockRequest.mockResolvedValueOnce({ roles: paginated([MOCK_ROLE]) });
 
         await client.listRolesByOrg("1", { limit: 20 });
 
@@ -470,7 +474,7 @@ describe("listRolesByOrg", () => {
 
 describe("getPolicy", () => {
     it("returns the policy when found", async () => {
-        mockRequest.mockResolvedValue({ policy: MOCK_POLICY });
+        mockRequest.mockResolvedValueOnce({ policy: MOCK_POLICY });
 
         const result = await client.getPolicy("policy-1");
 
@@ -479,7 +483,7 @@ describe("getPolicy", () => {
     });
 
     it("returns null when policy is not found", async () => {
-        mockRequest.mockResolvedValue({ policy: null });
+        mockRequest.mockResolvedValueOnce({ policy: null });
 
         expect(await client.getPolicy("x")).toBeNull();
     });
@@ -487,7 +491,7 @@ describe("getPolicy", () => {
 
 describe("listPoliciesByCircle", () => {
     it("passes registryAddress and circleId to the query", async () => {
-        mockRequest.mockResolvedValue({ policies: paginated([MOCK_POLICY]) });
+        mockRequest.mockResolvedValueOnce({ policies: paginated([MOCK_POLICY]) });
 
         await client.listPoliciesByCircle("0xrr", "1");
 
@@ -502,7 +506,7 @@ describe("listPoliciesByCircle", () => {
 
 describe("getProposal", () => {
     it("returns the proposal when found", async () => {
-        mockRequest.mockResolvedValue({ proposal: MOCK_PROPOSAL });
+        mockRequest.mockResolvedValueOnce({ proposal: MOCK_PROPOSAL });
 
         const result = await client.getProposal("prop-1");
 
@@ -511,7 +515,7 @@ describe("getProposal", () => {
     });
 
     it("returns null when proposal is not found", async () => {
-        mockRequest.mockResolvedValue({ proposal: null });
+        mockRequest.mockResolvedValueOnce({ proposal: null });
 
         expect(await client.getProposal("x")).toBeNull();
     });
@@ -519,7 +523,7 @@ describe("getProposal", () => {
 
 describe("listProposalsByCircle", () => {
     it("passes processAddress and circleId to the query", async () => {
-        mockRequest.mockResolvedValue({ proposals: paginated([MOCK_PROPOSAL]) });
+        mockRequest.mockResolvedValueOnce({ proposals: paginated([MOCK_PROPOSAL]) });
 
         await client.listProposalsByCircle("0xgp", "1");
 
@@ -532,7 +536,7 @@ describe("listProposalsByCircle", () => {
 
 describe("listObjectionsByProposal", () => {
     it("passes processAddress and proposalId to the query", async () => {
-        mockRequest.mockResolvedValue({ objections: paginated([MOCK_OBJECTION]) });
+        mockRequest.mockResolvedValueOnce({ objections: paginated([MOCK_OBJECTION]) });
 
         const result = await client.listObjectionsByProposal("0xgp", "1");
 
@@ -548,7 +552,7 @@ describe("listObjectionsByProposal", () => {
 
 describe("listTacticalMeetingsByCircle", () => {
     it("passes contractAddress and circleId to the query", async () => {
-        mockRequest.mockResolvedValue({ tacticalMeetings: paginated([MOCK_TACTICAL_MEETING]) });
+        mockRequest.mockResolvedValueOnce({ tacticalMeetings: paginated([MOCK_TACTICAL_MEETING]) });
 
         const result = await client.listTacticalMeetingsByCircle("0xfactory", "1");
 
@@ -562,7 +566,7 @@ describe("listTacticalMeetingsByCircle", () => {
 
 describe("listTacticalMeetingsByContract", () => {
     it("passes only contractAddress to the query", async () => {
-        mockRequest.mockResolvedValue({ tacticalMeetings: paginated([MOCK_TACTICAL_MEETING]) });
+        mockRequest.mockResolvedValueOnce({ tacticalMeetings: paginated([MOCK_TACTICAL_MEETING]) });
 
         await client.listTacticalMeetingsByContract("0xfactory");
 
@@ -574,7 +578,7 @@ describe("listTacticalMeetingsByContract", () => {
 
 describe("listMeetingOutputs", () => {
     it("passes contractAddress and meetingId to the query", async () => {
-        mockRequest.mockResolvedValue({ meetingOutputs: paginated([MOCK_MEETING_OUTPUT]) });
+        mockRequest.mockResolvedValueOnce({ meetingOutputs: paginated([MOCK_MEETING_OUTPUT]) });
 
         const result = await client.listMeetingOutputs("0xfactory", "1");
 
@@ -588,7 +592,7 @@ describe("listMeetingOutputs", () => {
 
 describe("listMeetingOutputsByContract", () => {
     it("passes only contractAddress to the query", async () => {
-        mockRequest.mockResolvedValue({ meetingOutputs: paginated([]) });
+        mockRequest.mockResolvedValueOnce({ meetingOutputs: paginated([]) });
 
         await client.listMeetingOutputsByContract("0xfactory");
 
@@ -600,7 +604,7 @@ describe("listMeetingOutputsByContract", () => {
 
 describe("listChecklistItemsByRole", () => {
     it("passes contractAddress and roleId to the query", async () => {
-        mockRequest.mockResolvedValue({ checklistItems: paginated([MOCK_CHECKLIST_ITEM]) });
+        mockRequest.mockResolvedValueOnce({ checklistItems: paginated([MOCK_CHECKLIST_ITEM]) });
 
         const result = await client.listChecklistItemsByRole("0xfactory", "1");
 
@@ -614,7 +618,7 @@ describe("listChecklistItemsByRole", () => {
 
 describe("listMetricsByRole", () => {
     it("passes contractAddress and roleId to the query", async () => {
-        mockRequest.mockResolvedValue({ metrics: paginated([MOCK_METRIC]) });
+        mockRequest.mockResolvedValueOnce({ metrics: paginated([MOCK_METRIC]) });
 
         const result = await client.listMetricsByRole("0xfactory", "1");
 
@@ -630,7 +634,9 @@ describe("listMetricsByRole", () => {
 
 describe("listGovernanceMeetingsByContract", () => {
     it("passes contractAddress to the query", async () => {
-        mockRequest.mockResolvedValue({ governanceMeetings: paginated([MOCK_GOVERNANCE_MEETING]) });
+        mockRequest.mockResolvedValueOnce({
+            governanceMeetings: paginated([MOCK_GOVERNANCE_MEETING]),
+        });
 
         const result = await client.listGovernanceMeetingsByContract("0xgov");
 
@@ -643,7 +649,9 @@ describe("listGovernanceMeetingsByContract", () => {
 
 describe("listGovernanceMeetingsByCircle", () => {
     it("passes contractAddress and circleId to the query", async () => {
-        mockRequest.mockResolvedValue({ governanceMeetings: paginated([MOCK_GOVERNANCE_MEETING]) });
+        mockRequest.mockResolvedValueOnce({
+            governanceMeetings: paginated([MOCK_GOVERNANCE_MEETING]),
+        });
 
         await client.listGovernanceMeetingsByCircle("0xgov", "1");
 
@@ -656,7 +664,7 @@ describe("listGovernanceMeetingsByCircle", () => {
 
 describe("listGovernanceMeetingLinks", () => {
     it("passes contractAddress and meetingId to the query", async () => {
-        mockRequest.mockResolvedValue({
+        mockRequest.mockResolvedValueOnce({
             governanceMeetingLinks: paginated([MOCK_GOVERNANCE_MEETING_LINK]),
         });
 
@@ -674,7 +682,7 @@ describe("listGovernanceMeetingLinks", () => {
 
 describe("listMeetingComponentsByOrg", () => {
     it("passes orgId to the query", async () => {
-        mockRequest.mockResolvedValue({
+        mockRequest.mockResolvedValueOnce({
             meetingComponentSets: paginated([MOCK_MEETING_COMPONENT_SET]),
         });
 
@@ -689,7 +697,7 @@ describe("listMeetingComponentsByOrg", () => {
 
 describe("listActionVotesByCircle", () => {
     it("passes contractAddress and circleId to the query", async () => {
-        mockRequest.mockResolvedValue({ actionVotes: paginated([MOCK_ACTION_VOTE]) });
+        mockRequest.mockResolvedValueOnce({ actionVotes: paginated([MOCK_ACTION_VOTE]) });
 
         const result = await client.listActionVotesByCircle("0xvoting", "1");
 
@@ -703,7 +711,7 @@ describe("listActionVotesByCircle", () => {
 
 describe("listActionVoteCasts", () => {
     it("passes contractAddress and voteId to the query", async () => {
-        mockRequest.mockResolvedValue({ actionVoteCasts: paginated([MOCK_ACTION_VOTE_CAST]) });
+        mockRequest.mockResolvedValueOnce({ actionVoteCasts: paginated([MOCK_ACTION_VOTE_CAST]) });
 
         const result = await client.listActionVoteCasts("0xvoting", "1");
 
@@ -719,7 +727,7 @@ describe("listActionVoteCasts", () => {
 
 describe("listOrgMembers", () => {
     it("lowercases the registryAddress before querying", async () => {
-        mockRequest.mockResolvedValue({ orgMembers: paginated([MOCK_ORG_MEMBER]) });
+        mockRequest.mockResolvedValueOnce({ orgMembers: paginated([MOCK_ORG_MEMBER]) });
 
         await client.listOrgMembers("0xABCDEF");
 
@@ -729,7 +737,7 @@ describe("listOrgMembers", () => {
     });
 
     it("returns paginated org members", async () => {
-        mockRequest.mockResolvedValue({ orgMembers: paginated([MOCK_ORG_MEMBER]) });
+        mockRequest.mockResolvedValueOnce({ orgMembers: paginated([MOCK_ORG_MEMBER]) });
 
         const result = await client.listOrgMembers("0xfactory");
 
@@ -739,7 +747,7 @@ describe("listOrgMembers", () => {
 
 describe("listOrgMembersByOrg", () => {
     it("lowercases the registryAddress and forwards orgId", async () => {
-        mockRequest.mockResolvedValue({ orgMembers: paginated([MOCK_ORG_MEMBER]) });
+        mockRequest.mockResolvedValueOnce({ orgMembers: paginated([MOCK_ORG_MEMBER]) });
 
         await client.listOrgMembersByOrg("0xABCDEF", "42");
 
@@ -752,7 +760,7 @@ describe("listOrgMembersByOrg", () => {
 
 describe("listOrgMembersByAddress", () => {
     it("lowercases the memberAddress before querying", async () => {
-        mockRequest.mockResolvedValue({ orgMembers: paginated([MOCK_ORG_MEMBER]) });
+        mockRequest.mockResolvedValueOnce({ orgMembers: paginated([MOCK_ORG_MEMBER]) });
 
         await client.listOrgMembersByAddress("0xDEADBEEF");
 
@@ -762,7 +770,7 @@ describe("listOrgMembersByAddress", () => {
     });
 
     it("returns an empty list when address has no memberships", async () => {
-        mockRequest.mockResolvedValue({ orgMembers: paginated([]) });
+        mockRequest.mockResolvedValueOnce({ orgMembers: paginated([]) });
 
         const result = await client.listOrgMembersByAddress("0x0000");
 
@@ -774,7 +782,7 @@ describe("listOrgMembersByAddress", () => {
 
 describe("listPendingJoinRequestsByOrg", () => {
     it("passes orgId to the query", async () => {
-        mockRequest.mockResolvedValue({ joinRequests: paginated([MOCK_JOIN_REQUEST]) });
+        mockRequest.mockResolvedValueOnce({ joinRequests: paginated([MOCK_JOIN_REQUEST]) });
 
         const result = await client.listPendingJoinRequestsByOrg("1");
 
@@ -785,7 +793,7 @@ describe("listPendingJoinRequestsByOrg", () => {
     });
 
     it("returns an empty list when no pending requests exist", async () => {
-        mockRequest.mockResolvedValue({ joinRequests: paginated([]) });
+        mockRequest.mockResolvedValueOnce({ joinRequests: paginated([]) });
 
         const result = await client.listPendingJoinRequestsByOrg("999");
 
@@ -798,7 +806,6 @@ describe("listPendingJoinRequestsByOrg", () => {
 describe("createIndexingClient", () => {
     it("instantiates GraphQLClient with the provided URL", () => {
         createIndexingClient("http://my-indexer:4200/graphql");
-
-        expect(GraphQLClient).toHaveBeenCalledWith("http://my-indexer:4200/graphql");
+        expect(vi.mocked(GraphQLClient)).toHaveBeenCalledWith("http://my-indexer:4200/graphql");
     });
 });

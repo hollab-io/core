@@ -65,9 +65,9 @@ describe("createPartnerMap", () => {
         const snapshot = getMockWorkspaceSnapshot();
         const map = createPartnerMap(snapshot);
 
-        expect(map["elena"].name).toBe("Elena Moroz");
-        expect(map["marcus"].name).toBe("Marcus Hale");
-        expect(map["felix"].name).toBe("Felix Armand");
+        expect(map["elena"]!.name).toBe("Elena Moroz");
+        expect(map["marcus"]!.name).toBe("Marcus Hale");
+        expect(map["felix"]!.name).toBe("Felix Armand");
     });
 
     it("last entry wins for duplicate ids", () => {
@@ -106,10 +106,10 @@ describe("createCircleMap", () => {
         const snapshot = getMockWorkspaceSnapshot();
         const map = createCircleMap(snapshot);
 
-        expect(map["anchor"].title).toBe("General Company Circle");
-        expect(map["anchor"].isAnchor).toBe(true);
-        expect(map["product"].title).toBe("Product & engineering");
-        expect(map["growth"].title).toBe("Growth & support");
+        expect(map["anchor"]!.title).toBe("General Company Circle");
+        expect(map["anchor"]!.isAnchor).toBe(true);
+        expect(map["product"]!.title).toBe("Product & engineering");
+        expect(map["growth"]!.title).toBe("Growth & support");
     });
 });
 
@@ -140,8 +140,8 @@ describe("createRoleMap", () => {
         const snapshot = getMockWorkspaceSnapshot();
         const map = createRoleMap(snapshot);
 
-        expect(map["lead-link-anchor"].title).toBe("Lead Link");
-        expect(map["lead-link-anchor"].circleId).toBe("anchor");
+        expect(map["lead-link-anchor"]!.title).toBe("Lead Link");
+        expect(map["lead-link-anchor"]!.circleId).toBe("anchor");
     });
 });
 
