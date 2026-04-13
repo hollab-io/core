@@ -1,3 +1,4 @@
+import type { IndexingClient } from "@hollab-io/indexing-client";
 import { organizationFactoryAbi } from "@hollab-io/contracts/actions";
 
 import type { CreateOrgResult, HollabAgentConfig, TxResult } from "../types.js";
@@ -82,14 +83,14 @@ export class OrgModule {
     }
 
     /** Query organization details from the indexer. */
-    async get(orgId: string) {
+    async get(orgId: string): ReturnType<IndexingClient["getOrganization"]> {
         const { createIndexingClient } = await import("@hollab-io/indexing-client");
         const client = createIndexingClient(this.config.indexerUrl);
         return client.getOrganization(orgId);
     }
 
     /** List all organizations, optionally filtered by creator. */
-    async list(creator?: `0x${string}`) {
+    async list(creator?: `0x${string}`): ReturnType<IndexingClient["listOrganizations"]> {
         const { createIndexingClient } = await import("@hollab-io/indexing-client");
         const client = createIndexingClient(this.config.indexerUrl);
         if (creator) {
@@ -99,7 +100,7 @@ export class OrgModule {
     }
 
     /** List members of an organization. */
-    async listMembers(orgId: string) {
+    async listMembers(orgId: string): ReturnType<IndexingClient["listOrgMembersByOrg"]> {
         const { createIndexingClient } = await import("@hollab-io/indexing-client");
         const client = createIndexingClient(this.config.indexerUrl);
         return client.listOrgMembersByOrg(this.config.orgFactoryAddress, orgId);

@@ -1,3 +1,4 @@
+import type { IndexingClient } from "@hollab-io/indexing-client";
 import { meetingFactoryAbi } from "@hollab-io/contracts/actions";
 
 import type {
@@ -78,21 +79,28 @@ export class MeetingsModule {
     }
 
     /** List team syncs (tactical meetings) for a contract. */
-    async listSyncs(contractAddress: `0x${string}`) {
+    async listSyncs(
+        contractAddress: `0x${string}`,
+    ): ReturnType<IndexingClient["listTacticalMeetingsByContract"]> {
         const { createIndexingClient } = await import("@hollab-io/indexing-client");
         const client = createIndexingClient(this.config.indexerUrl);
         return client.listTacticalMeetingsByContract(contractAddress);
     }
 
     /** List proposal reviews (governance meetings) for a contract. */
-    async listProposalReviews(contractAddress: `0x${string}`) {
+    async listProposalReviews(
+        contractAddress: `0x${string}`,
+    ): ReturnType<IndexingClient["listGovernanceMeetingsByContract"]> {
         const { createIndexingClient } = await import("@hollab-io/indexing-client");
         const client = createIndexingClient(this.config.indexerUrl);
         return client.listGovernanceMeetingsByContract(contractAddress);
     }
 
     /** List outputs from a specific meeting. */
-    async listOutputs(contractAddress: `0x${string}`, meetingId: string) {
+    async listOutputs(
+        contractAddress: `0x${string}`,
+        meetingId: string,
+    ): ReturnType<IndexingClient["listMeetingOutputs"]> {
         const { createIndexingClient } = await import("@hollab-io/indexing-client");
         const client = createIndexingClient(this.config.indexerUrl);
         return client.listMeetingOutputs(contractAddress, meetingId);

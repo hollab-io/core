@@ -1,3 +1,4 @@
+import type { IndexingClient } from "@hollab-io/indexing-client";
 import { meetingFactoryAbi } from "@hollab-io/contracts/actions";
 
 import type {
@@ -109,7 +110,10 @@ export class GovernanceModule {
     }
 
     /** List proposals for a circle from the indexer. */
-    async listProposals(processAddress: `0x${string}`, circleId: string) {
+    async listProposals(
+        processAddress: `0x${string}`,
+        circleId: string,
+    ): ReturnType<IndexingClient["listProposalsByCircle"]> {
         const { createIndexingClient } = await import("@hollab-io/indexing-client");
         const client = createIndexingClient(this.config.indexerUrl);
         return client.listProposalsByCircle(processAddress, circleId);

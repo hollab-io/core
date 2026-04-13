@@ -1,3 +1,4 @@
+import type { IndexingClient } from "@hollab-io/indexing-client";
 import { actionVotingAbi } from "@hollab-io/contracts/actions";
 
 import type {
@@ -75,14 +76,20 @@ export class VotingModule {
     }
 
     /** List votes for a circle from the indexer. */
-    async listByCircle(contractAddress: `0x${string}`, circleId: string) {
+    async listByCircle(
+        contractAddress: `0x${string}`,
+        circleId: string,
+    ): ReturnType<IndexingClient["listActionVotesByCircle"]> {
         const { createIndexingClient } = await import("@hollab-io/indexing-client");
         const client = createIndexingClient(this.config.indexerUrl);
         return client.listActionVotesByCircle(contractAddress, circleId);
     }
 
     /** List individual vote casts for a specific vote. */
-    async listCasts(contractAddress: `0x${string}`, voteId: string) {
+    async listCasts(
+        contractAddress: `0x${string}`,
+        voteId: string,
+    ): ReturnType<IndexingClient["listActionVoteCasts"]> {
         const { createIndexingClient } = await import("@hollab-io/indexing-client");
         const client = createIndexingClient(this.config.indexerUrl);
         return client.listActionVoteCasts(contractAddress, voteId);
