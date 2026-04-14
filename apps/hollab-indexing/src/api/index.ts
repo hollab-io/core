@@ -4,6 +4,8 @@ import { asc, client, eq, graphql } from "ponder";
 import { db } from "ponder:api";
 import schema from "ponder:schema";
 
+import { assembleOrgIndex, assembleOrgManifest } from "./manifest.js";
+
 const app = new Hono();
 
 app.use("*", cors());
@@ -54,19 +56,8 @@ app.get("/agents/index.json", async (c) => {
         .from(schema.organization)
         .orderBy(asc(schema.organization.id));
 
-    const origin = indexerOrigin(c);
-    const body = {
-        version: 1,
-        chainId: CHAIN_ID,
-        indexer: { endpoint: origin || null, type: "ponder" as const },
-        orgs: orgs.map((o) => ({
-            id: o.id.toString(),
-            ensName: `${o.subname}.hollab.eth`,
-            name: o.name,
-            mission: o.purpose,
-            manifest: `/agents/${o.id.toString()}.json`,
-        })),
-    };
+    const origin = indexerOrigin(c) || null;
+    const body = assembleOrgIndex(orgs, { chainId: CHAIN_ID, origin });
     return jsonResponse(c, body);
 });
 
@@ -108,68 +99,11 @@ app.get("/agents/:orgId.json", async (c) => {
             .where(eq(schema.meetingComponentSet.orgId, orgIdBig)),
     ]);
 
-    // Pick the most recently deployed component set if multiple exist.
-    const componentSet = componentSets.sort((a, b) =>
-        a.deployedAt > b.deployedAt ? -1 : a.deployedAt < b.deployedAt ? 1 : 0,
-    )[0];
-
-    const origin = indexerOrigin(c);
-    const body = {
-        version: 1,
+    const origin = indexerOrigin(c) || null;
+    const body = assembleOrgManifest(org, circles, roles, members, componentSets, {
         chainId: CHAIN_ID,
-        org: {
-            id: org.id.toString(),
-            ensName: `${org.subname}.hollab.eth`,
-            name: org.name,
-            mission: org.purpose,
-            creator: org.creator,
-            createdAt: Number(org.createdAt),
-            memberCount: members.length,
-            circleCount: circles.length,
-            roleCount: roles.length,
-        },
-        contracts: {
-            circleRegistry: org.circleRegistry,
-            roleRegistry: org.roleRegistry,
-            governanceProcess: org.governanceProcess,
-            meetingFactory: componentSet?.meetingFactory ?? null,
-            actionVoting: componentSet?.actionVoting ?? null,
-            govToken: org.token,
-        },
-        circles: circles.map((c) => ({
-            id: c.circleId.toString(),
-            name: c.name,
-            purpose: c.purpose,
-            parentId: c.parentCircleId.toString(),
-            isAnchor: c.isAnchor,
-            roleIds: c.roleIds,
-            subCircleIds: c.subCircleIds,
-        })),
-        roles: roles.map((r) => ({
-            id: r.roleId.toString(),
-            name: r.name,
-            purpose: r.purpose,
-            domains: r.domains,
-            accountabilities: r.accountabilities,
-            circleId: r.circleId.toString(),
-            leads: r.leads,
-        })),
-        members: members.map((m) => ({
-            address: m.memberAddress,
-            joinedAt: Number(m.addedAt),
-        })),
-        // openProposals: the `proposal` schema table exists but no contract
-        // currently emits the events that populate it (see Day 2 findings in
-        // docs/sprint-agent-native-mvp.md). Until a GovernanceProcess proposal
-        // lifecycle ships, this array stays empty in v1.
-        openProposals: [],
-        indexer: {
-            endpoint: origin || null,
-            type: "ponder" as const,
-            graphql: origin ? `${origin}/graphql` : null,
-        },
-    };
-
+        origin,
+    });
     return jsonResponse(c, body);
 });
 
