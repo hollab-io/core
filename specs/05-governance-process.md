@@ -419,3 +419,114 @@ ProcessBreakdownDeclared(breakdownId, circleId, declaredBy)
 ProcessRestored(breakdownId, circleId)
 ProcessBreakdownEscalated(breakdownId, superCircleId)
 ```
+
+---
+
+## On-chain Commitments Surface
+
+The data structures and events above describe the full Holacracy IDM model.
+The current contract set implements a **strict subset** of that surface — the
+subset that represents _commitments_ rather than _coordination_.
+
+### Design stance: commitments on-chain, coordination off-chain
+
+Holacracy's IDM is fundamentally a meeting protocol. Present → Clarifying
+Questions → Reaction Round → Option to Clarify → Objection Round →
+Integration. Every step is a human speaking to other humans. None of it
+belongs on a blockchain. What does belong on-chain is the audit trail of
+what was committed to: _a proposal was created, it reached these objections,
+they were resolved in this order, it was adopted (or discarded) at time T_.
+
+The contract implements this subset. Everything else — the rounds, the
+clarifying questions, the integration discussion, the process-breakdown
+escalation, the election nominations — lives in the meeting room, captured
+as off-chain records pointed at by content hashes when persistence is needed.
+
+### What the contract emits
+
+`packages/contracts/src/contracts/MeetingFactory.sol` exposes five proposal
+lifecycle events and five corresponding entry points:
+
+| Step            | IDM mapping (§5.4.5) | Contract event                                                                                                | Entry point             |
+| --------------- | -------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| a               | Present Proposal     | `ProposalCreated(proposalId, orgId, circleId, proposer, proposerRoleId, tensionHash, changeType, changeData)` | `createProposal(...)`   |
+| e               | Objection Round      | `ObjectionRaised(objectionId, proposalId, objector, concernHash)`                                             | `raiseObjection(...)`   |
+| f               | Integration          | `ObjectionResolved(objectionId, proposalId, resolvedBy)`                                                      | `resolveObjection(...)` |
+| § 5.2           | Enactment            | `ProposalAdopted(proposalId, orgId, resultId, adoptedBy)`                                                     | `adoptProposal(...)`    |
+| § 5.3.1 / § 5.5 | Discard              | `ProposalDiscarded(proposalId, orgId, discardedBy)`                                                           | `discardProposal(...)`  |
+
+Steps b, c, and d — Clarifying Questions, Reaction Round, Option to Clarify
+— produce no on-chain artifacts because nothing committed changes. If a
+specific facilitator's notes need to be preserved they can be referenced by
+a content hash in a later amendment, but the baseline spec does not require
+it.
+
+### Content-address discipline
+
+`tensionHash` (on `ProposalCreated`) and `concernHash` (on `ObjectionRaised`)
+are `bytes32` content-addresses of the off-chain text. The contract is
+indifferent to the addressing scheme — it works equally with:
+
+-   `keccak256(utf8(rawText))` when the content is inline and small
+-   CIDv1 sha256-truncated to 32 bytes when stored on IPFS / Filecoin
+-   0G Merkle root when stored on 0G Storage
+
+This keeps `ContentRef` polymorphic across storage backends. See
+`CLAUDE.md` and `hollab-sdk` for the encryption layer that sits between the
+plaintext and the storage backend.
+
+### Authorization
+
+| Action             | Who can call                                                        |
+| ------------------ | ------------------------------------------------------------------- |
+| `createProposal`   | Any org member                                                      |
+| `raiseObjection`   | Any org member                                                      |
+| `resolveObjection` | Original objector (withdrawal) OR org admin (integration confirmed) |
+| `adoptProposal`    | Org admin only                                                      |
+| `discardProposal`  | Org admin only                                                      |
+
+The `resolvedBy` address in `ObjectionResolved` lets indexers and UIs
+distinguish a withdrawal from an integration without a separate event or
+status enum entry.
+
+### Non-enforcement: "no adopt with unresolved objections"
+
+The spec says a proposal with valid outstanding objections must not be
+adopted. The contract does **not enforce this**. Reasons:
+
+1. The constitution's definition of a "valid" objection is judgment-based
+   (§5.3.4 criteria) — the contract cannot reliably determine validity
+   without duplicating the meeting facilitator's role on-chain.
+2. On-chain enforcement would require iterating objections in `adoptProposal`
+   (an SLOAD loop) for a rule that the coordinator is already applying.
+3. The event log preserves full auditability: anyone can read the proposal
+   and objection trail and determine whether the adoption was procedurally
+   valid.
+
+The contract _does_ enforce cheap state-machine invariants:
+`Draft → {Adopted, Discarded}` (no double-transition, no discard-after-adopt);
+`Raised → Resolved` (no double-resolve); objections can only be raised on
+Draft proposals. These are one-SLOAD checks and catch the common bugs.
+
+### Out of scope (for now)
+
+The following belong to the full IDM spec above but are **not** implemented
+on-chain in the current contract set. Each is either a coordination concern
+(off-chain by design) or a post-MVP expansion:
+
+-   Process Breakdown declaration / restoration / escalation
+-   Integrative Election Process — the contract has a generic `Election`
+    `ChangeType` that records an outcome, but the nomination / reaction / final
+    round mechanics happen in the meeting room
+-   Objection validity tests (the 4 criteria in §5.3.4)
+-   `Withdrawn` proposal status — the MVP uses `Discarded` for both
+    admin-initiated rejection and proposer withdrawal, distinguishing them via
+    the `discardedBy` address in the event
+
+### Legacy entry point
+
+`executeGovernance(orgId, changeType, data)` is preserved for backward
+compatibility. It is equivalent to `createProposal` + immediate
+`adoptProposal` with an empty tension hash and no proposal record. Marked
+`@deprecated` in the interface. New flows must go through the proposal
+lifecycle so the public permalink surface has something to render.
