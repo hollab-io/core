@@ -8,6 +8,8 @@
  *   #/join/:id                  → guest join panel
  *   #/constitution              → public constitution
  *   #/o/:orgId                  → public (wallet-less) org surface
+ *   #/o/:orgId/r/:roleId        → public (wallet-less) role permalink
+ *   #/explore                   → public (wallet-less) org directory
  *
  * Syncs browser back/forward, persists across refresh.
  */
@@ -20,7 +22,9 @@ export type Route =
     | { page: "constitution" }
     | { page: "org"; orgId: string; tab: AppTabId }
     | { page: "join"; orgId: string }
-    | { page: "public"; orgId: string };
+    | { page: "public"; orgId: string }
+    | { page: "publicRole"; orgId: string; roleId: string }
+    | { page: "explore" };
 
 const DEFAULT_TAB: AppTabId = "constitution";
 const VALID_TABS = new Set<string>([
@@ -35,9 +39,17 @@ export function parseHash(hash: string): Route {
     const path = hash.replace(/^#\/?/, "");
     if (!path || path === "/") return { page: "home" };
     if (path === "constitution") return { page: "constitution" };
+    if (path === "explore") return { page: "explore" };
 
     const parts = path.split("/");
     if (parts[0] === "o" && parts[1]) {
+        if (parts[2] === "r" && parts[3]) {
+            return {
+                page: "publicRole",
+                orgId: parts[1],
+                roleId: decodeURIComponent(parts.slice(3).join("/")),
+            };
+        }
         return { page: "public", orgId: parts[1] };
     }
     if (parts[0] === "join" && parts[1]) {
@@ -60,6 +72,10 @@ export function routeToHash(route: Route): string {
             return `#/join/${route.orgId}`;
         case "public":
             return `#/o/${route.orgId}`;
+        case "publicRole":
+            return `#/o/${route.orgId}/r/${encodeURIComponent(route.roleId)}`;
+        case "explore":
+            return "#/explore";
         case "org":
             return route.tab === DEFAULT_TAB
                 ? `#/orgs/${route.orgId}`

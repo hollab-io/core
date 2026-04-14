@@ -267,28 +267,63 @@ app.get("/agents/index.json", async (c) => {
 
 ### Day 2 — agent loop closes
 
--   [ ] WS1: proposals list + adopted timeline on `PublicOrgView`
--   [ ] WS1: Topbar + app shell refuse to render connect button on public routes
--   [ ] WS2: runtime manifest route queries indexer DB and returns full JSON per org; `/agents/index.json` returns the org list
--   [ ] WS2: `propose-tension.ts` example runs end-to-end against local anvil, reading the manifest from the runtime endpoint
--   [ ] WS2: agent allowlist config + `🤖 agent` chip rendering in `PublicOrgView`
--   [ ] WS2: `packages/agent-sdk/README.md` quickstart updated
+-   [ ] WS1: proposals list + adopted timeline on `PublicOrgView` — **BLOCKED & REPLACED**, see Day 2 findings
+-   [x] WS1: Topbar + app shell refuse to render connect button on public routes _(Day 1 — minimal inline shell in `App.tsx`)_
+-   [x] WS2: runtime manifest route queries indexer DB and returns full JSON per org; `/agents/index.json` returns the org list
+-   [x] WS2: `propose-tension.ts` example reads the manifest from the runtime endpoint and submits via `agent.governance.createRole` (live smoke test pending — needs the dev stack running)
+-   [x] WS2: agent allowlist config + `🤖 agent` chip rendering in `PublicOrgView` (members and role leads)
+-   [x] WS2: `packages/agent-sdk/README.md` quickstart added
 
-### Day 3 — flywheel
+### Day 2 progress log
 
--   [ ] WS3: `#/explore` route + `ExploreView`
--   [ ] WS3: `#/o/:orgId/p/:proposalId` + `PublicProposalView`
--   [ ] WS3: base OG tags in `index.html`
--   [ ] WS3: "Join community" progressive connect CTA on `PublicOrgView`
--   [ ] **End-to-end smoke test:** fresh anvil → seed orgs → run agent example → open `#/explore` in incognito → click org → click proposal → copy permalink → open in second incognito → all renders without connect
+**Shipped:**
+
+-   `apps/hollab-indexing/src/api/index.ts` — `/agents/index.json` and `/agents/:orgId.json` now query the Ponder DB via Drizzle (`asc`/`eq` re-exported from `"ponder"`, no extra dep). The per-org route assembles `org`, `contracts`, `circles`, `roles`, `members` with stable ordering, plus `meetingFactory` and `actionVoting` joined from `meetingComponentSet`. BigInts serialized as decimal strings via a custom `JSON.stringify` replacer (Hono's `c.json` would have thrown otherwise).
+-   `apps/hola-modern/src/config/agents.ts` — agent address allowlist with `isAgentAddress(addr)` helper. Defaults to anvil account #9 to match the `propose-tension.ts` default.
+-   `PublicOrgView.tsx` — chip rendering on members **and** role leads when the address is in the allowlist; new "Roles" section with name/purpose/leads.
+-   `packages/agent-sdk/examples/propose-tension.ts` — fetches manifest, builds `HollabAgent` against `viem/chains.foundry`, submits `createRole` through `MeetingFactory.executeGovernance`, polls `/agents/:orgId.json` for the new role, prints the SPA permalink. Default `AGENT_PRIVATE_KEY` is anvil account #9 (deterministic, not a secret).
+-   `packages/agent-sdk/docs/agent-manifest-v1.md` — full v1 schema doc with rationale, decisions, forward-compat rules, and the known-limitations section.
+-   `packages/agent-sdk/README.md` — 30-line quickstart driven off the discovery endpoint and the example script.
+
+**Day 2 findings — open `proposals` table is unpopulated:**
+
+The Ponder schema in `apps/hollab-indexing/ponder.schema.ts` defines a `proposal` table (lines 99–112) with `tension`, `proposer`, `status`, `submittedAt`, etc. — **but no contract currently emits the events that populate it**. `MeetingFactory.executeGovernance` applies role/policy changes directly to `RoleRegistry` and never goes through a tension/proposal lifecycle. Only `MeetingProposalLinked` is emitted from `MeetingFactory`, and that's a meeting↔proposal join, not a proposal creation event.
+
+Implications:
+
+1. **WS1 "proposals list + adopted timeline" is blocked at the contract layer.** Replaced for Day 2 with a **Roles list** on `PublicOrgView` — same purpose (show concrete agent-readable artifacts) using data that actually exists.
+2. **The agent example creates a role, not a proposal.** Filename kept (`propose-tension.ts`) to match the sprint spec; the script's header documents the gap and notes that adopting `GovernanceProcess` proposal events later is a one-line change at the call site.
+3. **Manifest `openProposals: []` always.** Documented in `agent-manifest-v1.md` "Known v1 limitations". When the contract starts emitting proposal events, the manifest populates without a version bump (additive only).
+
+**Open Question Q2 (ContentRef → text) — resolved by being moot:** since proposals don't exist on-chain yet, there's nothing to resolve. Revisit when the proposal lifecycle ships.
+
+**Live smoke test status:** all three packages typecheck and lint clean and the existing 11 unit tests still pass (4 `agent-sdk` encoding + 7 `useHashRouter`). Running `propose-tension.ts` against a live anvil stack is the next thing to do once `./scripts/dev-local.sh` is up — held until the seed-orgs script lands so a fresh-clone smoke test exercises the whole flow in one pass.
+
+### Day 3 — flywheel (revised after Day 2 finding)
+
+The Day 2 finding (no proposal lifecycle on-chain) propagates into Day 3: a `PublicProposalView` would render against an empty `proposal` table. Pivoting to **role permalinks** as the atomic deep-linkable governance object — same flywheel mechanics (every link pulls a cold viewer in), against data that actually exists today.
+
+-   [x] WS3: `#/explore` route + `ExploreView` — directory uses `indexing-client.listOrganizations` (not `/agents/index.json`) so it stays wallet-less/RPC-less and can mount above the auth gate. Cards show ENS subname label, name, member/circle/role counts. Sorted by `updatedAt` desc. Click → `#/o/:orgId`.
+-   [x] WS3: **`#/o/:orgId/r/:roleId` + `PublicRoleView`** _(replaces `/p/:proposalId`)_ — permalink renders name, purpose, domains, accountabilities, leads (🤖 chip when applicable), with back-link to org. When the proposal lifecycle ships, add `/p/:proposalId` alongside without removing this.
+-   [x] WS3: extend `useHashRouter` with `explore` and `publicRole` route variants + unit tests for both (13 passing)
+-   [x] WS3: base OG tags in `apps/hola-modern/index.html` (og:type, og:site_name, og:title, og:description, og:url, twitter:card/title/description)
+-   [x] WS3: "Join community" progressive CTA on `PublicOrgView` — navigates to `#/join/:orgId`, which falls through the auth gate to `Welcome` where the existing `WalletAuthControl`/RainbowKit mount lives. Keeps the public tree zero-wagmi.
+-   [x] WS3: `usePublicRoleFromIndexer` hook — `GET_ROLE` already uses `String!` (confirmed in `packages/indexing-client/src/queries.ts:86`), no Day 1-style BigInt episode.
+-   [x] WS3: unit coverage for `useHashRouter` explore + publicRole parse/stringify (including url-encoded role ids and malformed fallback)
+-   [ ] **End-to-end smoke test:** fresh anvil → seed orgs → run agent example → open `#/explore` in incognito → click org → click role → copy permalink → open in second incognito → all renders without connect, agent role shows 🤖 chip
 -   [ ] (Stretch) static per-org OG PNG if time permits
+
+**Out of Day 3 scope (carried over):**
+
+-   `#/o/:orgId/p/:proposalId` proposal permalink — re-enters scope when `GovernanceProcess` proposal events ship
+-   ~~`SeedDemoOrgs.s.sol`~~ **shipped Day 3.** `packages/contracts/script/SeedDemoOrgs.s.sol` creates two wired demo orgs (`paperclip`, `solarpunk`) on top of `DeployLocal`. Each org gets its meeting components deployed via `MeetingComponentsFactory`, the agent address added as a member, three/two roles created via `MeetingFactory.executeGovernance(CreateRole, …)` on `circleId=0` (the anchor), and `paperclip`'s first role elects the agent as lead (Election change type) so the permalink renders with a 🤖 chip end-to-end. Reads infra addresses from `deployments/31337-local.json` (written by `DeployLocal`) and appends `deployments/31337-seed.json` with the resulting orgIds. Verified end-to-end against a local anvil (`ONCHAIN EXECUTION COMPLETE & SUCCESSFUL`) — paperclip=orgId 2, solarpunk=orgId 3 on a fresh DeployLocal stack.
 
 ---
 
 ## Success Metrics (demo criteria, local)
 
--   ✅ Zero wallet-connect prompts in the entire unauthenticated browsing path (`#/explore` → `#/o/:orgId` → `#/o/:orgId/p/:proposalId`)
--   ✅ Agent example submits a proposal that appears on public view tagged with `🤖 agent` in < 30s from script invocation
+-   ✅ Zero wallet-connect prompts in the entire unauthenticated browsing path (`#/explore` → `#/o/:orgId` → `#/o/:orgId/r/:roleId`)
+-   ✅ Agent example submits a structural change (currently `CreateRole` — see Day 2 finding) that appears on public view tagged with `🤖 agent` in < 30s from script invocation
 -   ✅ `agent.json` is valid, versioned, and served at a stable URL
 -   ✅ Time-to-first-meaningful-action on public org page < 15s for a stranger (informal — one person outside the team times it)
 -   ✅ Fresh `git clone` → `pnpm install` → `./scripts/dev-local.sh` → seed script → open `#/explore` → all of the above works from a clean machine

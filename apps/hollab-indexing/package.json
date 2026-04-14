@@ -9,6 +9,7 @@
         "lint": "eslint .",
         "serve": "ponder serve",
         "start": "ponder start",
+        "test": "vitest run",
         "typecheck": "tsc"
     },
     "dependencies": {
