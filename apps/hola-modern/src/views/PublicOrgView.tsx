@@ -19,9 +19,11 @@ import { useRolesFromIndexer } from "../hooks/useRolesFromIndexer";
 type Props = {
     orgId: string;
     onBack?: () => void;
+    onOpenRole?: (roleId: string) => void;
+    onJoin?: () => void;
 };
 
-export default function PublicOrgView({ orgId, onBack }: Props) {
+export default function PublicOrgView({ orgId, onBack, onOpenRole, onJoin }: Props) {
     const { chainConfig } = useChain();
     const { data: org, isLoading: orgLoading, error: orgError } = usePublicOrgFromIndexer(orgId);
     const { circles } = useCirclesFromIndexer(orgId);
@@ -81,6 +83,26 @@ export default function PublicOrgView({ orgId, onBack }: Props) {
                     <span>{circles.length} circles</span>
                     <span>·</span>
                     <span>{roles.length} roles</span>
+                </div>
+                <div className="mt-6 flex flex-wrap items-center gap-2">
+                    {onJoin && (
+                        <button
+                            type="button"
+                            onClick={onJoin}
+                            className="rounded-full border border-[#3481FF]/30 bg-[#3481FF]/[0.08] px-4 py-1.5 text-[12px] font-semibold text-[#3481FF] transition hover:bg-[#3481FF]/[0.14]"
+                        >
+                            Join community
+                        </button>
+                    )}
+                    {onBack && (
+                        <button
+                            type="button"
+                            onClick={onBack}
+                            className="rounded-full border border-slate-200 px-4 py-1.5 text-[12px] font-medium text-slate-600 hover:border-slate-300 dark:border-white/10 dark:text-slate-300"
+                        >
+                            ← Explore
+                        </button>
+                    )}
                 </div>
             </header>
 
@@ -147,10 +169,20 @@ export default function PublicOrgView({ orgId, onBack }: Props) {
                             return (
                                 <li
                                     key={r.id}
-                                    className="rounded-xl border border-slate-200/70 p-4 dark:border-white/[0.06]"
+                                    className="rounded-xl border border-slate-200/70 p-4 transition hover:border-slate-300 dark:border-white/[0.06] dark:hover:border-white/[0.14]"
                                 >
                                     <div className="flex items-baseline justify-between gap-3">
-                                        <p className="text-sm font-semibold">{r.name}</p>
+                                        {onOpenRole ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => onOpenRole(r.id)}
+                                                className="text-left text-sm font-semibold hover:text-[#3481FF]"
+                                            >
+                                                {r.name}
+                                            </button>
+                                        ) : (
+                                            <p className="text-sm font-semibold">{r.name}</p>
+                                        )}
                                         {leads.length > 0 && (
                                             <div className="flex flex-wrap items-center gap-1">
                                                 {leads.map((lead) => {

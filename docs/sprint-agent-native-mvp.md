@@ -303,20 +303,20 @@ Implications:
 
 The Day 2 finding (no proposal lifecycle on-chain) propagates into Day 3: a `PublicProposalView` would render against an empty `proposal` table. Pivoting to **role permalinks** as the atomic deep-linkable governance object — same flywheel mechanics (every link pulls a cold viewer in), against data that actually exists today.
 
--   [ ] WS3: `#/explore` route + `ExploreView` — global org directory from `/agents/index.json`, sorted by recent activity. Card shows mission, ENS subname label, member count, role count. Zero wallet connect. Click → `#/o/:orgId`.
--   [ ] WS3: **`#/o/:orgId/r/:roleId` + `PublicRoleView`** _(replaces `/p/:proposalId`)_ — its own publicly readable permalink. Shows role name, purpose, domains, accountabilities, leads (with 🤖 chip when applicable), parent circle, back-link to org. When the proposal lifecycle ships, add `/p/:proposalId` alongside without removing this.
--   [ ] WS3: extend `useHashRouter` with `explore` and `publicRole` route variants + unit tests for both
--   [ ] WS3: base OG tags in `apps/hola-modern/index.html` (title, description, og:title, og:description, og:type, twitter:card)
--   [ ] WS3: "Join community" progressive connect CTA on `PublicOrgView` — the **only** RainbowKit mount point in the public tree
--   [ ] WS3: indexing-client `getRole(id)` hook (`usePublicRoleFromIndexer`) — verify the existing `GET_ROLE` query type matches Ponder's generated arg (text PK should be `String!`, but check before assuming after the Day 1 BigInt episode)
--   [ ] WS3: `agents.test.ts`-style unit coverage for `useHashRouter` `explore` + `publicRole` parse/stringify
+-   [x] WS3: `#/explore` route + `ExploreView` — directory uses `indexing-client.listOrganizations` (not `/agents/index.json`) so it stays wallet-less/RPC-less and can mount above the auth gate. Cards show ENS subname label, name, member/circle/role counts. Sorted by `updatedAt` desc. Click → `#/o/:orgId`.
+-   [x] WS3: **`#/o/:orgId/r/:roleId` + `PublicRoleView`** _(replaces `/p/:proposalId`)_ — permalink renders name, purpose, domains, accountabilities, leads (🤖 chip when applicable), with back-link to org. When the proposal lifecycle ships, add `/p/:proposalId` alongside without removing this.
+-   [x] WS3: extend `useHashRouter` with `explore` and `publicRole` route variants + unit tests for both (13 passing)
+-   [x] WS3: base OG tags in `apps/hola-modern/index.html` (og:type, og:site_name, og:title, og:description, og:url, twitter:card/title/description)
+-   [x] WS3: "Join community" progressive CTA on `PublicOrgView` — navigates to `#/join/:orgId`, which falls through the auth gate to `Welcome` where the existing `WalletAuthControl`/RainbowKit mount lives. Keeps the public tree zero-wagmi.
+-   [x] WS3: `usePublicRoleFromIndexer` hook — `GET_ROLE` already uses `String!` (confirmed in `packages/indexing-client/src/queries.ts:86`), no Day 1-style BigInt episode.
+-   [x] WS3: unit coverage for `useHashRouter` explore + publicRole parse/stringify (including url-encoded role ids and malformed fallback)
 -   [ ] **End-to-end smoke test:** fresh anvil → seed orgs → run agent example → open `#/explore` in incognito → click org → click role → copy permalink → open in second incognito → all renders without connect, agent role shows 🤖 chip
 -   [ ] (Stretch) static per-org OG PNG if time permits
 
 **Out of Day 3 scope (carried over):**
 
 -   `#/o/:orgId/p/:proposalId` proposal permalink — re-enters scope when `GovernanceProcess` proposal events ship
--   `SeedDemoOrgs.s.sol` — still the load-bearing prerequisite for the live smoke test. If this doesn't land in Day 3, smoke test is documented as "pending" and the demo runs against manually-created orgs through the authed UI.
+-   ~~`SeedDemoOrgs.s.sol`~~ **shipped Day 3.** `packages/contracts/script/SeedDemoOrgs.s.sol` creates two wired demo orgs (`paperclip`, `solarpunk`) on top of `DeployLocal`. Each org gets its meeting components deployed via `MeetingComponentsFactory`, the agent address added as a member, three/two roles created via `MeetingFactory.executeGovernance(CreateRole, …)` on `circleId=0` (the anchor), and `paperclip`'s first role elects the agent as lead (Election change type) so the permalink renders with a 🤖 chip end-to-end. Reads infra addresses from `deployments/31337-local.json` (written by `DeployLocal`) and appends `deployments/31337-seed.json` with the resulting orgIds. Verified end-to-end against a local anvil (`ONCHAIN EXECUTION COMPLETE & SUCCESSFUL`) — paperclip=orgId 2, solarpunk=orgId 3 on a fresh DeployLocal stack.
 
 ---
 

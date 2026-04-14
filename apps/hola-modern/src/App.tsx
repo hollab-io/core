@@ -18,11 +18,13 @@ import { useTacticalMeetingsFromIndexer } from "./hooks/useTacticalMeetingsFromI
 import { useWorkspaceSnapshot } from "./hooks/useWorkspaceSnapshot";
 import ActionItemsView from "./views/ActionItemsView";
 import ConstitutionView from "./views/ConstitutionView";
+import ExploreView from "./views/ExploreView";
 import GovernanceMeetingRoom from "./views/GovernanceMeetingRoom";
 import GovernanceView from "./views/GovernanceView";
 import JoinOrganizationPanel from "./views/JoinOrganizationPanel";
 import OrganizationsHome from "./views/OrganizationsHome";
 import PublicOrgView from "./views/PublicOrgView";
+import PublicRoleView from "./views/PublicRoleView";
 import StructureView from "./views/StructureView";
 import TacticalMeetingRoom from "./views/TacticalMeetingRoom";
 import TacticalView from "./views/TacticalView";
@@ -140,11 +142,33 @@ function App() {
     // ── Public (wallet-less) org surface ─────────────────────────────────────
     // Must render BEFORE the auth gate so incognito / no-wallet visitors work.
 
-    if (route.page === "public") {
+    if (route.page === "public" || route.page === "publicRole" || route.page === "explore") {
         return (
             <div className="relative min-h-screen w-full overflow-auto bg-white text-slate-900 dark:bg-[#050505] dark:text-white font-sans">
                 <div className="grain-overlay hidden dark:block" aria-hidden="true" />
-                <PublicOrgView orgId={route.orgId} onBack={() => navigate({ page: "home" })} />
+                {route.page === "explore" && (
+                    <ExploreView
+                        onOpenOrg={(orgId) => navigate({ page: "public", orgId })}
+                        onBack={() => navigate({ page: "home" })}
+                    />
+                )}
+                {route.page === "public" && (
+                    <PublicOrgView
+                        orgId={route.orgId}
+                        onBack={() => navigate({ page: "explore" })}
+                        onOpenRole={(roleId) =>
+                            navigate({ page: "publicRole", orgId: route.orgId, roleId })
+                        }
+                        onJoin={() => navigate({ page: "join", orgId: route.orgId })}
+                    />
+                )}
+                {route.page === "publicRole" && (
+                    <PublicRoleView
+                        orgId={route.orgId}
+                        roleId={route.roleId}
+                        onBackToOrg={() => navigate({ page: "public", orgId: route.orgId })}
+                    />
+                )}
             </div>
         );
     }
