@@ -9,6 +9,7 @@
  */
 import { useMemo } from "react";
 
+import { isAgentAddress } from "../config/agents";
 import { useChain } from "../context/ChainContext";
 import { useCirclesFromIndexer } from "../hooks/useCirclesFromIndexer";
 import { useOrgMembersFromIndexer } from "../hooks/useOrgMembersFromIndexer";
@@ -111,18 +112,79 @@ export default function PublicOrgView({ orgId, onBack }: Props) {
                     Members
                 </h2>
                 <ul className="flex flex-wrap gap-2">
-                    {members.map((m) => (
-                        <li
-                            key={m.memberAddress}
-                            className="rounded-full border border-slate-200/70 px-3 py-1 font-mono text-[11px] text-slate-600 dark:border-white/[0.06] dark:text-slate-300"
-                        >
-                            {m.memberAddress.slice(0, 6)}…{m.memberAddress.slice(-4)}
-                        </li>
-                    ))}
+                    {members.map((m) => {
+                        const isAgent = isAgentAddress(m.memberAddress);
+                        return (
+                            <li
+                                key={m.memberAddress}
+                                className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[11px] ${
+                                    isAgent
+                                        ? "border-[#3481FF]/30 bg-[#3481FF]/[0.08] text-[#3481FF]"
+                                        : "border-slate-200/70 text-slate-600 dark:border-white/[0.06] dark:text-slate-300"
+                                }`}
+                            >
+                                {isAgent && <span aria-label="agent">🤖</span>}
+                                {m.memberAddress.slice(0, 6)}…{m.memberAddress.slice(-4)}
+                            </li>
+                        );
+                    })}
                 </ul>
             </section>
 
-            {/* TODO(WS1 Day 2): live proposals + adopted timeline */}
+            {/* ── Roles ────────────────────────────────────────────────────── */}
+            <section className="mb-10">
+                <h2 className="mb-3 text-[11px] font-mono uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                    Roles
+                </h2>
+                {roles.length === 0 ? (
+                    <p className="text-[13px] text-slate-500 dark:text-slate-400">
+                        No roles defined yet.
+                    </p>
+                ) : (
+                    <ul className="space-y-2">
+                        {roles.map((r) => {
+                            const leads = (r.leads ?? []) as string[];
+                            return (
+                                <li
+                                    key={r.id}
+                                    className="rounded-xl border border-slate-200/70 p-4 dark:border-white/[0.06]"
+                                >
+                                    <div className="flex items-baseline justify-between gap-3">
+                                        <p className="text-sm font-semibold">{r.name}</p>
+                                        {leads.length > 0 && (
+                                            <div className="flex flex-wrap items-center gap-1">
+                                                {leads.map((lead) => {
+                                                    const isAgent = isAgentAddress(lead);
+                                                    return (
+                                                        <span
+                                                            key={lead}
+                                                            className={`flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] ${
+                                                                isAgent
+                                                                    ? "border-[#3481FF]/30 bg-[#3481FF]/[0.08] text-[#3481FF]"
+                                                                    : "border-slate-200/70 text-slate-500 dark:border-white/[0.06] dark:text-slate-400"
+                                                            }`}
+                                                        >
+                                                            {isAgent && <span>🤖</span>}
+                                                            {lead.slice(0, 6)}…{lead.slice(-4)}
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {r.purpose && (
+                                        <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400">
+                                            {r.purpose}
+                                        </p>
+                                    )}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </section>
+
+            {/* TODO(WS1 Day 2): live proposals + adopted timeline (blocked — see sprint doc) */}
             {/* TODO(WS3): progressive connect "Propose a tension" CTA */}
         </main>
     );

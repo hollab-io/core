@@ -267,12 +267,37 @@ app.get("/agents/index.json", async (c) => {
 
 ### Day 2 — agent loop closes
 
--   [ ] WS1: proposals list + adopted timeline on `PublicOrgView`
--   [ ] WS1: Topbar + app shell refuse to render connect button on public routes
--   [ ] WS2: runtime manifest route queries indexer DB and returns full JSON per org; `/agents/index.json` returns the org list
--   [ ] WS2: `propose-tension.ts` example runs end-to-end against local anvil, reading the manifest from the runtime endpoint
--   [ ] WS2: agent allowlist config + `🤖 agent` chip rendering in `PublicOrgView`
--   [ ] WS2: `packages/agent-sdk/README.md` quickstart updated
+-   [ ] WS1: proposals list + adopted timeline on `PublicOrgView` — **BLOCKED & REPLACED**, see Day 2 findings
+-   [x] WS1: Topbar + app shell refuse to render connect button on public routes _(Day 1 — minimal inline shell in `App.tsx`)_
+-   [x] WS2: runtime manifest route queries indexer DB and returns full JSON per org; `/agents/index.json` returns the org list
+-   [x] WS2: `propose-tension.ts` example reads the manifest from the runtime endpoint and submits via `agent.governance.createRole` (live smoke test pending — needs the dev stack running)
+-   [x] WS2: agent allowlist config + `🤖 agent` chip rendering in `PublicOrgView` (members and role leads)
+-   [x] WS2: `packages/agent-sdk/README.md` quickstart added
+
+### Day 2 progress log
+
+**Shipped:**
+
+-   `apps/hollab-indexing/src/api/index.ts` — `/agents/index.json` and `/agents/:orgId.json` now query the Ponder DB via Drizzle (`asc`/`eq` re-exported from `"ponder"`, no extra dep). The per-org route assembles `org`, `contracts`, `circles`, `roles`, `members` with stable ordering, plus `meetingFactory` and `actionVoting` joined from `meetingComponentSet`. BigInts serialized as decimal strings via a custom `JSON.stringify` replacer (Hono's `c.json` would have thrown otherwise).
+-   `apps/hola-modern/src/config/agents.ts` — agent address allowlist with `isAgentAddress(addr)` helper. Defaults to anvil account #9 to match the `propose-tension.ts` default.
+-   `PublicOrgView.tsx` — chip rendering on members **and** role leads when the address is in the allowlist; new "Roles" section with name/purpose/leads.
+-   `packages/agent-sdk/examples/propose-tension.ts` — fetches manifest, builds `HollabAgent` against `viem/chains.foundry`, submits `createRole` through `MeetingFactory.executeGovernance`, polls `/agents/:orgId.json` for the new role, prints the SPA permalink. Default `AGENT_PRIVATE_KEY` is anvil account #9 (deterministic, not a secret).
+-   `packages/agent-sdk/docs/agent-manifest-v1.md` — full v1 schema doc with rationale, decisions, forward-compat rules, and the known-limitations section.
+-   `packages/agent-sdk/README.md` — 30-line quickstart driven off the discovery endpoint and the example script.
+
+**Day 2 findings — open `proposals` table is unpopulated:**
+
+The Ponder schema in `apps/hollab-indexing/ponder.schema.ts` defines a `proposal` table (lines 99–112) with `tension`, `proposer`, `status`, `submittedAt`, etc. — **but no contract currently emits the events that populate it**. `MeetingFactory.executeGovernance` applies role/policy changes directly to `RoleRegistry` and never goes through a tension/proposal lifecycle. Only `MeetingProposalLinked` is emitted from `MeetingFactory`, and that's a meeting↔proposal join, not a proposal creation event.
+
+Implications:
+
+1. **WS1 "proposals list + adopted timeline" is blocked at the contract layer.** Replaced for Day 2 with a **Roles list** on `PublicOrgView` — same purpose (show concrete agent-readable artifacts) using data that actually exists.
+2. **The agent example creates a role, not a proposal.** Filename kept (`propose-tension.ts`) to match the sprint spec; the script's header documents the gap and notes that adopting `GovernanceProcess` proposal events later is a one-line change at the call site.
+3. **Manifest `openProposals: []` always.** Documented in `agent-manifest-v1.md` "Known v1 limitations". When the contract starts emitting proposal events, the manifest populates without a version bump (additive only).
+
+**Open Question Q2 (ContentRef → text) — resolved by being moot:** since proposals don't exist on-chain yet, there's nothing to resolve. Revisit when the proposal lifecycle ships.
+
+**Live smoke test status:** all three packages typecheck and lint clean and the existing 11 unit tests still pass (4 `agent-sdk` encoding + 7 `useHashRouter`). Running `propose-tension.ts` against a live anvil stack is the next thing to do once `./scripts/dev-local.sh` is up — held until the seed-orgs script lands so a fresh-clone smoke test exercises the whole flow in one pass.
 
 ### Day 3 — flywheel
 
