@@ -299,21 +299,31 @@ Implications:
 
 **Live smoke test status:** all three packages typecheck and lint clean and the existing 11 unit tests still pass (4 `agent-sdk` encoding + 7 `useHashRouter`). Running `propose-tension.ts` against a live anvil stack is the next thing to do once `./scripts/dev-local.sh` is up — held until the seed-orgs script lands so a fresh-clone smoke test exercises the whole flow in one pass.
 
-### Day 3 — flywheel
+### Day 3 — flywheel (revised after Day 2 finding)
 
--   [ ] WS3: `#/explore` route + `ExploreView`
--   [ ] WS3: `#/o/:orgId/p/:proposalId` + `PublicProposalView`
--   [ ] WS3: base OG tags in `index.html`
--   [ ] WS3: "Join community" progressive connect CTA on `PublicOrgView`
--   [ ] **End-to-end smoke test:** fresh anvil → seed orgs → run agent example → open `#/explore` in incognito → click org → click proposal → copy permalink → open in second incognito → all renders without connect
+The Day 2 finding (no proposal lifecycle on-chain) propagates into Day 3: a `PublicProposalView` would render against an empty `proposal` table. Pivoting to **role permalinks** as the atomic deep-linkable governance object — same flywheel mechanics (every link pulls a cold viewer in), against data that actually exists today.
+
+-   [ ] WS3: `#/explore` route + `ExploreView` — global org directory from `/agents/index.json`, sorted by recent activity. Card shows mission, ENS subname label, member count, role count. Zero wallet connect. Click → `#/o/:orgId`.
+-   [ ] WS3: **`#/o/:orgId/r/:roleId` + `PublicRoleView`** _(replaces `/p/:proposalId`)_ — its own publicly readable permalink. Shows role name, purpose, domains, accountabilities, leads (with 🤖 chip when applicable), parent circle, back-link to org. When the proposal lifecycle ships, add `/p/:proposalId` alongside without removing this.
+-   [ ] WS3: extend `useHashRouter` with `explore` and `publicRole` route variants + unit tests for both
+-   [ ] WS3: base OG tags in `apps/hola-modern/index.html` (title, description, og:title, og:description, og:type, twitter:card)
+-   [ ] WS3: "Join community" progressive connect CTA on `PublicOrgView` — the **only** RainbowKit mount point in the public tree
+-   [ ] WS3: indexing-client `getRole(id)` hook (`usePublicRoleFromIndexer`) — verify the existing `GET_ROLE` query type matches Ponder's generated arg (text PK should be `String!`, but check before assuming after the Day 1 BigInt episode)
+-   [ ] WS3: `agents.test.ts`-style unit coverage for `useHashRouter` `explore` + `publicRole` parse/stringify
+-   [ ] **End-to-end smoke test:** fresh anvil → seed orgs → run agent example → open `#/explore` in incognito → click org → click role → copy permalink → open in second incognito → all renders without connect, agent role shows 🤖 chip
 -   [ ] (Stretch) static per-org OG PNG if time permits
+
+**Out of Day 3 scope (carried over):**
+
+-   `#/o/:orgId/p/:proposalId` proposal permalink — re-enters scope when `GovernanceProcess` proposal events ship
+-   `SeedDemoOrgs.s.sol` — still the load-bearing prerequisite for the live smoke test. If this doesn't land in Day 3, smoke test is documented as "pending" and the demo runs against manually-created orgs through the authed UI.
 
 ---
 
 ## Success Metrics (demo criteria, local)
 
--   ✅ Zero wallet-connect prompts in the entire unauthenticated browsing path (`#/explore` → `#/o/:orgId` → `#/o/:orgId/p/:proposalId`)
--   ✅ Agent example submits a proposal that appears on public view tagged with `🤖 agent` in < 30s from script invocation
+-   ✅ Zero wallet-connect prompts in the entire unauthenticated browsing path (`#/explore` → `#/o/:orgId` → `#/o/:orgId/r/:roleId`)
+-   ✅ Agent example submits a structural change (currently `CreateRole` — see Day 2 finding) that appears on public view tagged with `🤖 agent` in < 30s from script invocation
 -   ✅ `agent.json` is valid, versioned, and served at a stable URL
 -   ✅ Time-to-first-meaningful-action on public org page < 15s for a stranger (informal — one person outside the team times it)
 -   ✅ Fresh `git clone` → `pnpm install` → `./scripts/dev-local.sh` → seed script → open `#/explore` → all of the above works from a clean machine
