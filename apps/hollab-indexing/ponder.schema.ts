@@ -94,20 +94,45 @@ export const policy = onchainTable("policy", (t) => ({
 }));
 
 // ─── Holacracy proposals ──────────────────────────────────────────────────────
-// Event-sourced — full lifecycle history.
+// Event-sourced — full lifecycle history. The on-chain MeetingFactory only
+// records commitments (created / adopted / discarded / objected / resolved);
+// IDM rounds, clarifying questions, and integration discussion live in the
+// meeting room. See specs/05-governance-process.md "On-chain Commitments
+// Surface" and packages/contracts/src/contracts/MeetingFactory.sol.
 
 export const proposal = onchainTable("proposal", (t) => ({
     id: t.text().primaryKey(), // "<processAddress>-<proposalId>"
     proposalId: t.bigint().notNull(),
     processAddress: t.hex().notNull(),
+    orgId: t.bigint().notNull(),
     circleId: t.bigint().notNull(),
     proposer: t.hex().notNull(),
     proposerRoleId: t.bigint().notNull(),
+    // Content-address of the off-chain tension text (CIDv1 / 0G root /
+    // keccak256). The text itself stays off-chain — the chain only commits
+    // to the hash.
+    tensionHash: t.hex().notNull(),
+    // Legacy column kept empty for backward compat with any historical reader
+    // that expected `tension: text`. Resolvers should prefer `tensionHash`.
     tension: t.text().notNull(),
+    // ChangeType uint8 — see HolacracyTypes.ChangeType in contracts.
+    // 0=CreateRole 1=AmendRole 2=RemoveRole 3=CreatePolicy 4=AmendPolicy
+    // 5=RemovePolicy 6=MoveRole 7=Election 8=CreateRoleWithRefs
+    // 9=AmendRoleWithRefs 10=CreatePolicyWithRefs 11=AmendPolicyWithRefs
+    changeType: t.integer().notNull(),
+    // ABI-encoded change payload — same shape executeGovernance accepts.
+    // Stored on-chain so adopters don't need to re-supply it (key UX
+    // difference vs. an event-sourced hash-only design).
+    changeData: t.hex().notNull(),
     // 0=Draft 1=Active 2=Integrating 3=Adopted 4=Withdrawn 5=Discarded 6=Escalated
+    // The MVP only uses 0/3/5.
     status: t.integer().notNull(),
+    // ID of the entity created/affected on adoption (roleId for role changes).
+    // Null until adopted.
+    changeResultId: t.bigint(),
     submittedAt: t.bigint().notNull(),
     resolvedAt: t.bigint(),
+    resolvedBy: t.hex(),
     txHash: t.hex().notNull(),
 }));
 
@@ -117,10 +142,17 @@ export const objection = onchainTable("objection", (t) => ({
     processAddress: t.hex().notNull(),
     proposalId: t.bigint().notNull(),
     objector: t.hex().notNull(),
+    // Content-address of the objection concern text (off-chain).
+    concernHash: t.hex().notNull(),
     // 0=Raised 1=Testing 2=Valid 3=Invalid 4=Resolved 5=Abandoned
+    // The MVP only uses 0/4.
     status: t.integer().notNull(),
     raisedAt: t.bigint().notNull(),
     resolvedAt: t.bigint(),
+    // The address that resolved this objection — either the original
+    // objector (withdrawal) or an org admin (integration confirmed).
+    // Null until resolved.
+    resolvedBy: t.hex(),
     txHash: t.hex().notNull(),
 }));
 

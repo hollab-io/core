@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { asc, client, eq, graphql } from "ponder";
+import { and, asc, client, eq, graphql } from "ponder";
 import { db } from "ponder:api";
 import schema from "ponder:schema";
 
@@ -86,7 +86,7 @@ app.get("/agents/:file{[^/]+\\.json}", async (c) => {
         return jsonResponse(c, { error: "org not found", orgId: raw }, 404);
     }
 
-    const [circles, roles, members, componentSets] = await Promise.all([
+    const [circles, roles, members, componentSets, openProposals] = await Promise.all([
         db
             .select()
             .from(schema.circle)
@@ -106,10 +106,17 @@ app.get("/agents/:file{[^/]+\\.json}", async (c) => {
             .select()
             .from(schema.meetingComponentSet)
             .where(eq(schema.meetingComponentSet.orgId, orgIdBig)),
+        db
+            .select()
+            .from(schema.proposal)
+            // status=0 → Draft (the only "open" status in the MVP enum subset).
+            // See HolacracyTypes.ProposalStatus and ponder.schema.ts.
+            .where(and(eq(schema.proposal.orgId, orgIdBig), eq(schema.proposal.status, 0)))
+            .orderBy(asc(schema.proposal.submittedAt)),
     ]);
 
     const origin = indexerOrigin(c) || null;
-    const body = assembleOrgManifest(org, circles, roles, members, componentSets, {
+    const body = assembleOrgManifest(org, circles, roles, members, componentSets, openProposals, {
         chainId: CHAIN_ID,
         origin,
     });

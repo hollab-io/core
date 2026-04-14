@@ -12,6 +12,7 @@ import type {
     ManifestOpts,
     MemberRow,
     OrgRow,
+    ProposalRow,
     RoleRow,
 } from "../src/api/manifest.js";
 import { assembleOrgIndex, assembleOrgManifest } from "../src/api/manifest.js";
@@ -345,6 +346,74 @@ describe("assembleOrgManifest", () => {
         // Must be parseable as a decimal string representing the exact value
         expect(result.org.id).toBe("999999999999999999999");
         // JSON.stringify must not throw (standard JSON cannot handle bigint)
+        expect(() => JSON.stringify(result)).not.toThrow();
+    });
+});
+
+// ── openProposals ─────────────────────────────────────────────────────────────
+
+describe("assembleOrgManifest — openProposals", () => {
+    const PROPOSAL_1: ProposalRow = {
+        proposalId: 1n,
+        processAddress: "0xMeetingFactoryClone00000000000000000001",
+        circleId: 0n,
+        proposer: "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
+        proposerRoleId: 0n,
+        tensionHash: "0xaaaabbbbccccdddd000000000000000000000000000000000000000000000001",
+        changeType: 0, // CreateRole
+        changeData: "0xdeadbeef",
+        status: 0, // Draft
+        submittedAt: 1712000100n,
+    };
+
+    const PROPOSAL_2: ProposalRow = {
+        ...PROPOSAL_1,
+        proposalId: 2n,
+        tensionHash: "0xaaaabbbbccccdddd000000000000000000000000000000000000000000000002",
+        submittedAt: 1712000200n,
+    };
+
+    it("defaults to empty openProposals when caller omits the argument", () => {
+        const result = assembleOrgManifest(ORG, [], [], [], [], OPTS);
+        expect(result.openProposals).toEqual([]);
+    });
+
+    it("maps proposal rows onto the manifest shape", () => {
+        const result = assembleOrgManifest(ORG, [], [], [], [], [PROPOSAL_1], OPTS);
+        expect(result.openProposals).toHaveLength(1);
+        const p = result.openProposals[0]!;
+        expect(p.id).toBe("1");
+        expect(p.processAddress).toBe(PROPOSAL_1.processAddress);
+        expect(p.circleId).toBe("0");
+        expect(p.proposer).toBe(PROPOSAL_1.proposer);
+        expect(p.tensionHash).toBe(PROPOSAL_1.tensionHash);
+        expect(p.changeType).toBe(0);
+        expect(p.changeData).toBe("0xdeadbeef");
+        expect(p.status).toBe(0);
+        expect(p.submittedAt).toBe(1712000100);
+    });
+
+    it("includes a path-based permalink keyed on orgId and proposalId", () => {
+        const result = assembleOrgManifest(ORG, [], [], [], [], [PROPOSAL_1], OPTS);
+        expect(result.openProposals[0]!.permalink).toBe("/o/1/p/1");
+    });
+
+    it("preserves caller ordering (assumed submittedAt asc by the route)", () => {
+        const result = assembleOrgManifest(ORG, [], [], [], [], [PROPOSAL_1, PROPOSAL_2], OPTS);
+        expect(result.openProposals.map((p) => p.id)).toEqual(["1", "2"]);
+    });
+
+    it("serializes bigints inside proposal rows as decimal strings", () => {
+        const big: ProposalRow = {
+            ...PROPOSAL_1,
+            proposalId: 999999999999999999999n,
+            proposerRoleId: 42n,
+            circleId: 7n,
+        };
+        const result = assembleOrgManifest(ORG, [], [], [], [], [big], OPTS);
+        expect(result.openProposals[0]!.id).toBe("999999999999999999999");
+        expect(result.openProposals[0]!.proposerRoleId).toBe("42");
+        expect(result.openProposals[0]!.circleId).toBe("7");
         expect(() => JSON.stringify(result)).not.toThrow();
     });
 });
