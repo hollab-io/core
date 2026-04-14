@@ -71,7 +71,7 @@ export const ACTION_VOTE_CAST_FIELDS = `
 // ─── Single-item queries ──────────────────────────────────────────────────────
 
 export const GET_ORGANIZATION = `
-    query GetOrganization($id: String!) {
+    query GetOrganization($id: BigInt!) {
         organization(id: $id) { ${ORGANIZATION_FIELDS} }
     }
 `;
