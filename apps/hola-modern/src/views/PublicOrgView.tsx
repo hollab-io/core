@@ -22,7 +22,7 @@ type Props = {
 
 export default function PublicOrgView({ orgId, onBack }: Props) {
     const { chainConfig } = useChain();
-    const { data: org, isLoading: orgLoading } = usePublicOrgFromIndexer(orgId);
+    const { data: org, isLoading: orgLoading, error: orgError } = usePublicOrgFromIndexer(orgId);
     const { circles } = useCirclesFromIndexer(orgId);
     const { roles } = useRolesFromIndexer(orgId);
     const { members } = useOrgMembersFromIndexer(chainConfig.orgFactoryAddress, orgId);
@@ -41,10 +41,12 @@ export default function PublicOrgView({ orgId, onBack }: Props) {
         return (
             <main className="mx-auto max-w-3xl px-6 py-16">
                 <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">
-                    Org not found
+                    {orgError ? "Failed to load org" : "Org not found"}
                 </h1>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                    No organization with id <code>{orgId}</code> on this chain.
+                    {orgError
+                        ? `Indexer error for id ${orgId}: ${orgError instanceof Error ? orgError.message : String(orgError)}`
+                        : `No organization with id ${orgId} on this chain.`}
                 </p>
                 {onBack && (
                     <button
