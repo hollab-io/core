@@ -84,13 +84,25 @@ export type Proposal = {
     id: string;
     proposalId: BigIntStr;
     processAddress: HexStr;
+    orgId: BigIntStr;
     circleId: BigIntStr;
     proposer: HexStr;
     proposerRoleId: BigIntStr;
+    /** Content-address of off-chain tension text (CIDv1 / 0G root / keccak). */
+    tensionHash: HexStr;
+    /** Legacy column kept empty-string for back-compat — prefer tensionHash. */
     tension: string;
+    /** uint8 mirroring HolacracyTypes.ChangeType — see `ChangeType` in `@hollab-io/agent-sdk`. */
+    changeType: number;
+    /** ABI-encoded change payload; same shape executeGovernance accepts. */
+    changeData: HexStr;
+    /** ID of the entity created/affected on adoption. Null until adopted. */
+    changeResultId: BigIntStr | null;
     status: ProposalStatus;
     submittedAt: BigIntStr;
     resolvedAt: BigIntStr | null;
+    /** Address that adopted or discarded the proposal. Null until resolved. */
+    resolvedBy: HexStr | null;
     txHash: HexStr;
 };
 
@@ -103,9 +115,13 @@ export type Objection = {
     processAddress: HexStr;
     proposalId: BigIntStr;
     objector: HexStr;
+    /** Content-address of off-chain concern text. */
+    concernHash: HexStr;
     status: ObjectionStatus;
     raisedAt: BigIntStr;
     resolvedAt: BigIntStr | null;
+    /** Objector (withdrawal) or org admin (integration). Null until resolved. */
+    resolvedBy: HexStr | null;
     txHash: HexStr;
 };
 

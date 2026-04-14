@@ -142,13 +142,19 @@ const MOCK_PROPOSAL: Proposal = {
     id: "prop-1",
     proposalId: "1",
     processAddress: "0xgp",
+    orgId: "1",
     circleId: "1",
     proposer: "0xproposer",
     proposerRoleId: "1",
+    tensionHash: "0xabc",
     tension: "We need a new role",
+    changeType: 0,
+    changeData: "0xdeadbeef",
+    changeResultId: null,
     status: 1,
     submittedAt: "1700000000",
     resolvedAt: null,
+    resolvedBy: null,
     txHash: "0xtx",
 };
 
@@ -285,9 +291,11 @@ const MOCK_OBJECTION: Objection = {
     processAddress: "0xgp",
     proposalId: "1",
     objector: "0xobjector",
+    concernHash: "0xdef",
     status: 0,
     raisedAt: "1700000000",
     resolvedAt: null,
+    resolvedBy: null,
     txHash: "0xtx",
 };
 
