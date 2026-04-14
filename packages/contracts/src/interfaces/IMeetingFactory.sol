@@ -21,6 +21,43 @@ interface IMeetingFactory {
   }
 
   /*///////////////////////////////////////////////////////////////
+                            STRUCTS
+  //////////////////////////////////////////////////////////////*/
+
+  /// @notice Commitments-only record of a governance proposal.
+  /// @dev    Timestamps are uint64 so they pack with address into one slot.
+  ///         `changeData` is the same calldata shape as executeGovernance.
+  ///         The contract does NOT model IDM rounds, clarifying questions, or
+  ///         integration — those are meeting coordination and stay off-chain.
+  ///         See specs/05-governance-process.md "On-chain Commitments Surface".
+  struct ProposalRecord {
+    uint256 id;
+    uint256 orgId;
+    uint256 circleId;
+    address proposer;
+    uint64 submittedAt;
+    uint64 resolvedAt;
+    uint256 proposerRoleId;
+    bytes32 tensionHash;
+    HolacracyTypes.ChangeType changeType;
+    HolacracyTypes.ProposalStatus status;
+    bytes changeData;
+  }
+
+  /// @notice Commitments-only record of an objection raised against a proposal.
+  /// @dev    No on-chain validation of objection criteria (§5.3.4) — the
+  ///         contract only records who raised what and when it was resolved.
+  struct ObjectionRecord {
+    uint256 id;
+    uint256 proposalId;
+    address objector;
+    uint64 raisedAt;
+    uint64 resolvedAt;
+    bytes32 concernHash;
+    HolacracyTypes.ObjectionStatus status;
+  }
+
+  /*///////////////////////////////////////////////////////////////
                             EVENTS
   //////////////////////////////////////////////////////////////*/
 
@@ -48,12 +85,41 @@ interface IMeetingFactory {
   );
 
   /// @notice Emitted when a governance proposal is executed on-chain (role created/amended/removed)
+  /// @dev    Retained for backward compat with the executeGovernance shortcut.
+  ///         New flows should emit ProposalCreated + ProposalAdopted instead.
   event GovernanceExecuted(
     uint256 indexed _orgId,
     HolacracyTypes.ChangeType indexed _changeType,
     uint256 indexed _resultId,
     address _executedBy
   );
+
+  /// @notice Emitted when a proposal record is created. Fully event-sourced —
+  ///         the indexer can persist the full row without any contract reads.
+  event ProposalCreated(
+    uint256 indexed _proposalId,
+    uint256 indexed _orgId,
+    uint256 indexed _circleId,
+    address _proposer,
+    uint256 _proposerRoleId,
+    bytes32 _tensionHash,
+    uint8 _changeType,
+    bytes _changeData
+  );
+
+  /// @notice Emitted when a proposal is adopted and its change is applied.
+  event ProposalAdopted(uint256 indexed _proposalId, uint256 indexed _orgId, uint256 _resultId, address _adoptedBy);
+
+  /// @notice Emitted when a proposal is discarded without applying its change.
+  event ProposalDiscarded(uint256 indexed _proposalId, uint256 indexed _orgId, address _discardedBy);
+
+  /// @notice Emitted when an objection is raised against a Draft proposal.
+  event ObjectionRaised(
+    uint256 indexed _objectionId, uint256 indexed _proposalId, address indexed _objector, bytes32 _concernHash
+  );
+
+  /// @notice Emitted when an objection is resolved (by the objector or by an admin).
+  event ObjectionResolved(uint256 indexed _objectionId, uint256 indexed _proposalId, address _resolvedBy);
 
   /*///////////////////////////////////////////////////////////////
                             ERRORS
@@ -64,6 +130,11 @@ interface IMeetingFactory {
   error MeetingFactory_NotOrgAdmin(uint256 _orgId, address _caller);
   error MeetingFactory_EmptyString();
   error MeetingFactory_UnsupportedChangeType();
+  error MeetingFactory_ProposalNotFound(uint256 _proposalId);
+  error MeetingFactory_ObjectionNotFound(uint256 _objectionId);
+  error MeetingFactory_InvalidProposalStatus(uint256 _proposalId, HolacracyTypes.ProposalStatus _status);
+  error MeetingFactory_InvalidObjectionStatus(uint256 _objectionId, HolacracyTypes.ObjectionStatus _status);
+  error MeetingFactory_NotObjectorOrAdmin(uint256 _objectionId, address _caller);
 
   /*///////////////////////////////////////////////////////////////
                             LOGIC
@@ -96,10 +167,83 @@ interface IMeetingFactory {
     uint256 _proposalId
   ) external returns (uint256 _itemId);
 
-  /// @notice Execute an adopted governance proposal on the RoleRegistry
+  /// @notice Execute an adopted governance proposal on the RoleRegistry.
+  /// @dev    DEPRECATED — power-user shortcut equivalent to createProposal +
+  ///         immediate adoptProposal with an empty tension hash. Retained for
+  ///         backward compatibility with the legacy seed/example flows.
+  ///         Prefer createProposal + adoptProposal so the proposal record is
+  ///         indexable and the public surface can render it.
+  ///         TODO(post-MVP): rewrite internally as `_create + _adopt` once all
+  ///         downstream callers have migrated, then remove this entry point.
   function executeGovernance(
     uint256 _orgId,
     HolacracyTypes.ChangeType _changeType,
     bytes calldata _data
   ) external returns (uint256 _resultId);
+
+  /*///////////////////////////////////////////////////////////////
+                        PROPOSAL LIFECYCLE
+  //////////////////////////////////////////////////////////////*/
+
+  /// @notice Create a Draft proposal. Any org member may call.
+  /// @param  _orgId           Organization the proposal targets
+  /// @param  _circleId        Circle the change applies to (anchor = 0)
+  /// @param  _proposerRoleId  0 if the proposer is not currently a role lead
+  /// @param  _tensionHash     Content-address (CIDv1, 0G root, or keccak) of
+  ///                          the tension text — text itself stays off-chain
+  /// @param  _changeType      The structural change to enact on adoption
+  /// @param  _changeData      ABI-encoded params, same shape as executeGovernance
+  function createProposal(
+    uint256 _orgId,
+    uint256 _circleId,
+    uint256 _proposerRoleId,
+    bytes32 _tensionHash,
+    HolacracyTypes.ChangeType _changeType,
+    bytes calldata _changeData
+  ) external returns (uint256 _proposalId);
+
+  /// @notice Adopt a Draft proposal — applies its change to the RoleRegistry.
+  /// @dev    Org admin only. The contract does NOT check that all objections
+  ///         are resolved first — that is the meeting coordinator's job. The
+  ///         event log provides a full auditable trail.
+  function adoptProposal(
+    uint256 _proposalId
+  ) external returns (uint256 _resultId);
+
+  /// @notice Discard a Draft proposal without applying its change.
+  /// @dev    Org admin only.
+  function discardProposal(
+    uint256 _proposalId
+  ) external;
+
+  /// @notice Raise an objection against a Draft proposal. Any org member.
+  /// @param  _proposalId   The proposal being objected to
+  /// @param  _concernHash  Content-address of the objection text (off-chain)
+  function raiseObjection(
+    uint256 _proposalId,
+    bytes32 _concernHash
+  ) external returns (uint256 _objectionId);
+
+  /// @notice Resolve a Raised objection.
+  /// @dev    Either the original objector (withdrawal) or an org admin
+  ///         (integration confirmed). The `resolvedBy` address in the event
+  ///         lets indexers/UI distinguish the two.
+  function resolveObjection(
+    uint256 _objectionId
+  ) external;
+
+  /*///////////////////////////////////////////////////////////////
+                            VIEWS
+  //////////////////////////////////////////////////////////////*/
+
+  function getProposal(
+    uint256 _proposalId
+  ) external view returns (ProposalRecord memory _proposal);
+
+  function getObjection(
+    uint256 _objectionId
+  ) external view returns (ObjectionRecord memory _objection);
+
+  function proposalCount() external view returns (uint256 _count);
+  function objectionCount() external view returns (uint256 _count);
 }

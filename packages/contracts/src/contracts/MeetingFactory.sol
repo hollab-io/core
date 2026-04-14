@@ -27,6 +27,15 @@ contract MeetingFactory is IMeetingFactory {
   uint256 internal _itemCounter;
   bool internal _initialized;
 
+  // ── Proposal lifecycle storage ────────────────────────────────────────────
+  // Append-only; safe in clones because each clone gets a fresh storage layout
+  // at deploy time. See specs/05-governance-process.md "On-chain Commitments
+  // Surface" for the full design rationale.
+  uint256 internal _proposalCounter;
+  uint256 internal _objectionCounter;
+  mapping(uint256 => ProposalRecord) internal _proposals;
+  mapping(uint256 => ObjectionRecord) internal _objections;
+
   modifier initializer() {
     if (_initialized) revert MeetingFactory_AlreadyInitialized();
     _initialized = true;
@@ -106,21 +115,15 @@ contract MeetingFactory is IMeetingFactory {
                     GOVERNANCE EXECUTION
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Execute an adopted governance proposal — creates, amends, or removes a role.
-  ///         In Holacracy, only the governance process can change structure. This function
-  ///         is the on-chain embodiment of that rule: it forwards the change to RoleRegistry.
+  /// @notice Execute a governance change directly. DEPRECATED — see IMeetingFactory.
+  /// @dev    Equivalent to createProposal + immediate adoptProposal with empty
+  ///         tensionHash, but without persisting a ProposalRecord. Retained so
+  ///         seed scripts and the legacy propose-tension example keep working.
+  ///         New flows must use createProposal + adoptProposal instead.
   /// @param _orgId The organization ID (for membership check)
   /// @param _changeType The type of structural change
-  /// @param _data ABI-encoded parameters for the change (see below)
+  /// @param _data ABI-encoded parameters for the change (see _applyChange)
   /// @return _resultId The ID of the created/affected entity (roleId for role changes)
-  ///
-  /// Encoding for each change type:
-  ///   CreateRole:         abi.encode(circleId, name, purpose, domains[], accountabilities[])
-  ///   AmendRole:          abi.encode(roleId, name, purpose, domains[], accountabilities[])
-  ///   RemoveRole:         abi.encode(roleId)
-  ///   Election:           abi.encode(roleId, lead)
-  ///   CreateRoleWithRefs: abi.encode(circleId, name, purpose, domains[], accountabilities[], fieldNames[], refs[])
-  ///   AmendRoleWithRefs:  abi.encode(roleId, name, purpose, domains[], accountabilities[], fieldNames[], refs[])
   function executeGovernance(
     uint256 _orgId,
     HolacracyTypes.ChangeType _changeType,
@@ -129,7 +132,28 @@ contract MeetingFactory is IMeetingFactory {
     if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
     }
+    _resultId = _applyChange(_changeType, _data);
+    emit GovernanceExecuted(_orgId, _changeType, _resultId, msg.sender);
+  }
 
+  /// @notice Internal change applicator shared between executeGovernance (legacy
+  ///         shortcut) and adoptProposal (the proposal-record path).
+  /// @dev    Takes `bytes memory` so both calldata (legacy entry) and storage
+  ///         (proposal record) paths can call it. The calldata→memory copy in
+  ///         executeGovernance costs ~few hundred gas — acceptable for a
+  ///         deprecated entry point.
+  ///
+  /// Encoding for each change type:
+  ///   CreateRole:         abi.encode(circleId, name, purpose, domains[], accountabilities[])
+  ///   AmendRole:          abi.encode(roleId, name, purpose, domains[], accountabilities[])
+  ///   RemoveRole:         abi.encode(roleId)
+  ///   Election:           abi.encode(roleId, lead)
+  ///   CreateRoleWithRefs: abi.encode(circleId, name, purpose, domains[], accountabilities[], fieldNames[], refs[])
+  ///   AmendRoleWithRefs:  abi.encode(roleId, name, purpose, domains[], accountabilities[], fieldNames[], refs[])
+  function _applyChange(
+    HolacracyTypes.ChangeType _changeType,
+    bytes memory _data
+  ) internal returns (uint256 _resultId) {
     if (_changeType == HolacracyTypes.ChangeType.CreateRole) {
       (
         uint256 circleId,
@@ -154,7 +178,6 @@ contract MeetingFactory is IMeetingFactory {
       roleRegistry.removeRole(roleId);
       _resultId = roleId;
     } else if (_changeType == HolacracyTypes.ChangeType.Election) {
-      // Election: assign a role lead
       (uint256 roleId, address lead) = abi.decode(_data, (uint256, address));
       roleRegistry.assignRoleLead(roleId, lead);
       _resultId = roleId;
@@ -184,7 +207,157 @@ contract MeetingFactory is IMeetingFactory {
     } else {
       revert MeetingFactory_UnsupportedChangeType();
     }
+  }
 
-    emit GovernanceExecuted(_orgId, _changeType, _resultId, msg.sender);
+  /*///////////////////////////////////////////////////////////////
+                      PROPOSAL LIFECYCLE
+  //////////////////////////////////////////////////////////////*/
+
+  /// @inheritdoc IMeetingFactory
+  function createProposal(
+    uint256 _orgId,
+    uint256 _circleId,
+    uint256 _proposerRoleId,
+    bytes32 _tensionHash,
+    HolacracyTypes.ChangeType _changeType,
+    bytes calldata _changeData
+  ) external returns (uint256 _proposalId) {
+    if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
+      revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
+    }
+
+    _proposalId = ++_proposalCounter;
+    ProposalRecord storage p = _proposals[_proposalId];
+    p.id = _proposalId;
+    p.orgId = _orgId;
+    p.circleId = _circleId;
+    p.proposer = msg.sender;
+    p.proposerRoleId = _proposerRoleId;
+    p.tensionHash = _tensionHash;
+    p.changeType = _changeType;
+    p.changeData = _changeData;
+    p.status = HolacracyTypes.ProposalStatus.Draft;
+    p.submittedAt = uint64(block.timestamp);
+    // resolvedAt stays 0 until adopt/discard
+
+    emit ProposalCreated(
+      _proposalId, _orgId, _circleId, msg.sender, _proposerRoleId, _tensionHash, uint8(_changeType), _changeData
+    );
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function adoptProposal(
+    uint256 _proposalId
+  ) external returns (uint256 _resultId) {
+    ProposalRecord storage p = _proposals[_proposalId];
+    if (p.id == 0) revert MeetingFactory_ProposalNotFound(_proposalId);
+    if (p.status != HolacracyTypes.ProposalStatus.Draft) {
+      revert MeetingFactory_InvalidProposalStatus(_proposalId, p.status);
+    }
+    if (!orgFactory.isOrgAdmin(p.orgId, msg.sender)) {
+      revert MeetingFactory_NotOrgAdmin(p.orgId, msg.sender);
+    }
+
+    _resultId = _applyChange(p.changeType, p.changeData);
+    p.status = HolacracyTypes.ProposalStatus.Adopted;
+    p.resolvedAt = uint64(block.timestamp);
+
+    emit ProposalAdopted(_proposalId, p.orgId, _resultId, msg.sender);
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function discardProposal(
+    uint256 _proposalId
+  ) external {
+    ProposalRecord storage p = _proposals[_proposalId];
+    if (p.id == 0) revert MeetingFactory_ProposalNotFound(_proposalId);
+    if (p.status != HolacracyTypes.ProposalStatus.Draft) {
+      revert MeetingFactory_InvalidProposalStatus(_proposalId, p.status);
+    }
+    if (!orgFactory.isOrgAdmin(p.orgId, msg.sender)) {
+      revert MeetingFactory_NotOrgAdmin(p.orgId, msg.sender);
+    }
+
+    p.status = HolacracyTypes.ProposalStatus.Discarded;
+    p.resolvedAt = uint64(block.timestamp);
+
+    emit ProposalDiscarded(_proposalId, p.orgId, msg.sender);
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function raiseObjection(
+    uint256 _proposalId,
+    bytes32 _concernHash
+  ) external returns (uint256 _objectionId) {
+    ProposalRecord storage p = _proposals[_proposalId];
+    if (p.id == 0) revert MeetingFactory_ProposalNotFound(_proposalId);
+    if (p.status != HolacracyTypes.ProposalStatus.Draft) {
+      revert MeetingFactory_InvalidProposalStatus(_proposalId, p.status);
+    }
+    if (!orgFactory.isOrgMember(p.orgId, msg.sender)) {
+      revert MeetingFactory_NotOrgMember(p.orgId, msg.sender);
+    }
+
+    _objectionId = ++_objectionCounter;
+    ObjectionRecord storage o = _objections[_objectionId];
+    o.id = _objectionId;
+    o.proposalId = _proposalId;
+    o.objector = msg.sender;
+    o.concernHash = _concernHash;
+    o.status = HolacracyTypes.ObjectionStatus.Raised;
+    o.raisedAt = uint64(block.timestamp);
+
+    emit ObjectionRaised(_objectionId, _proposalId, msg.sender, _concernHash);
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function resolveObjection(
+    uint256 _objectionId
+  ) external {
+    ObjectionRecord storage o = _objections[_objectionId];
+    if (o.id == 0) revert MeetingFactory_ObjectionNotFound(_objectionId);
+    if (o.status != HolacracyTypes.ObjectionStatus.Raised) {
+      revert MeetingFactory_InvalidObjectionStatus(_objectionId, o.status);
+    }
+
+    ProposalRecord storage p = _proposals[o.proposalId];
+    bool isObjector = msg.sender == o.objector;
+    bool isAdmin = orgFactory.isOrgAdmin(p.orgId, msg.sender);
+    if (!isObjector && !isAdmin) {
+      revert MeetingFactory_NotObjectorOrAdmin(_objectionId, msg.sender);
+    }
+
+    o.status = HolacracyTypes.ObjectionStatus.Resolved;
+    o.resolvedAt = uint64(block.timestamp);
+
+    emit ObjectionResolved(_objectionId, o.proposalId, msg.sender);
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                            VIEWS
+  //////////////////////////////////////////////////////////////*/
+
+  /// @inheritdoc IMeetingFactory
+  function getProposal(
+    uint256 _proposalId
+  ) external view returns (ProposalRecord memory _proposal) {
+    _proposal = _proposals[_proposalId];
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function getObjection(
+    uint256 _objectionId
+  ) external view returns (ObjectionRecord memory _objection) {
+    _objection = _objections[_objectionId];
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function proposalCount() external view returns (uint256 _count) {
+    _count = _proposalCounter;
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function objectionCount() external view returns (uint256 _count) {
+    _count = _objectionCounter;
   }
 }
