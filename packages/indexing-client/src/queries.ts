@@ -121,7 +121,7 @@ export const LIST_ORGANIZATIONS_BY_CREATOR = `
 `;
 
 export const LIST_CIRCLES_BY_ORG = `
-    query ListCirclesByOrg($orgId: String!, $limit: Int, $after: String, $before: String) {
+    query ListCirclesByOrg($orgId: BigInt!, $limit: Int, $after: String, $before: String) {
         circles(where: { orgId: $orgId }, limit: $limit, after: $after, before: $before) {
             items { ${CIRCLE_FIELDS} }
             ${PAGE_INFO}
@@ -139,7 +139,7 @@ export const LIST_ROLES_BY_CIRCLE = `
 `;
 
 export const LIST_ROLES_BY_ORG = `
-    query ListRolesByOrg($orgId: String!, $limit: Int, $after: String, $before: String) {
+    query ListRolesByOrg($orgId: BigInt!, $limit: Int, $after: String, $before: String) {
         roles(where: { orgId: $orgId }, limit: $limit, after: $after, before: $before) {
             items { ${ROLE_FIELDS} }
             ${PAGE_INFO}

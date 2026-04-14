@@ -61,8 +61,17 @@ app.get("/agents/index.json", async (c) => {
     return jsonResponse(c, body);
 });
 
-app.get("/agents/:orgId.json", async (c) => {
-    const raw = c.req.param("orgId") ?? "";
+// NOTE: Hono does NOT reliably parse a trailing `.json` suffix on a param
+// (`:orgId.json` captures as empty on hono 4.x). Match the whole filename
+// segment instead and strip the extension ourselves.
+app.get("/agents/:file{[^/]+\\.json}", async (c) => {
+    const file = c.req.param("file") ?? "";
+    if (file === "index.json") {
+        // Shouldn't hit — the more specific /agents/index.json route is
+        // registered above — but guard against route-order drift.
+        return jsonResponse(c, { error: "use /agents/index.json" }, 404);
+    }
+    const raw = file.replace(/\.json$/, "");
     let orgIdBig: bigint;
     try {
         orgIdBig = BigInt(raw);
