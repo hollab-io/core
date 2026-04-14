@@ -9,6 +9,7 @@
  *   #/constitution              → public constitution
  *   #/o/:orgId                  → public (wallet-less) org surface
  *   #/o/:orgId/r/:roleId        → public (wallet-less) role permalink
+ *   #/o/:orgId/p/:proposalId    → public (wallet-less) proposal permalink
  *   #/explore                   → public (wallet-less) org directory
  *
  * Syncs browser back/forward, persists across refresh.
@@ -24,6 +25,7 @@ export type Route =
     | { page: "join"; orgId: string }
     | { page: "public"; orgId: string }
     | { page: "publicRole"; orgId: string; roleId: string }
+    | { page: "publicProposal"; orgId: string; proposalId: string }
     | { page: "explore" };
 
 const DEFAULT_TAB: AppTabId = "constitution";
@@ -50,6 +52,13 @@ export function parseHash(hash: string): Route {
                 roleId: decodeURIComponent(parts.slice(3).join("/")),
             };
         }
+        if (parts[2] === "p" && parts[3]) {
+            return {
+                page: "publicProposal",
+                orgId: parts[1],
+                proposalId: decodeURIComponent(parts.slice(3).join("/")),
+            };
+        }
         return { page: "public", orgId: parts[1] };
     }
     if (parts[0] === "join" && parts[1]) {
@@ -74,6 +83,8 @@ export function routeToHash(route: Route): string {
             return `#/o/${route.orgId}`;
         case "publicRole":
             return `#/o/${route.orgId}/r/${encodeURIComponent(route.roleId)}`;
+        case "publicProposal":
+            return `#/o/${route.orgId}/p/${encodeURIComponent(route.proposalId)}`;
         case "explore":
             return "#/explore";
         case "org":

@@ -47,6 +47,19 @@ describe("useHashRouter — parseHash", () => {
         expect(parseHash("#/o/1/r/")).toEqual({ page: "public", orgId: "1" });
     });
 
+    it("parses the public proposal permalink", () => {
+        expect(parseHash("#/o/2/p/7")).toEqual({
+            page: "publicProposal",
+            orgId: "2",
+            proposalId: "7",
+        });
+    });
+
+    it("falls back to public org when proposal permalink is malformed", () => {
+        expect(parseHash("#/o/2/p")).toEqual({ page: "public", orgId: "2" });
+        expect(parseHash("#/o/2/p/")).toEqual({ page: "public", orgId: "2" });
+    });
+
     it("handles uppercase hex in orgId (addresses are case-preserved)", () => {
         // orgId is passed through as-is — no lowercasing in the router.
         expect(parseHash("#/o/0xABCDEF123")).toEqual({
@@ -120,6 +133,12 @@ describe("useHashRouter — routeToHash", () => {
             roleId: "0xabc123-42",
         };
         expect(routeToHash(r)).toBe("#/o/1/r/0xabc123-42");
+        expect(parseHash(routeToHash(r))).toEqual(r);
+    });
+
+    it("stringifies and round-trips publicProposal", () => {
+        const r: Route = { page: "publicProposal", orgId: "2", proposalId: "42" };
+        expect(routeToHash(r)).toBe("#/o/2/p/42");
         expect(parseHash(routeToHash(r))).toEqual(r);
     });
 });

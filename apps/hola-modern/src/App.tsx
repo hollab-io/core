@@ -24,6 +24,7 @@ import GovernanceView from "./views/GovernanceView";
 import JoinOrganizationPanel from "./views/JoinOrganizationPanel";
 import OrganizationsHome from "./views/OrganizationsHome";
 import PublicOrgView from "./views/PublicOrgView";
+import PublicProposalView from "./views/PublicProposalView";
 import PublicRoleView from "./views/PublicRoleView";
 import StructureView from "./views/StructureView";
 import TacticalMeetingRoom from "./views/TacticalMeetingRoom";
@@ -142,7 +143,12 @@ function App() {
     // ── Public (wallet-less) org surface ─────────────────────────────────────
     // Must render BEFORE the auth gate so incognito / no-wallet visitors work.
 
-    if (route.page === "public" || route.page === "publicRole" || route.page === "explore") {
+    if (
+        route.page === "public" ||
+        route.page === "publicRole" ||
+        route.page === "publicProposal" ||
+        route.page === "explore"
+    ) {
         return (
             <div className="relative min-h-screen w-full overflow-auto bg-white text-slate-900 dark:bg-[#050505] dark:text-white font-sans">
                 <div className="grain-overlay hidden dark:block" aria-hidden="true" />
@@ -159,6 +165,9 @@ function App() {
                         onOpenRole={(roleId) =>
                             navigate({ page: "publicRole", orgId: route.orgId, roleId })
                         }
+                        onOpenProposal={(proposalId) =>
+                            navigate({ page: "publicProposal", orgId: route.orgId, proposalId })
+                        }
                         onJoin={() => navigate({ page: "join", orgId: route.orgId })}
                     />
                 )}
@@ -166,6 +175,13 @@ function App() {
                     <PublicRoleView
                         orgId={route.orgId}
                         roleId={route.roleId}
+                        onBackToOrg={() => navigate({ page: "public", orgId: route.orgId })}
+                    />
+                )}
+                {route.page === "publicProposal" && (
+                    <PublicProposalView
+                        orgId={route.orgId}
+                        proposalId={route.proposalId}
                         onBackToOrg={() => navigate({ page: "public", orgId: route.orgId })}
                     />
                 )}
