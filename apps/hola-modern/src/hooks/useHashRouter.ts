@@ -7,6 +7,7 @@
  *   #/orgs/:id/:tab             → org workspace tab (tactical, governance, etc.)
  *   #/join/:id                  → guest join panel
  *   #/constitution              → public constitution
+ *   #/o/:orgId                  → public (wallet-less) org surface
  *
  * Syncs browser back/forward, persists across refresh.
  */
@@ -18,7 +19,8 @@ export type Route =
     | { page: "home" }
     | { page: "constitution" }
     | { page: "org"; orgId: string; tab: AppTabId }
-    | { page: "join"; orgId: string };
+    | { page: "join"; orgId: string }
+    | { page: "public"; orgId: string };
 
 const DEFAULT_TAB: AppTabId = "constitution";
 const VALID_TABS = new Set<string>([
@@ -29,12 +31,15 @@ const VALID_TABS = new Set<string>([
     "constitution",
 ]);
 
-function parseHash(hash: string): Route {
+export function parseHash(hash: string): Route {
     const path = hash.replace(/^#\/?/, "");
     if (!path || path === "/") return { page: "home" };
     if (path === "constitution") return { page: "constitution" };
 
     const parts = path.split("/");
+    if (parts[0] === "o" && parts[1]) {
+        return { page: "public", orgId: parts[1] };
+    }
     if (parts[0] === "join" && parts[1]) {
         return { page: "join", orgId: parts[1] };
     }
@@ -45,7 +50,7 @@ function parseHash(hash: string): Route {
     return { page: "home" };
 }
 
-function routeToHash(route: Route): string {
+export function routeToHash(route: Route): string {
     switch (route.page) {
         case "home":
             return "#/";
@@ -53,6 +58,8 @@ function routeToHash(route: Route): string {
             return "#/constitution";
         case "join":
             return `#/join/${route.orgId}`;
+        case "public":
+            return `#/o/${route.orgId}`;
         case "org":
             return route.tab === DEFAULT_TAB
                 ? `#/orgs/${route.orgId}`
@@ -62,7 +69,8 @@ function routeToHash(route: Route): string {
 
 // ── External store for hash changes ──────────────────────────────────────────
 
-let currentRoute: Route = parseHash(window.location.hash);
+let currentRoute: Route =
+    typeof window !== "undefined" ? parseHash(window.location.hash) : { page: "home" };
 const listeners = new Set<() => void>();
 
 function subscribe(listener: () => void) {

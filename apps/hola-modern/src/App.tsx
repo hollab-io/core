@@ -22,6 +22,7 @@ import GovernanceMeetingRoom from "./views/GovernanceMeetingRoom";
 import GovernanceView from "./views/GovernanceView";
 import JoinOrganizationPanel from "./views/JoinOrganizationPanel";
 import OrganizationsHome from "./views/OrganizationsHome";
+import PublicOrgView from "./views/PublicOrgView";
 import StructureView from "./views/StructureView";
 import TacticalMeetingRoom from "./views/TacticalMeetingRoom";
 import TacticalView from "./views/TacticalView";
@@ -135,6 +136,18 @@ function App() {
             completeOnboarding();
         }
     }, [isOnboarding, activeOrg]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ── Public (wallet-less) org surface ─────────────────────────────────────
+    // Must render BEFORE the auth gate so incognito / no-wallet visitors work.
+
+    if (route.page === "public") {
+        return (
+            <div className="relative min-h-screen w-full overflow-auto bg-white text-slate-900 dark:bg-[#050505] dark:text-white font-sans">
+                <div className="grain-overlay hidden dark:block" aria-hidden="true" />
+                <PublicOrgView orgId={route.orgId} onBack={() => navigate({ page: "home" })} />
+            </div>
+        );
+    }
 
     // ── Unauthenticated screens ──────────────────────────────────────────────
 
