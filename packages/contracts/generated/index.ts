@@ -787,6 +787,34 @@ export const meetingFactoryAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
     {
         type: "function",
+        inputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
+        name: "adoptProposal",
+        outputs: [{ name: "_resultId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_orgId", internalType: "uint256", type: "uint256" },
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_proposerRoleId", internalType: "uint256", type: "uint256" },
+            { name: "_tensionHash", internalType: "bytes32", type: "bytes32" },
+            { name: "_changeType", internalType: "enum HolacracyTypes.ChangeType", type: "uint8" },
+            { name: "_changeData", internalType: "bytes", type: "bytes" },
+        ],
+        name: "createProposal",
+        outputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
+        name: "discardProposal",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
         inputs: [
             { name: "_meetingId", internalType: "uint256", type: "uint256" },
             { name: "_orgId", internalType: "uint256", type: "uint256" },
@@ -798,14 +826,63 @@ export const meetingFactoryAbi = [
     },
     {
         type: "function",
-        inputs: [
-            { name: "_orgId", internalType: "uint256", type: "uint256" },
-            { name: "_changeType", internalType: "enum HolacracyTypes.ChangeType", type: "uint8" },
-            { name: "_data", internalType: "bytes", type: "bytes" },
+        inputs: [{ name: "_objectionId", internalType: "uint256", type: "uint256" }],
+        name: "getObjection",
+        outputs: [
+            {
+                name: "_objection",
+                internalType: "struct IMeetingFactory.ObjectionRecord",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "proposalId", internalType: "uint256", type: "uint256" },
+                    { name: "objector", internalType: "address", type: "address" },
+                    { name: "raisedAt", internalType: "uint64", type: "uint64" },
+                    { name: "resolvedAt", internalType: "uint64", type: "uint64" },
+                    { name: "concernHash", internalType: "bytes32", type: "bytes32" },
+                    {
+                        name: "status",
+                        internalType: "enum HolacracyTypes.ObjectionStatus",
+                        type: "uint8",
+                    },
+                ],
+            },
         ],
-        name: "executeGovernance",
-        outputs: [{ name: "_resultId", internalType: "uint256", type: "uint256" }],
-        stateMutability: "nonpayable",
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
+        name: "getProposal",
+        outputs: [
+            {
+                name: "_proposal",
+                internalType: "struct IMeetingFactory.ProposalRecord",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "orgId", internalType: "uint256", type: "uint256" },
+                    { name: "circleId", internalType: "uint256", type: "uint256" },
+                    { name: "proposer", internalType: "address", type: "address" },
+                    { name: "submittedAt", internalType: "uint64", type: "uint64" },
+                    { name: "resolvedAt", internalType: "uint64", type: "uint64" },
+                    { name: "proposerRoleId", internalType: "uint256", type: "uint256" },
+                    { name: "tensionHash", internalType: "bytes32", type: "bytes32" },
+                    {
+                        name: "changeType",
+                        internalType: "enum HolacracyTypes.ChangeType",
+                        type: "uint8",
+                    },
+                    {
+                        name: "status",
+                        internalType: "enum HolacracyTypes.ProposalStatus",
+                        type: "uint8",
+                    },
+                    { name: "changeData", internalType: "bytes", type: "bytes" },
+                ],
+            },
+        ],
+        stateMutability: "view",
     },
     {
         type: "function",
@@ -831,9 +908,33 @@ export const meetingFactoryAbi = [
     {
         type: "function",
         inputs: [],
+        name: "objectionCount",
+        outputs: [{ name: "_count", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
         name: "orgFactory",
         outputs: [{ name: "", internalType: "contract IOrganizationFactory", type: "address" }],
         stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "proposalCount",
+        outputs: [{ name: "_count", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_proposalId", internalType: "uint256", type: "uint256" },
+            { name: "_concernHash", internalType: "bytes32", type: "bytes32" },
+        ],
+        name: "raiseObjection",
+        outputs: [{ name: "_objectionId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
     },
     {
         type: "function",
@@ -847,6 +948,13 @@ export const meetingFactoryAbi = [
         ],
         name: "recordOutput",
         outputs: [{ name: "_itemId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_objectionId", internalType: "uint256", type: "uint256" }],
+        name: "resolveObjection",
+        outputs: [],
         stateMutability: "nonpayable",
     },
     {
@@ -865,22 +973,6 @@ export const meetingFactoryAbi = [
         name: "startMeeting",
         outputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
         stateMutability: "nonpayable",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "_orgId", internalType: "uint256", type: "uint256", indexed: true },
-            {
-                name: "_changeType",
-                internalType: "enum HolacracyTypes.ChangeType",
-                type: "uint8",
-                indexed: true,
-            },
-            { name: "_resultId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "_executedBy", internalType: "address", type: "address", indexed: false },
-        ],
-        name: "GovernanceExecuted",
     },
     {
         type: "event",
@@ -946,8 +1038,89 @@ export const meetingFactoryAbi = [
         ],
         name: "MeetingStarted",
     },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_objectionId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_proposalId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_objector", internalType: "address", type: "address", indexed: true },
+            { name: "_concernHash", internalType: "bytes32", type: "bytes32", indexed: false },
+        ],
+        name: "ObjectionRaised",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_objectionId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_proposalId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_resolvedBy", internalType: "address", type: "address", indexed: false },
+        ],
+        name: "ObjectionResolved",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_proposalId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_orgId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_resultId", internalType: "uint256", type: "uint256", indexed: false },
+            { name: "_adoptedBy", internalType: "address", type: "address", indexed: false },
+        ],
+        name: "ProposalAdopted",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_proposalId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_orgId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_proposer", internalType: "address", type: "address", indexed: false },
+            { name: "_proposerRoleId", internalType: "uint256", type: "uint256", indexed: false },
+            { name: "_tensionHash", internalType: "bytes32", type: "bytes32", indexed: false },
+            { name: "_changeType", internalType: "uint8", type: "uint8", indexed: false },
+            { name: "_changeData", internalType: "bytes", type: "bytes", indexed: false },
+        ],
+        name: "ProposalCreated",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_proposalId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_orgId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_discardedBy", internalType: "address", type: "address", indexed: false },
+        ],
+        name: "ProposalDiscarded",
+    },
     { type: "error", inputs: [], name: "MeetingFactory_AlreadyInitialized" },
     { type: "error", inputs: [], name: "MeetingFactory_EmptyString" },
+    {
+        type: "error",
+        inputs: [
+            { name: "_objectionId", internalType: "uint256", type: "uint256" },
+            { name: "_status", internalType: "enum HolacracyTypes.ObjectionStatus", type: "uint8" },
+        ],
+        name: "MeetingFactory_InvalidObjectionStatus",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_proposalId", internalType: "uint256", type: "uint256" },
+            { name: "_status", internalType: "enum HolacracyTypes.ProposalStatus", type: "uint8" },
+        ],
+        name: "MeetingFactory_InvalidProposalStatus",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_objectionId", internalType: "uint256", type: "uint256" },
+            { name: "_caller", internalType: "address", type: "address" },
+        ],
+        name: "MeetingFactory_NotObjectorOrAdmin",
+    },
     {
         type: "error",
         inputs: [
@@ -963,6 +1136,16 @@ export const meetingFactoryAbi = [
             { name: "_caller", internalType: "address", type: "address" },
         ],
         name: "MeetingFactory_NotOrgMember",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_objectionId", internalType: "uint256", type: "uint256" }],
+        name: "MeetingFactory_ObjectionNotFound",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
+        name: "MeetingFactory_ProposalNotFound",
     },
     { type: "error", inputs: [], name: "MeetingFactory_UnsupportedChangeType" },
 ] as const;

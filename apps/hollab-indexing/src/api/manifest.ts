@@ -58,6 +58,19 @@ export type ComponentSetRow = {
     deployedAt: bigint;
 };
 
+export type ProposalRow = {
+    proposalId: bigint;
+    processAddress: string;
+    circleId: bigint;
+    proposer: string;
+    proposerRoleId: bigint;
+    tensionHash: string;
+    changeType: number;
+    changeData: string;
+    status: number;
+    submittedAt: bigint;
+};
+
 export type ManifestOpts = {
     chainId: number;
     origin: string | null;
@@ -84,6 +97,7 @@ export function assembleOrgManifest(
     roles: RoleRow[],
     members: MemberRow[],
     componentSets: ComponentSetRow[],
+    openProposals: ProposalRow[],
     opts: ManifestOpts,
 ): OrgManifest {
     // Pick the most recently deployed component set.
@@ -137,7 +151,19 @@ export function assembleOrgManifest(
             address: m.memberAddress,
             joinedAt: Number(m.addedAt),
         })),
-        openProposals: [],
+        openProposals: openProposals.map((p) => ({
+            id: p.proposalId.toString(),
+            processAddress: p.processAddress,
+            circleId: p.circleId.toString(),
+            proposer: p.proposer,
+            proposerRoleId: p.proposerRoleId.toString(),
+            tensionHash: p.tensionHash,
+            changeType: p.changeType,
+            changeData: p.changeData,
+            status: p.status,
+            submittedAt: Number(p.submittedAt),
+            permalink: `/o/${org.id.toString()}/p/${p.proposalId.toString()}`,
+        })),
         indexer: {
             endpoint: origin,
             type: "ponder" as const,
@@ -212,7 +238,19 @@ export type OrgManifest = {
         leads: unknown;
     }[];
     members: { address: string; joinedAt: number }[];
-    openProposals: never[];
+    openProposals: {
+        id: string;
+        processAddress: string;
+        circleId: string;
+        proposer: string;
+        proposerRoleId: string;
+        tensionHash: string;
+        changeType: number;
+        changeData: string;
+        status: number;
+        submittedAt: number;
+        permalink: string;
+    }[];
     indexer: {
         endpoint: string | null;
         type: "ponder";

@@ -1,9 +1,21 @@
+> **Current state — 2026-04-15**
+>
+> -   Proposal lifecycle shipped end-to-end on-chain: `createProposal` → `raiseObjection` / `resolveObjection` → `adopt` / `discard`, indexed and wired through agent-sdk + frontend.
+> -   Legacy `executeGovernance` path deleted; lifecycle primitives are the only route to adoption.
+> -   Public proposal permalinks live at `#/o/:orgId/p/:proposalId` with an open-proposals panel per org.
+> -   Two PRDs queued as next bets:
+>     -   [`public-private-tensions.md`](./prds/public-private-tensions.md) — optional public/private content per tension
+>     -   [`public-objection-flow.md`](./prds/public-objection-flow.md) — raise objections from the public permalink with progressive wallet connect
+> -   Historical sprint log below is preserved unchanged for context.
+
+---
+
 # Sprint Plan — Agent-Native MVP
 
 **Owner:** product
 **Window:** 2–3 days
 **Date opened:** 2026-04-13
-**Status:** ready to dispatch to coding agent
+**Status:** sprint complete; proposal-lifecycle follow-on landed on `feat/governance-proposal-lifecycle` (2026-04-15). See "Post-sprint: Proposal Lifecycle" section at the bottom.
 **Target environment:** **local-first (anvil + local indexer + local frontend)**. No testnet, no eth.limo, no mainnet in this sprint.
 
 ---
@@ -315,7 +327,7 @@ The Day 2 finding (no proposal lifecycle on-chain) propagates into Day 3: a `Pub
 
 **Out of Day 3 scope (carried over):**
 
--   `#/o/:orgId/p/:proposalId` proposal permalink — re-enters scope when `GovernanceProcess` proposal events ship
+-   ~~`#/o/:orgId/p/:proposalId` proposal permalink~~ **shipped post-Day-3 on `feat/governance-proposal-lifecycle`.** `MeetingFactory` now exposes a full `createProposal` / `adoptProposal` / `discardProposal` / `raiseObjection` / `resolveObjection` surface (5 events), the indexer persists the `proposal` and `objection` tables with new `tensionHash` / `changeType` / `changeData` / `concernHash` columns, the `PublicProposalView` renders all three terminal states with the objection trail, and `SeedDemoOrgs.s.sol` seeds one proposal in each status (Adopted / Draft+objection / Discarded) on the `lantern` demo org so the permalink has data to render against from a clean anvil. The proposal lifecycle is the **only** path to structural change — `executeGovernance` was deleted entirely since nothing is deployed yet. Design stance documented in `specs/05-governance-process.md` "On-chain Commitments Surface".
 -   ~~`SeedDemoOrgs.s.sol`~~ **shipped Day 3.** `packages/contracts/script/SeedDemoOrgs.s.sol` creates two wired demo orgs (`paperclip`, `solarpunk`) on top of `DeployLocal`. Each org gets its meeting components deployed via `MeetingComponentsFactory`, the agent address added as a member, three/two roles created via `MeetingFactory.executeGovernance(CreateRole, …)` on `circleId=0` (the anchor), and `paperclip`'s first role elects the agent as lead (Election change type) so the permalink renders with a 🤖 chip end-to-end. Reads infra addresses from `deployments/31337-local.json` (written by `DeployLocal`) and appends `deployments/31337-seed.json` with the resulting orgIds. Verified end-to-end against a local anvil (`ONCHAIN EXECUTION COMPLETE & SUCCESSFUL`) — paperclip=orgId 2, solarpunk=orgId 3 on a fresh DeployLocal stack.
 
 ---
@@ -357,3 +369,51 @@ The Day 2 finding (no proposal lifecycle on-chain) propagates into Day 3: a `Pub
 -   Treasury UX
 -   Any wallet-connect in public browsing paths
 -   New governance semantics
+
+---
+
+## Post-sprint: Proposal Lifecycle (2026-04-15)
+
+**Branch:** `feat/governance-proposal-lifecycle` (on top of the Day-3 sprint close).
+
+### What shipped
+
+The Day-2 finding ("no proposal lifecycle on-chain, manifest `openProposals: []` always") is resolved. The proposal lifecycle is now the **only** path to structural change — `executeGovernance` was deleted outright since nothing is deployed yet (see `38ea727`).
+
+1. **Contracts (`MeetingFactory`)** — full `createProposal` / `adoptProposal` / `discardProposal` / `raiseObjection` / `resolveObjection` surface with 5 events. New fields: `tensionHash`, `changeType`, `changeData`, `concernHash`. No backward-compat shim.
+2. **Indexer** — `proposal` + `objection` lifecycle handlers; manifest route now populates `openProposals` from real data.
+3. **indexing-client + agent-sdk** — typed queries and write methods for proposals and objections; `examples/propose-tension.ts` drives the full lifecycle (not just `createRole`).
+4. **Frontend** — `PublicProposalView` + public permalink `#/o/:orgId/p/:proposalId` with open-proposals panel on `PublicOrgView`. Renders Adopted / Draft+objection / Discarded terminal states with the objection trail.
+5. **Seed script** — `SeedDemoOrgs.s.sol` seeds one proposal in each terminal status on the renamed `lantern` demo org so the permalink has data from a clean anvil.
+6. **Specs** — `specs/05-governance-process.md` gained an "On-chain Commitments Surface" section documenting the design stance.
+
+### Product state after this work
+
+-   Every core agent-native primitive promised by the MVP now has **real on-chain data** flowing through it end-to-end: org → circle → role → **proposal → objection**.
+-   Agents can now write the lifecycle, not just one structural op. The "tension" in `propose-tension.ts` is finally a tension.
+-   Public surfaces (`#/explore`, `#/o/:orgId`, `#/o/:orgId/r/:roleId`, `#/o/:orgId/p/:proposalId`) are all wallet-less and all backed by indexed data.
+
+### What is still intentionally missing (do not re-enter without a call)
+
+-   **ContentRef → text resolution.** Proposals carry `tensionHash` but the public view does not yet resolve it to human-readable content. The 0G private-data path exists in `hollab-sdk` but is not wired into `PublicProposalView`. This is the next highest-leverage gap (see "Next bets" below).
+-   **Objection integration flow.** `raiseObjection` + `resolveObjection` exist on-chain; there is no UX for a facilitator-style integration loop. Only terminal states render well.
+-   **Agent-authored proposal discovery for humans.** The `🤖` chip is rendered, but there is no "agents proposing in this org right now" surface — which is the clearest paperclip-ish hook we have.
+-   **Meeting lifecycle on-chain.** Proposals exist outside meetings currently; the `GovernanceMeeting` surface is still the pre-lifecycle shape. Not blocking.
+-   **Testnet / ENS wildcard / per-proposal OG.** Same cuts as the sprint body. Still out.
+
+### Next bets (PO view, ordered)
+
+1. **Readable tensions (P0).** Wire `tensionHash` to off-chain content so a stranger opening `#/o/:orgId/p/:proposalId` sees the actual tension text, not a hash. Smallest increment: unencrypted JSON blob under `tensionHash` in the existing storage path; encryption/private-data can come later. Without this, the permalink is agent-legible but not human-legible — the share loop breaks.
+2. **Agent proposal firehose (P1).** `#/agents` or an "Agent Activity" rail on `#/explore` showing recent agent-authored proposals across all orgs. Pure composability play — turns `agent-sdk` from a dev tool into a public behavior viewers can watch. Matches paperclip's "public-by-default, browsable" posture.
+3. **Objection-raising UX (P1).** The cheapest way to prove the lifecycle is real is to let a second wallet raise an objection from the public permalink. Progressive wallet connect on `PublicProposalView` → sign `raiseObjection`. Exercises the full adversarial path, not just the happy one.
+
+Deferred: agent attestations/identity (still allowlist), ContentRef encryption (kept for v2 privacy narrative), meeting-scoped proposals, treasury UX.
+
+### PRDs (2026-04-15)
+
+Bets 1 and 3 above have been shaped into product specs. Bet 1 was refined — visibility is **per-tension, author's choice** (public default, private via `hollab-sdk` encryption), not always-public.
+
+-   [docs/prds/public-private-tensions.md](./prds/public-private-tensions.md) — envelope-based public/private tension bodies under the existing `tensionHash`, zero contract changes.
+-   [docs/prds/public-objection-flow.md](./prds/public-objection-flow.md) — progressive wallet-connect + `raiseObjection` from `PublicProposalView`, reusing the same envelope for concerns. Key product decision: **org-member advisory gate** (contract remains authoritative).
+
+Bet 2 (agent proposal firehose) is still on the roadmap but not yet shaped.

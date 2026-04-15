@@ -39,6 +39,7 @@ import {
     LIST_MEETING_OUTPUTS_BY_CONTRACT,
     LIST_METRICS_BY_ROLE,
     LIST_OBJECTIONS_BY_PROPOSAL,
+    LIST_OPEN_PROPOSALS_BY_ORG,
     LIST_ORG_MEMBERS,
     LIST_ORG_MEMBERS_BY_ADDRESS,
     LIST_ORG_MEMBERS_BY_ORG,
@@ -47,6 +48,7 @@ import {
     LIST_PENDING_JOIN_REQUESTS_BY_ORG,
     LIST_POLICIES_BY_CIRCLE,
     LIST_PROPOSALS_BY_CIRCLE,
+    LIST_PROPOSALS_BY_ORG,
     LIST_ROLES_BY_CIRCLE,
     LIST_ROLES_BY_ORG,
     LIST_TACTICAL_MEETINGS_BY_CIRCLE,
@@ -167,6 +169,28 @@ export function createIndexingClient(url: string) {
             const data = await gql.request<{ proposals: PaginatedResult<Proposal> }>(
                 LIST_PROPOSALS_BY_CIRCLE,
                 { processAddress, circleId, ...opts },
+            );
+            return data.proposals;
+        },
+
+        async listProposalsByOrg(
+            orgId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<Proposal>> {
+            const data = await gql.request<{ proposals: PaginatedResult<Proposal> }>(
+                LIST_PROPOSALS_BY_ORG,
+                { orgId, ...opts },
+            );
+            return data.proposals;
+        },
+
+        async listOpenProposalsByOrg(
+            orgId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<Proposal>> {
+            const data = await gql.request<{ proposals: PaginatedResult<Proposal> }>(
+                LIST_OPEN_PROPOSALS_BY_ORG,
+                { orgId, ...opts },
             );
             return data.proposals;
         },

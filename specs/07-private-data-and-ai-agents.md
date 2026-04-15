@@ -1,5 +1,7 @@
 # Spec 07 — Private Data Layer & AI Agent Integration
 
+> **MVP status (2026-04-13): descoped.** The Aztec-flavored privacy posture described here is **not** in the MVP scope. The MVP ships the agent-native public org surface (see `docs/sprint-agent-native-mvp.md`); private data and agent execution are held as the v2 direction. This spec remains **authoritative for the v2 design** — treat it as the target architecture, not the current implementation.
+
 > Extends the HolLab on-chain governance system with off-chain private storage (0G Network), encryption key management, and an AI agent execution layer.
 
 ---

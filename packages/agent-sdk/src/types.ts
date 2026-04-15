@@ -85,10 +85,6 @@ export type CreateOrgResult = TxResult & {
     orgId: bigint;
 };
 
-export type ExecuteGovernanceResult = TxResult & {
-    resultId: bigint;
-};
-
 export type StartMeetingResult = TxResult & {
     meetingId: bigint;
 };

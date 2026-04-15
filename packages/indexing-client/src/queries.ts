@@ -26,13 +26,14 @@ export const POLICY_FIELDS = `
 `;
 
 export const PROPOSAL_FIELDS = `
-    id proposalId processAddress circleId proposer proposerRoleId
-    tension status submittedAt resolvedAt txHash
+    id proposalId processAddress orgId circleId proposer proposerRoleId
+    tensionHash changeType changeData changeResultId
+    status submittedAt resolvedAt resolvedBy txHash
 `;
 
 export const OBJECTION_FIELDS = `
-    id objectionId processAddress proposalId objector
-    status raisedAt resolvedAt txHash
+    id objectionId processAddress proposalId objector concernHash
+    status raisedAt resolvedAt resolvedBy txHash
 `;
 
 export const TACTICAL_MEETING_FIELDS = `
@@ -157,7 +158,7 @@ export const LIST_POLICIES_BY_CIRCLE = `
 `;
 
 export const LIST_PROPOSALS_BY_CIRCLE = `
-    query ListProposalsByCircle($processAddress: String!, $circleId: String!, $limit: Int, $after: String, $before: String) {
+    query ListProposalsByCircle($processAddress: String!, $circleId: BigInt!, $limit: Int, $after: String, $before: String) {
         proposals(where: { processAddress: $processAddress, circleId: $circleId }, limit: $limit, after: $after, before: $before, orderBy: "submittedAt", orderDirection: "desc") {
             items { ${PROPOSAL_FIELDS} }
             ${PAGE_INFO}
@@ -165,9 +166,27 @@ export const LIST_PROPOSALS_BY_CIRCLE = `
     }
 `;
 
+export const LIST_PROPOSALS_BY_ORG = `
+    query ListProposalsByOrg($orgId: BigInt!, $limit: Int, $after: String, $before: String) {
+        proposals(where: { orgId: $orgId }, limit: $limit, after: $after, before: $before, orderBy: "submittedAt", orderDirection: "desc") {
+            items { ${PROPOSAL_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+export const LIST_OPEN_PROPOSALS_BY_ORG = `
+    query ListOpenProposalsByOrg($orgId: BigInt!, $limit: Int, $after: String, $before: String) {
+        proposals(where: { orgId: $orgId, status: 0 }, limit: $limit, after: $after, before: $before, orderBy: "submittedAt", orderDirection: "asc") {
+            items { ${PROPOSAL_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
 export const LIST_OBJECTIONS_BY_PROPOSAL = `
-    query ListObjectionsByProposal($processAddress: String!, $proposalId: String!, $limit: Int, $after: String, $before: String) {
-        objections(where: { processAddress: $processAddress, proposalId: $proposalId }, limit: $limit, after: $after, before: $before) {
+    query ListObjectionsByProposal($processAddress: String!, $proposalId: BigInt!, $limit: Int, $after: String, $before: String) {
+        objections(where: { processAddress: $processAddress, proposalId: $proposalId }, limit: $limit, after: $after, before: $before, orderBy: "raisedAt", orderDirection: "asc") {
             items { ${OBJECTION_FIELDS} }
             ${PAGE_INFO}
         }

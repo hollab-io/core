@@ -13,6 +13,7 @@ import { isAgentAddress } from "../config/agents";
 import { useChain } from "../context/ChainContext";
 import { useCirclesFromIndexer } from "../hooks/useCirclesFromIndexer";
 import { useOrgMembersFromIndexer } from "../hooks/useOrgMembersFromIndexer";
+import { useOpenProposalsByOrg } from "../hooks/useProposalsFromIndexer";
 import { usePublicOrgFromIndexer } from "../hooks/usePublicOrgFromIndexer";
 import { useRolesFromIndexer } from "../hooks/useRolesFromIndexer";
 
@@ -20,15 +21,38 @@ type Props = {
     orgId: string;
     onBack?: () => void;
     onOpenRole?: (roleId: string) => void;
+    onOpenProposal?: (proposalId: string) => void;
     onJoin?: () => void;
 };
 
-export default function PublicOrgView({ orgId, onBack, onOpenRole, onJoin }: Props) {
+const CHANGE_TYPE_SHORT: Record<number, string> = {
+    0: "create role",
+    1: "amend role",
+    2: "remove role",
+    3: "create policy",
+    4: "amend policy",
+    5: "remove policy",
+    6: "move role",
+    7: "election",
+    8: "create role +refs",
+    9: "amend role +refs",
+    10: "create policy +refs",
+    11: "amend policy +refs",
+};
+
+export default function PublicOrgView({
+    orgId,
+    onBack,
+    onOpenRole,
+    onOpenProposal,
+    onJoin,
+}: Props) {
     const { chainConfig } = useChain();
     const { data: org, isLoading: orgLoading, error: orgError } = usePublicOrgFromIndexer(orgId);
     const { circles } = useCirclesFromIndexer(orgId);
     const { roles } = useRolesFromIndexer(orgId);
     const { members } = useOrgMembersFromIndexer(chainConfig.orgFactoryAddress, orgId);
+    const { data: openProposals = [] } = useOpenProposalsByOrg(orgId);
 
     const anchor = useMemo(() => circles.find((c) => c.isAnchor) ?? circles[0] ?? null, [circles]);
 
@@ -153,6 +177,58 @@ export default function PublicOrgView({ orgId, onBack, onOpenRole, onJoin }: Pro
                 </ul>
             </section>
 
+            {/* ── Open proposals ──────────────────────────────────────────── */}
+            {openProposals.length > 0 && (
+                <section className="mb-10">
+                    <h2 className="mb-3 text-[11px] font-mono uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                        Open proposals ({openProposals.length})
+                    </h2>
+                    <ul className="space-y-2">
+                        {openProposals.map((p) => {
+                            const proposerIsAgent = isAgentAddress(p.proposer);
+                            return (
+                                <li
+                                    key={p.id}
+                                    className="rounded-xl border border-slate-200/70 p-4 transition hover:border-slate-300 dark:border-white/[0.06] dark:hover:border-white/[0.14]"
+                                >
+                                    <div className="flex items-baseline justify-between gap-3">
+                                        {onOpenProposal ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => onOpenProposal(p.proposalId)}
+                                                className="text-left text-sm font-semibold hover:text-[#3481FF]"
+                                            >
+                                                Proposal #{p.proposalId} ·{" "}
+                                                <span className="text-slate-500 dark:text-slate-400">
+                                                    {CHANGE_TYPE_SHORT[p.changeType] ?? "change"}
+                                                </span>
+                                            </button>
+                                        ) : (
+                                            <p className="text-sm font-semibold">
+                                                Proposal #{p.proposalId}
+                                            </p>
+                                        )}
+                                        <span
+                                            className={`flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] ${
+                                                proposerIsAgent
+                                                    ? "border-[#3481FF]/30 bg-[#3481FF]/[0.08] text-[#3481FF]"
+                                                    : "border-slate-200/70 text-slate-500 dark:border-white/[0.06] dark:text-slate-400"
+                                            }`}
+                                        >
+                                            {proposerIsAgent && <span>🤖</span>}
+                                            {p.proposer.slice(0, 6)}…{p.proposer.slice(-4)}
+                                        </span>
+                                    </div>
+                                    <p className="mt-1 font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                                        {p.tensionHash}
+                                    </p>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </section>
+            )}
+
             {/* ── Roles ────────────────────────────────────────────────────── */}
             <section className="mb-10">
                 <h2 className="mb-3 text-[11px] font-mono uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
@@ -215,9 +291,6 @@ export default function PublicOrgView({ orgId, onBack, onOpenRole, onJoin }: Pro
                     </ul>
                 )}
             </section>
-
-            {/* TODO(WS1 Day 2): live proposals + adopted timeline (blocked — see sprint doc) */}
-            {/* TODO(WS3): progressive connect "Propose a tension" CTA */}
         </main>
     );
 }
