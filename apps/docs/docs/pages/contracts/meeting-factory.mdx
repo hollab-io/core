@@ -1,37 +1,32 @@
 # MeetingFactory
 
-Manages the meeting lifecycle and executes governance changes. One clone per organization, set as the `governanceProcess` on RoleRegistry.
+Unified meeting contract with an event-driven lifecycle and a commitments-only proposal/objection audit trail. One clone per organization, set as the `governanceProcess` on RoleRegistry — so the proposal lifecycle defined here is the **sole path** to structural change.
+
+The contract does not model IDM rounds (clarifying questions, reactions, integration). Those live in the meeting room. What it commits to is: who proposed what, who objected, who adopted or discarded, and when each step happened. See `specs/05-governance-process.md` ("On-chain Commitments Surface").
 
 **Source:** `packages/contracts/src/contracts/MeetingFactory.sol`
 
 ## Meeting Lifecycle
 
 ```solidity
-// Start a meeting (org members only)
-function startMeeting(uint256 circleId, uint8 meetingType) external returns (uint256 meetingId)
-
-// End a meeting (org admins only)
-function endMeeting(uint256 meetingId) external
+function startMeeting(uint256 orgId, MeetingKind kind) external returns (uint256 meetingId);
+function endMeeting(uint256 meetingId, uint256 orgId, MeetingKind kind) external;
 ```
 
-Meeting types:
+`MeetingKind` is `Tactical` (0) or `Governance` (1). Starting requires org membership; ending requires org admin.
 
--   `0` — **Tactical** (operational sync: check-ins, metrics, triage)
--   `1` — **Governance** (structural changes: roles, circles, policies)
-
-## Recording Outputs
-
-Tactical meetings produce outputs that are recorded on-chain:
+## Recording Tactical Outputs
 
 ```solidity
 function recordOutput(
     uint256 meetingId,
-    uint8 outputType,    // 0=NextAction, 1=Project, 2=Request, 3=Information
-    bytes calldata data
-) external
+    uint256 orgId,
+    OutputType outputType,   // 0=NextAction, 1=Project, 2=Request, 3=Information
+    string calldata description,
+    address assignedTo,
+    uint256 roleId
+) external returns (uint256 itemId);
 ```
-
-Output types map to the Holacracy tactical process:
 
 | Type | Name        | Description                              |
 | ---- | ----------- | ---------------------------------------- |
@@ -40,42 +35,93 @@ Output types map to the Holacracy tactical process:
 | 2    | Request     | A request for another role               |
 | 3    | Information | Shared context for the circle            |
 
-## Governance Execution
+## Proposal Lifecycle
 
-The critical function — executing adopted governance proposals to modify org structure:
+Structural changes flow through a four-step lifecycle: `createProposal` → (optional `raiseObjection` / `resolveObjection`) → `adoptProposal` or `discardProposal`. There is no `executeGovernance` shortcut — adopt is the only path that writes to the RoleRegistry.
 
 ```solidity
-function executeGovernance(
-    uint256 meetingId,
-    uint8 changeType,
-    bytes calldata governanceData
-) external
+function createProposal(
+    uint256 orgId,
+    uint256 circleId,
+    uint256 proposerRoleId,   // 0 if proposer is not a role lead
+    bytes32 tensionHash,       // content-address of off-chain tension text
+    ChangeType changeType,
+    bytes calldata changeData  // ABI-encoded change payload
+) external returns (uint256 proposalId);
+
+function raiseObjection(uint256 proposalId, bytes32 concernHash)
+    external returns (uint256 objectionId);
+
+function resolveObjection(uint256 objectionId) external;
+    // callable by the original objector (withdrawal) or an org admin (integration confirmed)
+
+function adoptProposal(uint256 proposalId) external returns (uint256 resultId);
+    // org admin only; applies the stored changeData to the RoleRegistry
+
+function discardProposal(uint256 proposalId) external;
+    // org admin only
 ```
 
-Change types:
+Any org member can create a proposal or raise an objection. Only org admins can adopt or discard. The contract does **not** enforce "all objections resolved before adopt" — that is the facilitator's job. The event log provides the full auditable trail.
 
-| Value | Type       | Effect                                      |
-| ----- | ---------- | ------------------------------------------- |
-| 0     | CreateRole | Decode and call `roleRegistry.createRole()` |
-| 1     | AmendRole  | Decode and call `roleRegistry.updateRole()` |
-| 2     | RemoveRole | Decode and call `roleRegistry.removeRole()` |
-| 3     | Election   | Assign a lead to an elected role            |
+### ProposalRecord fields
 
-The function ABI-decodes `governanceData` and forwards the call to RoleRegistry. Since MeetingFactory is the only authorized `governanceProcess`, this is the sole path for structural changes.
+| Field            | Notes                                                             |
+| ---------------- | ----------------------------------------------------------------- |
+| `id`             | Proposal id (auto-incremented per clone)                          |
+| `orgId`          |                                                                   |
+| `circleId`       | Circle the change targets (anchor = 0)                            |
+| `proposer`       | `msg.sender` at create time                                       |
+| `proposerRoleId` | 0 if the proposer is not currently a role lead                    |
+| `tensionHash`    | `bytes32` — CIDv1 / 0G root / keccak256 of off-chain tension text |
+| `changeType`     | `HolacracyTypes.ChangeType` (CreateRole, AmendRole, Election, …)  |
+| `changeData`     | ABI-encoded payload, decoded by `_applyChange` on adopt           |
+| `status`         | `Draft` → `Adopted` or `Discarded` (MVP uses these three)         |
+| `submittedAt`    | uint64 timestamp                                                  |
+| `resolvedAt`     | uint64 timestamp, set on adopt or discard                         |
 
-## Linking Proposals
+### ObjectionRecord fields
+
+| Field         | Notes                                                         |
+| ------------- | ------------------------------------------------------------- |
+| `id`          | Objection id                                                  |
+| `proposalId`  | Proposal the objection targets (must be Draft when raised)    |
+| `objector`    | `msg.sender` at raise time                                    |
+| `concernHash` | `bytes32` — content-address of the objection text (off-chain) |
+| `status`      | `Raised` → `Resolved` (MVP uses these two)                    |
+| `raisedAt`    | uint64 timestamp                                              |
+| `resolvedAt`  | uint64 timestamp, set on resolve                              |
+
+The encoding for `changeData` per `ChangeType` lives in the NatSpec of `MeetingFactory._applyChange`. For example:
+
+```text
+CreateRole:  abi.encode(circleId, name, purpose, domains[], accountabilities[])
+AmendRole:   abi.encode(roleId,   name, purpose, domains[], accountabilities[])
+RemoveRole:  abi.encode(roleId)
+Election:    abi.encode(roleId, lead)
+```
+
+## Linking Proposals to Meetings
 
 Governance proposals can be linked to meetings for traceability:
 
 ```solidity
-function linkProposal(uint256 meetingId, uint256 proposalId) external
+function linkProposal(uint256 meetingId, uint256 orgId, uint256 proposalId)
+    external returns (uint256 itemId);
 ```
 
 ## Events
 
 All lifecycle transitions emit events consumed by the Ponder indexer:
 
--   `MeetingStarted(meetingId, circleId, meetingType, facilitator)`
--   `MeetingEnded(meetingId)`
--   `MeetingOutputRecorded(meetingId, outputType, data)`
--   `MeetingProposalLinked(meetingId, proposalId)`
+-   `MeetingStarted(meetingId, orgId, kind, startedBy, timestamp)`
+-   `MeetingEnded(meetingId, orgId, kind, endedBy, timestamp)`
+-   `MeetingOutputRecorded(meetingId, itemId, orgId, outputType, assignedTo, roleId, description)`
+-   `MeetingProposalLinked(meetingId, itemId, orgId, proposalId)`
+-   `ProposalCreated(proposalId, orgId, circleId, proposer, proposerRoleId, tensionHash, changeType, changeData)`
+-   `ProposalAdopted(proposalId, orgId, resultId, adoptedBy)`
+-   `ProposalDiscarded(proposalId, orgId, discardedBy)`
+-   `ObjectionRaised(objectionId, proposalId, objector, concernHash)`
+-   `ObjectionResolved(objectionId, proposalId, resolvedBy)`
+
+The five proposal/objection events are fully event-sourced — the indexer can persist the full row without any contract reads.

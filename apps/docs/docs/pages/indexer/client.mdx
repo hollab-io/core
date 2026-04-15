@@ -42,13 +42,23 @@ const checklist = await client.listChecklistItemsByRole(contractAddress, roleId)
 const metrics = await client.listMetricsByRole(contractAddress, roleId);
 ```
 
-### Governance Meetings
+### Governance Meetings, Proposals & Objections
 
 ```ts
+// Meetings
 const govMeetings = await client.listGovernanceMeetingsByCircle(contractAddress, circleId);
-const proposals = await client.listProposalsByCircle(processAddress, circleId);
+
+// Proposals — event-sourced from the MeetingFactory lifecycle
+const proposal = await client.getProposal(`${processAddress}-${proposalId}`);
+const byCircle = await client.listProposalsByCircle(processAddress, circleId);
+const byOrg = await client.listProposalsByOrg(orgId);
+const open = await client.listOpenProposalsByOrg(orgId); // status = Draft
+
+// Objections raised against a proposal
 const objections = await client.listObjectionsByProposal(processAddress, proposalId);
 ```
+
+Proposal rows carry the full `ProposalRecord` surface (`tensionHash`, `changeType`, `changeData`, `status`, `changeResultId`, etc.) and objection rows carry `concernHash`, `status`, and `resolvedBy`. See the Ponder schema page for field-level details.
 
 ### Members & Voting
 
