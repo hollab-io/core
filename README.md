@@ -49,6 +49,20 @@ The community member proposes: _"Add a capybara to the landing page."_ The propo
 
 This is the full loop: **create** an org, **structure** it through governance, **align** through tactical meetings, **grow** a community, and **govern together** — all on the same framework.
 
+## Status (What Works Today)
+
+-   **Proposal lifecycle end-to-end on-chain** — `createProposal` → `raiseObjection` / `resolveObjection` → `adopt` / `discard`, indexed and queryable. `executeGovernance` has been removed; the lifecycle primitives are the only path.
+-   **Public proposal permalinks** — every proposal is reachable at `#/o/:orgId/p/:proposalId`, with an open-proposals panel on each org page.
+-   **Agent SDK lifecycle methods** — `@hollab-io/agent-sdk` exposes proposal read/write helpers (propose tension, raise/resolve objection, adopt/discard) backed by the indexing client.
+-   **Seeded demo org** — `lantern` is seeded on local/dev with circles, roles, and live proposals for exercising the flow.
+
+## Roadmap / Next
+
+See `docs/sprint-agent-native-mvp.md` for the current sprint, and `docs/prds/` for in-flight PRDs — notably:
+
+-   [`public-private-tensions.md`](./docs/prds/public-private-tensions.md) — optional public/private content per tension
+-   [`public-objection-flow.md`](./docs/prds/public-objection-flow.md) — raise objections directly from the public permalink with progressive wallet connect
+
 ## Why On-Chain
 
 Organizations need a credible, tamper-proof record of _who has authority to do what_. Today that lives in wikis, Notion pages, and people's heads — easy to dispute, hard to audit, impossible to compose with other systems.
@@ -86,7 +100,7 @@ OrganizationFactory
   │  Holacracy framework (ERC-1167 clones)
   ├── CircleRegistry       — Circles, roles, memberships, elected positions
   ├── RoleRegistry         — Role definitions (name, purpose, domains, accountabilities)
-  ├── GovernanceProcess    — Proposal lifecycle (Draft → Active → Adopted/Discarded)
+  ├── GovernanceProcess    — Proposal lifecycle: createProposal → raiseObjection / resolveObjection → adopt / discard
   ├── GovernanceMeeting    — Meeting outcomes (proposal adoption, election results)
   │
   │  DAO layer (token holders are org members)
@@ -101,12 +115,12 @@ OrganizationFactory
 
 The core of the system — minimalistic contracts that store organizational structure and governance outcomes.
 
-| Contract              | What it stores                                                                                                 | Why on-chain                                                                                                                                         |
-| --------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CircleRegistry**    | Circle hierarchy, role-to-circle assignments, circle leads, elected roles (Facilitator, Secretary, Circle Rep) | This is the org's authority graph — who can act in which capacity. Other systems need to read it trustlessly.                                        |
-| **RoleRegistry**      | Role name, purpose, domains, accountabilities                                                                  | Defines the boundaries of distributed authority. A role's domains determine what its lead can control without asking permission.                     |
-| **GovernanceProcess** | Proposal status transitions, objection records, adoption/rejection outcomes                                    | The permanent record that a governance change was legitimately adopted through the constitutional process.                                           |
-| **GovernanceMeeting** | Meeting existence, participant authorization, adopted proposals, election results                              | Proves that outcomes came from a properly convened meeting with authorized participants. Coordination (IDM steps, agenda management) is events-only. |
+| Contract              | What it stores                                                                                                                                      | Why on-chain                                                                                                                                         |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CircleRegistry**    | Circle hierarchy, role-to-circle assignments, circle leads, elected roles (Facilitator, Secretary, Circle Rep)                                      | This is the org's authority graph — who can act in which capacity. Other systems need to read it trustlessly.                                        |
+| **RoleRegistry**      | Role name, purpose, domains, accountabilities                                                                                                       | Defines the boundaries of distributed authority. A role's domains determine what its lead can control without asking permission.                     |
+| **GovernanceProcess** | Proposal lifecycle (`createProposal` → `raiseObjection` / `resolveObjection` → `adopt` / `discard`), objection records, adoption/rejection outcomes | The permanent record that a governance change was legitimately adopted through the constitutional process.                                           |
+| **GovernanceMeeting** | Meeting existence, participant authorization, adopted proposals, election results                                                                   | Proves that outcomes came from a properly convened meeting with authorized participants. Coordination (IDM steps, agenda management) is events-only. |
 
 Proposals encode structural changes, executed atomically on adoption:
 
@@ -159,7 +173,7 @@ The `specs/` directory contains the specification suite derived from the [Holacr
 
 -   [Foundry](https://book.getfoundry.sh/getting-started/installation)
 -   [pnpm](https://pnpm.io/)
--   Node.js 18+
+-   Node.js 24
 
 ### Setup
 
@@ -191,8 +205,11 @@ packages/
   contracts/         — Solidity contracts, tests, deploy scripts (Foundry)
   dao-contracts/     — DAO layer contract extensions
   hollab-sdk/        — TypeScript SDK for interacting with deployed contracts
+  agent-sdk/         — SDK for agents to integrate with hollab.eth governance
+  indexing-client/   — Typed client for the Ponder indexer
   viem-extension/    — Viem client extensions
 apps/                — Frontend applications
+  hollab-indexing/   — Ponder indexer ingesting contract events
 specs/               — Holacracy Constitution → smart contract specifications
 ```
 
