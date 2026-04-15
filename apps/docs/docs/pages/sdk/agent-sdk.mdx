@@ -37,14 +37,14 @@ const agent = new HollabAgent({
 
 The `HollabAgent` class exposes six modules:
 
-| Module             | Purpose                                                          |
-| ------------------ | ---------------------------------------------------------------- |
-| `agent.org`        | Create organizations, manage members                             |
-| `agent.roles`      | Query roles by org or team                                       |
-| `agent.circles`    | Query teams (circles)                                            |
-| `agent.meetings`   | Start/end syncs and proposal reviews, record outputs             |
-| `agent.governance` | Execute structure changes (create/amend/remove roles, elections) |
-| `agent.voting`     | Create votes, cast votes, manage collaborator weight             |
+| Module             | Purpose                                                                        |
+| ------------------ | ------------------------------------------------------------------------------ |
+| `agent.org`        | Create organizations, manage members                                           |
+| `agent.roles`      | Query roles by org or team                                                     |
+| `agent.circles`    | Query teams (circles)                                                          |
+| `agent.meetings`   | Start/end syncs and proposal reviews, record outputs                           |
+| `agent.governance` | Drive the proposal lifecycle (create, raise/resolve objection, adopt, discard) |
+| `agent.voting`     | Create votes, cast votes, manage collaborator weight                           |
 
 ## Reading Data
 
@@ -96,36 +96,49 @@ await agent.meetings.recordOutput(meetingFactoryAddr, {
 await agent.meetings.end(meetingFactoryAddr, meetingId);
 ```
 
-## Executing Governance
+## Governance Proposal Lifecycle
 
-All structural changes go through the governance module. This enforces the protocol rule that org structure can only change through the proposal review process.
+All structural changes flow through the on-chain proposal lifecycle: `createProposal` → (optional `raiseObjection` / `resolveObjection`) → `adoptProposal` or `discardProposal`. The agent-sdk mirrors this surface one-to-one — there is no "do it in one call" shortcut, and `executeGovernance` no longer exists. Callers wanting atomic create+adopt can batch the two writes (viem multicall, `wallet_sendCalls`) or issue them sequentially.
 
 ```ts
-// Create a new role
-const { resultId } = await agent.governance.createRole(meetingFactoryAddr, orgId, {
+import { ChangeType, encodeCreateRole } from "@hollab-io/agent-sdk";
+
+// 1. Any member creates a Draft proposal. tensionText is hashed client-side
+//    with keccak256 — only the hash is committed on-chain. Pass tensionHash
+//    directly if the full text is already pinned to IPFS / 0G.
+const { proposalId } = await agent.governance.createProposal(meetingFactoryAddr, {
+    orgId,
     circleId: 1n,
-    name: "Marketing Lead",
-    purpose: "Drive community growth",
-    accountabilities: ["Social media strategy", "Content calendar"],
+    proposerRoleId: 0n,
+    tensionText: "Marketing cadence is unclear",
+    changeType: ChangeType.CreateRole,
+    changeData: encodeCreateRole({
+        circleId: 1n,
+        name: "Marketing Lead",
+        purpose: "Drive community growth",
+        accountabilities: ["Social media strategy", "Content calendar"],
+    }),
 });
 
-// Amend an existing role
-await agent.governance.amendRole(meetingFactoryAddr, orgId, {
-    roleId: resultId,
-    name: "Growth Lead",
-    purpose: "Drive community and ecosystem growth",
-    accountabilities: ["Social media strategy", "Content calendar", "Partnership outreach"],
+// 2. Any member can object while the proposal is still Draft.
+const { objectionId } = await agent.governance.raiseObjection(meetingFactoryAddr, proposalId, {
+    text: "This overlaps with the existing Comms role",
 });
 
-// Assign a role lead
-await agent.governance.electLead(meetingFactoryAddr, orgId, {
-    roleId: resultId,
-    lead: "0xAlice...",
-});
+// 3. The original objector (withdrawal) or an org admin (integration
+//    confirmed) can resolve the objection.
+await agent.governance.resolveObjection(meetingFactoryAddr, objectionId);
 
-// Remove a role
-await agent.governance.removeRole(meetingFactoryAddr, orgId, resultId);
+// 4. Org admin adopts — applies the stored changeData to the RoleRegistry.
+const { resultId } = await agent.governance.adoptProposal(meetingFactoryAddr, proposalId);
+
+// …or discards the draft without applying the change.
+await agent.governance.discardProposal(meetingFactoryAddr, proposalId);
 ```
+
+The governance module also exposes indexer-backed reads: `listProposals(processAddress, circleId)`, `listOpenProposalsByOrg(orgId)`, and `getProposal(id)`.
+
+See `packages/agent-sdk/examples/propose-tension.ts` for a runnable end-to-end flow.
 
 ## Voting
 
@@ -154,11 +167,12 @@ import type {
     AmendRoleInput,
     CastVoteInput,
     CreateOrgResult,
+    CreateProposalInput,
+    CreateProposalResult,
     CreateRoleInput,
     CreateVoteInput,
     CreateVoteResult,
     ElectionInput,
-    ExecuteGovernanceResult,
     HollabAgentConfig,
     RecordOutputInput,
     StartMeetingResult,
@@ -179,9 +193,15 @@ import {
     encodeRemoveRole,
 } from "@hollab-io/agent-sdk";
 
-// Build raw governance execution data
-const data = encodeCreateRole({ circleId: 1n, name: "Ops", purpose: "Operations" });
-await agent.governance.execute(meetingFactoryAddr, orgId, ChangeType.CreateRole, data);
+// Build the raw changeData payload for createProposal
+const changeData = encodeCreateRole({ circleId: 1n, name: "Ops", purpose: "Operations" });
+await agent.governance.createProposal(meetingFactoryAddr, {
+    orgId,
+    circleId: 1n,
+    tensionText: "We need dedicated ops ownership",
+    changeType: ChangeType.CreateRole,
+    changeData,
+});
 ```
 
 ## Design Principles

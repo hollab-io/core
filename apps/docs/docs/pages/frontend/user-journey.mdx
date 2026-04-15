@@ -59,7 +59,13 @@ Integrative Decision-Making for structural changes:
 5. **Objection round** — Raise valid objections (or none)
 6. **Integration** — Integrate objections into the proposal
 
-Adopted proposals execute via `MeetingFactory.executeGovernance()`, which modifies roles on the RoleRegistry.
+The IDM rounds themselves stay off-chain in the meeting room. What the frontend commits on-chain is the four-step proposal lifecycle exposed by `MeetingFactory`: `createProposal` → (optional `raiseObjection` / `resolveObjection`) → `adoptProposal` or `discardProposal`. Adopt is the only path that writes to the RoleRegistry — there is no `executeGovernance` shortcut.
+
+### Public Proposal Permalink
+
+Every proposal has a public permalink at `#/o/:orgId/p/:proposalId` (`PublicProposalView`). The page is readable without a connected wallet — it renders the on-chain proposal record, the resolved tension text (if the `tensionHash` is pinned), and the list of raised and resolved objections, so proposals can be shared outside the org.
+
+The workspace also surfaces an **open proposals panel** backed by `indexing-client.listOpenProposalsByOrg(orgId)`, which lists every Draft proposal across the org with deep-links into the permalink view.
 
 ### Actions
 
