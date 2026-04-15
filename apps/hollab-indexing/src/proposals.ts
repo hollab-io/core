@@ -42,7 +42,6 @@ ponder.on("MeetingFactory:ProposalCreated", async ({ event, context }) => {
         proposer: _proposer,
         proposerRoleId: _proposerRoleId,
         tensionHash: _tensionHash,
-        tension: "",
         changeType: _changeType,
         changeData: _changeData,
         status: 0, // Draft

@@ -97,20 +97,9 @@ export function assembleOrgManifest(
     roles: RoleRow[],
     members: MemberRow[],
     componentSets: ComponentSetRow[],
-    openProposalsOrOpts: ProposalRow[] | ManifestOpts,
-    optsOrUndefined?: ManifestOpts,
+    openProposals: ProposalRow[],
+    opts: ManifestOpts,
 ): OrgManifest {
-    // Backward-compat overload: older callers passed (…, componentSets, opts)
-    // before openProposals existed. Detect by argument shape and shift.
-    let openProposals: ProposalRow[];
-    let opts: ManifestOpts;
-    if (Array.isArray(openProposalsOrOpts)) {
-        openProposals = openProposalsOrOpts;
-        opts = optsOrUndefined as ManifestOpts;
-    } else {
-        openProposals = [];
-        opts = openProposalsOrOpts;
-    }
     // Pick the most recently deployed component set.
     const componentSet = [...componentSets].sort((a, b) =>
         a.deployedAt > b.deployedAt ? -1 : a.deployedAt < b.deployedAt ? 1 : 0,

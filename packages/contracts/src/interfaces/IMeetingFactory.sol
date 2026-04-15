@@ -84,16 +84,6 @@ interface IMeetingFactory {
     uint256 indexed _meetingId, uint256 indexed _itemId, uint256 indexed _orgId, uint256 _proposalId
   );
 
-  /// @notice Emitted when a governance proposal is executed on-chain (role created/amended/removed)
-  /// @dev    Retained for backward compat with the executeGovernance shortcut.
-  ///         New flows should emit ProposalCreated + ProposalAdopted instead.
-  event GovernanceExecuted(
-    uint256 indexed _orgId,
-    HolacracyTypes.ChangeType indexed _changeType,
-    uint256 indexed _resultId,
-    address _executedBy
-  );
-
   /// @notice Emitted when a proposal record is created. Fully event-sourced —
   ///         the indexer can persist the full row without any contract reads.
   event ProposalCreated(
@@ -167,20 +157,6 @@ interface IMeetingFactory {
     uint256 _proposalId
   ) external returns (uint256 _itemId);
 
-  /// @notice Execute an adopted governance proposal on the RoleRegistry.
-  /// @dev    DEPRECATED — power-user shortcut equivalent to createProposal +
-  ///         immediate adoptProposal with an empty tension hash. Retained for
-  ///         backward compatibility with the legacy seed/example flows.
-  ///         Prefer createProposal + adoptProposal so the proposal record is
-  ///         indexable and the public surface can render it.
-  ///         TODO(post-MVP): rewrite internally as `_create + _adopt` once all
-  ///         downstream callers have migrated, then remove this entry point.
-  function executeGovernance(
-    uint256 _orgId,
-    HolacracyTypes.ChangeType _changeType,
-    bytes calldata _data
-  ) external returns (uint256 _resultId);
-
   /*///////////////////////////////////////////////////////////////
                         PROPOSAL LIFECYCLE
   //////////////////////////////////////////////////////////////*/
@@ -192,7 +168,8 @@ interface IMeetingFactory {
   /// @param  _tensionHash     Content-address (CIDv1, 0G root, or keccak) of
   ///                          the tension text — text itself stays off-chain
   /// @param  _changeType      The structural change to enact on adoption
-  /// @param  _changeData      ABI-encoded params, same shape as executeGovernance
+  /// @param  _changeData      ABI-encoded params — see MeetingFactory._applyChange
+  ///                          for the encoding of each ChangeType
   function createProposal(
     uint256 _orgId,
     uint256 _circleId,

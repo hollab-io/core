@@ -523,10 +523,12 @@ on-chain in the current contract set. Each is either a coordination concern
     admin-initiated rejection and proposer withdrawal, distinguishing them via
     the `discardedBy` address in the event
 
-### Legacy entry point
+### Only entry point
 
-`executeGovernance(orgId, changeType, data)` is preserved for backward
-compatibility. It is equivalent to `createProposal` + immediate
-`adoptProposal` with an empty tension hash and no proposal record. Marked
-`@deprecated` in the interface. New flows must go through the proposal
-lifecycle so the public permalink surface has something to render.
+`createProposal` + `adoptProposal` (or `discardProposal`) is the **only**
+path to structural change. There is no "execute directly" shortcut: any call
+that mutates the `RoleRegistry` must first leave a `ProposalRecord` on-chain
+with its tension hash, change payload, and proposer. Callers that want a
+one-signer "draft and adopt in the same user action" flow batch the two
+writes — the seed script, the authed meeting room, and the SDK example all
+do this — but the two records are always distinct at the contract layer.

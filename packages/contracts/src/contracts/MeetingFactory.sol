@@ -8,16 +8,20 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
  * @title MeetingFactory
- * @notice Unified meeting contract with event-only lifecycle and governance execution.
+ * @notice Unified meeting contract with event-driven lifecycle and a
+ *         commitments-only proposal/objection audit trail.
  *
  *         In Holacracy, structural changes (creating/amending/removing roles) can ONLY
  *         happen through the governance process. This contract is authorized as the
  *         governance process on the RoleRegistry, so all structural changes must flow
- *         through it — enforcing that governance is the exclusive authority over structure.
+ *         through createProposal + adoptProposal — enforcing that governance is the
+ *         exclusive authority over structure.
  *
- *         Any org member can call executeGovernance to enact an adopted proposal.
- *         The on-chain contract does not track IDM process state (that lives in the
- *         frontend/off-chain); it trusts that only adopted proposals are submitted.
+ *         The on-chain contract does not model IDM rounds (clarifying questions,
+ *         reactions, integration). Those live in the meeting room. What the contract
+ *         commits to is: who proposed what, who objected, who adopted or discarded,
+ *         when each step happened. See specs/05-governance-process.md
+ *         "On-chain Commitments Surface".
  */
 contract MeetingFactory is IMeetingFactory {
   IOrganizationFactory public orgFactory;
@@ -115,33 +119,8 @@ contract MeetingFactory is IMeetingFactory {
                     GOVERNANCE EXECUTION
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Execute a governance change directly. DEPRECATED — see IMeetingFactory.
-  /// @dev    Equivalent to createProposal + immediate adoptProposal with empty
-  ///         tensionHash, but without persisting a ProposalRecord. Retained so
-  ///         seed scripts and the legacy propose-tension example keep working.
-  ///         New flows must use createProposal + adoptProposal instead.
-  /// @param _orgId The organization ID (for membership check)
-  /// @param _changeType The type of structural change
-  /// @param _data ABI-encoded parameters for the change (see _applyChange)
-  /// @return _resultId The ID of the created/affected entity (roleId for role changes)
-  function executeGovernance(
-    uint256 _orgId,
-    HolacracyTypes.ChangeType _changeType,
-    bytes calldata _data
-  ) external returns (uint256 _resultId) {
-    if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
-      revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
-    }
-    _resultId = _applyChange(_changeType, _data);
-    emit GovernanceExecuted(_orgId, _changeType, _resultId, msg.sender);
-  }
-
-  /// @notice Internal change applicator shared between executeGovernance (legacy
-  ///         shortcut) and adoptProposal (the proposal-record path).
-  /// @dev    Takes `bytes memory` so both calldata (legacy entry) and storage
-  ///         (proposal record) paths can call it. The calldata→memory copy in
-  ///         executeGovernance costs ~few hundred gas — acceptable for a
-  ///         deprecated entry point.
+  /// @notice Internal change applicator invoked by adoptProposal to apply a
+  ///         stored proposal's change payload to the RoleRegistry.
   ///
   /// Encoding for each change type:
   ///   CreateRole:         abi.encode(circleId, name, purpose, domains[], accountabilities[])

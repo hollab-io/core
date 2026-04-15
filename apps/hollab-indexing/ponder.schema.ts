@@ -110,11 +110,9 @@ export const proposal = onchainTable("proposal", (t) => ({
     proposerRoleId: t.bigint().notNull(),
     // Content-address of the off-chain tension text (CIDv1 / 0G root /
     // keccak256). The text itself stays off-chain — the chain only commits
-    // to the hash.
+    // to the hash. Resolvers need to fetch from the storage backend
+    // indicated by the hash prefix (IPFS, 0G, or plain keccak).
     tensionHash: t.hex().notNull(),
-    // Legacy column kept empty for backward compat with any historical reader
-    // that expected `tension: text`. Resolvers should prefer `tensionHash`.
-    tension: t.text().notNull(),
     // ChangeType uint8 — see HolacracyTypes.ChangeType in contracts.
     // 0=CreateRole 1=AmendRole 2=RemoveRole 3=CreatePolicy 4=AmendPolicy
     // 5=RemovePolicy 6=MoveRole 7=Election 8=CreateRoleWithRefs

@@ -150,11 +150,6 @@ export default function PublicProposalView({ orgId, proposalId, onBackToOrg }: P
                 <p className="mt-2 font-mono text-[11px] text-slate-500 dark:text-slate-400">
                     {proposal.tensionHash}
                 </p>
-                {proposal.tension && (
-                    <p className="mt-4 max-w-2xl text-[15px] leading-relaxed text-slate-600 dark:text-slate-300">
-                        {proposal.tension}
-                    </p>
-                )}
             </header>
 
             <section className="mb-10">

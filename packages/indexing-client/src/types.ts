@@ -90,8 +90,6 @@ export type Proposal = {
     proposerRoleId: BigIntStr;
     /** Content-address of off-chain tension text (CIDv1 / 0G root / keccak). */
     tensionHash: HexStr;
-    /** Legacy column kept empty-string for back-compat — prefer tensionHash. */
-    tension: string;
     /** uint8 mirroring HolacracyTypes.ChangeType — see `ChangeType` in `@hollab-io/agent-sdk`. */
     changeType: number;
     /** ABI-encoded change payload; same shape executeGovernance accepts. */

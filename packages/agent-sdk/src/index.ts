@@ -13,7 +13,6 @@ export type {
     CastVoteInput,
     TxResult,
     CreateOrgResult,
-    ExecuteGovernanceResult,
     StartMeetingResult,
     CreateVoteResult,
 } from "./types.js";

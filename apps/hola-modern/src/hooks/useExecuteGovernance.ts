@@ -1,16 +1,13 @@
 /**
- * useExecuteGovernance — executes adopted governance proposals on-chain.
+ * Governance encoding helpers + the ChangeType enum mirror.
  *
- * In Holacracy, structural changes (create/amend/remove roles) can ONLY happen
- * through the governance process. This hook calls MeetingFactory.executeGovernance()
- * which forwards the change to RoleRegistry.
+ * Structural role mutations (create/amend/remove) go through the on-chain
+ * proposal lifecycle: `createProposal(..., changeType, changeData)` followed
+ * by `adoptProposal(proposalId)`. This file holds the ABI encoders for the
+ * `changeData` payload; the calls themselves happen inline in
+ * `GovernanceMeetingRoom.tsx` where the authed meeting state lives.
  */
-import { meetingFactoryAbi } from "@hollab-io/viem-extension";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createPublicClient, encodeAbiParameters, http } from "viem";
-import { useAccount, useWalletClient } from "wagmi";
-
-import { useChain } from "../context/ChainContext";
+import { encodeAbiParameters } from "viem";
 
 /** Maps to HolacracyTypes.ChangeType enum in the contract */
 export const ChangeType = {
@@ -29,19 +26,6 @@ export const ChangeType = {
 } as const;
 
 export type ChangeTypeValue = (typeof ChangeType)[keyof typeof ChangeType];
-
-export type ExecuteGovernanceParams = {
-    meetingFactoryAddress: `0x${string}`;
-    orgId: bigint;
-    changeType: ChangeTypeValue;
-    /** ABI-encoded data for the change. Use the encode* helpers below. */
-    data: `0x${string}`;
-};
-
-export type ExecuteGovernanceResult = {
-    txHash: `0x${string}`;
-    resultId: bigint;
-};
 
 // ── Encoding helpers ─────────────────────────────────────────────────────────
 
@@ -160,54 +144,4 @@ export function encodeAmendRoleWithRefs(params: {
         params.fieldNames,
         params.refs.map((r) => ({ contentHash: r.contentHash, visibility: r.visibility })),
     ]);
-}
-
-// ── Mutation hook ────────────────────────────────────────────────────────────
-
-export function useExecuteGovernance() {
-    const { address } = useAccount();
-    const { data: walletClient } = useWalletClient();
-    const { chainConfig } = useChain();
-    const queryClient = useQueryClient();
-
-    return useMutation<ExecuteGovernanceResult, Error, ExecuteGovernanceParams>({
-        mutationFn: async (params) => {
-            if (!walletClient || !address) {
-                throw new Error("No wallet connected");
-            }
-
-            const txHash = await walletClient.writeContract({
-                abi: meetingFactoryAbi,
-                address: params.meetingFactoryAddress,
-                functionName: "executeGovernance",
-                account: address,
-                chain: chainConfig.chain,
-                args: [params.orgId, params.changeType, params.data],
-            });
-
-            const publicClient = createPublicClient({
-                chain: chainConfig.chain,
-                transport: http(chainConfig.chain.rpcUrls.default.http[0]),
-            });
-
-            const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
-
-            // Parse GovernanceExecuted event for the resultId (3rd indexed topic)
-            let resultId = 0n;
-            for (const log of receipt.logs) {
-                if (log.topics.length >= 4 && log.topics[3]) {
-                    resultId = BigInt(log.topics[3]);
-                    break;
-                }
-            }
-
-            return { txHash, resultId };
-        },
-
-        onSuccess: (_, params) => {
-            const orgId = params.orgId.toString();
-            void queryClient.invalidateQueries({ queryKey: ["roles", orgId] });
-            void queryClient.invalidateQueries({ queryKey: ["circles", orgId] });
-        },
-    });
 }

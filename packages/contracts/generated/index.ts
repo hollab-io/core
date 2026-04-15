@@ -826,17 +826,6 @@ export const meetingFactoryAbi = [
     },
     {
         type: "function",
-        inputs: [
-            { name: "_orgId", internalType: "uint256", type: "uint256" },
-            { name: "_changeType", internalType: "enum HolacracyTypes.ChangeType", type: "uint8" },
-            { name: "_data", internalType: "bytes", type: "bytes" },
-        ],
-        name: "executeGovernance",
-        outputs: [{ name: "_resultId", internalType: "uint256", type: "uint256" }],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
         inputs: [{ name: "_objectionId", internalType: "uint256", type: "uint256" }],
         name: "getObjection",
         outputs: [
@@ -984,22 +973,6 @@ export const meetingFactoryAbi = [
         name: "startMeeting",
         outputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
         stateMutability: "nonpayable",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "_orgId", internalType: "uint256", type: "uint256", indexed: true },
-            {
-                name: "_changeType",
-                internalType: "enum HolacracyTypes.ChangeType",
-                type: "uint8",
-                indexed: true,
-            },
-            { name: "_resultId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "_executedBy", internalType: "address", type: "address", indexed: false },
-        ],
-        name: "GovernanceExecuted",
     },
     {
         type: "event",

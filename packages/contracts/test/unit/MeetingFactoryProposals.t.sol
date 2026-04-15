@@ -36,16 +36,12 @@ contract UnitMeetingFactoryProposals is Test {
     uint256[] memory _amounts = new uint256[](1);
     _amounts[0] = 1_000_000e18;
     _cfg = IOrganizationFactory.TokenConfig({
-      tokenName: 'Proposal Token',
-      tokenSymbol: 'PROP',
-      initialHolders: _holders,
-      initialAmounts: _amounts
+      tokenName: 'Proposal Token', tokenSymbol: 'PROP', initialHolders: _holders, initialAmounts: _amounts
     });
   }
 
   function setUp() external {
-    _orgFactory =
-      new OrganizationFactory(address(new RoleRegistry()), address(new StubENSRegistrarForProposals()));
+    _orgFactory = new OrganizationFactory(address(new RoleRegistry()), address(new StubENSRegistrarForProposals()));
     _meetingFactory = MeetingFactory(Clones.clone(address(new MeetingFactory())));
 
     vm.prank(_deployer);
@@ -246,9 +242,7 @@ contract UnitMeetingFactoryProposals is Test {
     vm.prank(_deployer);
     vm.expectRevert(
       abi.encodeWithSelector(
-        IMeetingFactory.MeetingFactory_InvalidProposalStatus.selector,
-        proposalId,
-        HolacracyTypes.ProposalStatus.Adopted
+        IMeetingFactory.MeetingFactory_InvalidProposalStatus.selector, proposalId, HolacracyTypes.ProposalStatus.Adopted
       )
     );
     _meetingFactory.adoptProposal(proposalId);
@@ -278,9 +272,7 @@ contract UnitMeetingFactoryProposals is Test {
     vm.prank(_deployer);
     vm.expectRevert(
       abi.encodeWithSelector(
-        IMeetingFactory.MeetingFactory_InvalidProposalStatus.selector,
-        proposalId,
-        HolacracyTypes.ProposalStatus.Adopted
+        IMeetingFactory.MeetingFactory_InvalidProposalStatus.selector, proposalId, HolacracyTypes.ProposalStatus.Adopted
       )
     );
     _meetingFactory.discardProposal(proposalId);
@@ -294,9 +286,7 @@ contract UnitMeetingFactoryProposals is Test {
     vm.prank(_member);
     vm.expectRevert(
       abi.encodeWithSelector(
-        IMeetingFactory.MeetingFactory_InvalidProposalStatus.selector,
-        proposalId,
-        HolacracyTypes.ProposalStatus.Adopted
+        IMeetingFactory.MeetingFactory_InvalidProposalStatus.selector, proposalId, HolacracyTypes.ProposalStatus.Adopted
       )
     );
     _meetingFactory.raiseObjection(proposalId, CONCERN);
@@ -333,21 +323,8 @@ contract UnitMeetingFactoryProposals is Test {
   }
 
   /*//////////////////////////////////////////////////////////////
-                       LEGACY PATH REGRESSION
+                       CHANGE-TYPE COVERAGE
   //////////////////////////////////////////////////////////////*/
-
-  function test_ExecuteGovernance_StillWorksAfterRefactor() external {
-    // Proves _applyChange refactor didn't break the deprecated entry point.
-    uint256 rolesBefore = _roleRegistry.roleCount();
-
-    vm.prank(_member);
-    uint256 resultId = _meetingFactory.executeGovernance(
-      _orgId, HolacracyTypes.ChangeType.CreateRole, _encodeCreateRole('Legacy Curator')
-    );
-
-    assertEq(resultId, rolesBefore + 1);
-    assertEq(_roleRegistry.roleCount(), rolesBefore + 1);
-  }
 
   function test_AdoptProposal_AmendRoleChangeType() external {
     // First create a role through the proposal path.
@@ -363,9 +340,8 @@ contract UnitMeetingFactoryProposals is Test {
     bytes memory amendData = abi.encode(roleId, 'Curator v2', 'go faster', domains, accts);
 
     vm.prank(_member);
-    uint256 amendId = _meetingFactory.createProposal(
-      _orgId, 0, 0, bytes32(0), HolacracyTypes.ChangeType.AmendRole, amendData
-    );
+    uint256 amendId =
+      _meetingFactory.createProposal(_orgId, 0, 0, bytes32(0), HolacracyTypes.ChangeType.AmendRole, amendData);
     vm.prank(_deployer);
     uint256 result = _meetingFactory.adoptProposal(amendId);
     assertEq(result, roleId);

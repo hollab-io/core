@@ -19,8 +19,8 @@ import {
     X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { encodeFunctionData } from "viem";
-import { useWalletClient } from "wagmi";
+import { encodeFunctionData, zeroHash } from "viem";
+import { usePublicClient, useWalletClient } from "wagmi";
 
 import type { GovernanceMeeting } from "../hooks/useGovernanceMeetingsFromIndexer";
 import {
@@ -227,21 +227,30 @@ const shortDateFmt = new Intl.DateTimeFormat("en-US", {
 });
 
 /**
- * Convert a pending governance action into an on-chain executeGovernance call.
- * Returns null for unsupported change types (policies, move-role — not yet on-chain).
+ * Convert a pending governance action into a pair of on-chain calls —
+ * createProposal followed by adoptProposal. The adopt call uses a
+ * pre-computed `predictedProposalId` because the batch dispatches both txs
+ * before the first one mines; the caller reads `proposalCount()` once
+ * before iterating and increments for each supported action.
+ *
+ * Returns an empty array for unsupported change types (policies, move-role —
+ * not yet wired on-chain).
  */
-function buildGovernanceCall(
+function buildGovernanceCalls(
     action: PendingGovernanceAction,
     meetingFactoryAddress: `0x${string}`,
     orgId: bigint,
-): { to: `0x${string}`; data: `0x${string}` } | null {
+    predictedProposalId: bigint,
+): { to: `0x${string}`; data: `0x${string}` }[] {
     let changeType: number;
     let encodedData: `0x${string}`;
+    let circleId: bigint;
 
     if (action.changeType === "create-role") {
         changeType = OnChainChangeType.CreateRole;
+        circleId = BigInt(action.circleId || "0");
         encodedData = encodeCreateRole({
-            circleId: BigInt(action.circleId || "0"),
+            circleId,
             name: action.roleName ?? "",
             purpose: action.roleDescription ?? "",
             domains: action.roleDomain ? [action.roleDomain] : [],
@@ -254,6 +263,7 @@ function buildGovernanceCall(
         });
     } else if (action.changeType === "amend-role" && action.existingTargetId) {
         changeType = OnChainChangeType.AmendRole;
+        circleId = BigInt(action.circleId || "0");
         encodedData = encodeAmendRole({
             roleId: BigInt(action.existingTargetId),
             name: action.roleName ?? "",
@@ -268,20 +278,34 @@ function buildGovernanceCall(
         });
     } else if (action.changeType === "remove-role" && action.existingTargetId) {
         changeType = OnChainChangeType.RemoveRole;
+        circleId = BigInt(action.circleId || "0");
         encodedData = encodeRemoveRole(BigInt(action.existingTargetId));
     } else {
         // Policies and move-role not yet supported on-chain
-        return null;
+        return [];
     }
 
-    return {
+    const createCall = {
         to: meetingFactoryAddress,
         data: encodeFunctionData({
             abi: meetingFactoryAbi,
-            functionName: "executeGovernance",
-            args: [orgId, changeType, encodedData],
+            functionName: "createProposal",
+            // (orgId, circleId, proposerRoleId, tensionHash, changeType, changeData)
+            // proposerRoleId=0 and tensionHash=zeroHash because the authed
+            // meeting room captures these details off-chain in the agenda
+            // item, not on the proposal record.
+            args: [orgId, circleId, 0n, zeroHash, changeType, encodedData],
         }),
     };
+    const adoptCall = {
+        to: meetingFactoryAddress,
+        data: encodeFunctionData({
+            abi: meetingFactoryAbi,
+            functionName: "adoptProposal",
+            args: [predictedProposalId],
+        }),
+    };
+    return [createCall, adoptCall];
 }
 
 function buildEmptyDraft(circleId: string, roleId: string): ProposalDraft {
@@ -1517,6 +1541,7 @@ export default function GovernanceMeetingRoom({
     orgId?: string;
 }) {
     const { data: walletClient } = useWalletClient();
+    const publicClient = usePublicClient();
     const {
         activeGovernanceMeeting,
         authenticatedWalletAddress,
@@ -1619,12 +1644,38 @@ export default function GovernanceMeetingRoom({
             const orgIdForMeeting = BigInt(orgId ?? "0");
             const meetingKindGovernance = 1;
 
-            // Build governance execution calls from adopted proposals
+            // Read the current proposal counter so we can predict the ids
+            // that createProposal will return for each adopted action. The
+            // batch dispatches the create + adopt pair before any tx mines,
+            // so we predict ids sequentially: startingCount + 1, +2, ...
+            // This is safe inside the authed meeting room because the
+            // signer is a single wallet submitting one batch — no
+            // interleaving writers.
+            if (!publicClient) {
+                throw new Error("No public client available to read proposalCount");
+            }
+            const startingCount = (await publicClient.readContract({
+                abi: meetingFactoryAbi,
+                address: governanceMeetingAddress,
+                functionName: "proposalCount",
+            })) as bigint;
+
+            // Build createProposal + adoptProposal pairs from adopted proposals
             const calls: { to: `0x${string}`; data: `0x${string}` }[] = [];
+            let supportedIndex = 0;
 
             for (const action of pendingActions) {
-                const call = buildGovernanceCall(action, governanceMeetingAddress, orgIdForMeeting);
-                if (call) calls.push(call);
+                const predictedProposalId = startingCount + BigInt(supportedIndex) + 1n;
+                const pair = buildGovernanceCalls(
+                    action,
+                    governanceMeetingAddress,
+                    orgIdForMeeting,
+                    predictedProposalId,
+                );
+                if (pair.length > 0) {
+                    calls.push(...pair);
+                    supportedIndex += 1;
+                }
             }
 
             // End the meeting after all governance changes are executed
