@@ -61,7 +61,7 @@ const orgFactoryAbi = parseAbi([
 ]);
 
 const meetingComponentsFactoryAbi = parseAbi([
-    "function deploy(uint256 _orgId, address _orgFactory, address _roleRegistry, address _govToken) external returns ((address meetingFactory, address actionVoting))",
+    "function deploy(string _subname, address _orgFactory) external returns ((address meetingFactory, address actionVoting))",
     "event MeetingComponentsDeployed(uint256 indexed _orgId, address indexed _meetingFactory, address _actionVoting)",
 ]);
 
@@ -373,7 +373,6 @@ test.describe("Meeting lifecycle", () => {
     let orgId: bigint;
     let meetingFactoryAddr: Address;
     let actionVotingAddr: Address;
-    let tokenAddress: Address;
 
     test.beforeAll(async () => {
         const pub = publicClient();
@@ -393,20 +392,13 @@ test.describe("Meeting lifecycle", () => {
             abi: orgFactoryAbi,
             functionName: "organizationCount",
         });
-        const org = await pub.readContract({
-            address: ADDRESSES.orgFactory,
-            abi: orgFactoryAbi,
-            functionName: "getOrganization",
-            args: [orgId],
-        });
-        tokenAddress = org.token;
 
         // Deploy meeting components
         const deployHash = await founderWc.writeContract({
             address: ADDRESSES.meetingFactory,
             abi: meetingComponentsFactoryAbi,
             functionName: "deploy",
-            args: [orgId, ADDRESSES.orgFactory, org.roleRegistry, tokenAddress],
+            args: ["meeting-e2e", ADDRESSES.orgFactory],
         });
         const deployReceipt = await pub.waitForTransactionReceipt({ hash: deployHash });
 
@@ -532,7 +524,7 @@ test.describe("Voting", () => {
             address: ADDRESSES.meetingFactory,
             abi: meetingComponentsFactoryAbi,
             functionName: "deploy",
-            args: [orgId, ADDRESSES.orgFactory, org.roleRegistry, tokenAddress],
+            args: ["vote-e2e", ADDRESSES.orgFactory],
         });
         const deployReceipt = await pub.waitForTransactionReceipt({ hash: deployHash });
         for (const log of deployReceipt.logs) {
@@ -975,7 +967,7 @@ test.describe("Data display", () => {
                 address: ADDRESSES.meetingFactory,
                 abi: meetingComponentsFactoryAbi,
                 functionName: "deploy",
-                args: [orgId, ADDRESSES.orgFactory, org.roleRegistry, org.token],
+                args: ["tally-test", ADDRESSES.orgFactory],
             }),
         });
         let avAddr: Address = "0x";
@@ -1215,15 +1207,6 @@ test.describe("Multi-org isolation", () => {
 });
 
 // ── Journey 6: Governance proposal lifecycle + ExpandRoleToCircle ────────────
-//
-// Uses the new MeetingComponentsFactory.deploy(subname, orgFactory) API that
-// replaced the old 4-arg variant. ABIs are defined locally to avoid changing
-// the shared constants above (which the existing tests still reference).
-
-const newMeetingComponentsFactoryAbi = parseAbi([
-    "function deploy(string _subname, address _orgFactory) external returns ((address meetingFactory, address actionVoting))",
-    "event MeetingComponentsDeployed(uint256 indexed _orgId, address indexed _meetingFactory, address _actionVoting)",
-]);
 
 const governanceProcessAbi = parseAbi([
     "function createProposal(uint256 _orgId, uint256 _circleId, uint256 _proposerRoleId, bytes32 _tensionHash, uint8 _changeType, bytes _changeData) external returns (uint256 _proposalId)",
@@ -1293,7 +1276,7 @@ test.describe("Governance proposal lifecycle", () => {
         const deployReceipt = await pub.waitForTransactionReceipt({
             hash: await founderWc.writeContract({
                 address: ADDRESSES.meetingFactory,
-                abi: newMeetingComponentsFactoryAbi,
+                abi: meetingComponentsFactoryAbi,
                 functionName: "deploy",
                 args: [ORG_SUBNAME, ADDRESSES.orgFactory],
             }),
@@ -1303,7 +1286,7 @@ test.describe("Governance proposal lifecycle", () => {
         for (const log of deployReceipt.logs) {
             try {
                 const decoded = decodeEventLog({
-                    abi: newMeetingComponentsFactoryAbi,
+                    abi: meetingComponentsFactoryAbi,
                     data: log.data,
                     topics: log.topics,
                 });
