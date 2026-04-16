@@ -84,9 +84,8 @@ export default function GovernanceView({
             }
             deploy.mutate(
                 {
-                    orgId: BigInt(activeOrg.id),
-                    roleRegistry: activeOrg.roleRegistry as `0x${string}`,
-                    govToken: activeOrg.token as `0x${string}`,
+                    orgId: activeOrg.id,
+                    subname: activeOrg.subname,
                     walletAddress: authenticatedWalletAddress as `0x${string}`,
                 },
                 {

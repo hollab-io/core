@@ -69,8 +69,7 @@ contract E2EJourney is Test {
 
   function _deployMeetingComponents() internal {
     vm.prank(_founder);
-    IMeetingComponentsFactory.Deployment memory _dep =
-      _mcFactory.deploy(_orgId, address(_orgFactory), _org.roleRegistry, _org.token);
+    IMeetingComponentsFactory.Deployment memory _dep = _mcFactory.deploy(_org.subname, address(_orgFactory));
     _mf = MeetingFactory(_dep.meetingFactory);
     _av = ActionVoting(_dep.actionVoting);
   }
@@ -458,8 +457,7 @@ contract E2EJourney is Test {
     _createOrg();
 
     vm.prank(_founder);
-    IMeetingComponentsFactory.Deployment memory _dep =
-      _mcFactory.deploy(_orgId, address(_orgFactory), _org.roleRegistry, _org.token);
+    IMeetingComponentsFactory.Deployment memory _dep = _mcFactory.deploy(_org.subname, address(_orgFactory));
 
     assertTrue(_dep.meetingFactory != address(0));
     assertTrue(_dep.actionVoting != address(0));

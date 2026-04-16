@@ -7,9 +7,8 @@ import { useWalletClient } from "wagmi";
 import { useChain } from "../context/ChainContext";
 
 export type DeployMeetingComponentsParams = {
-    orgId: bigint;
-    roleRegistry: `0x${string}`;
-    govToken: `0x${string}`;
+    orgId: string;
+    subname: string;
     walletAddress: `0x${string}`;
 };
 
@@ -49,12 +48,7 @@ export function useDeployMeetingComponents() {
                 functionName: "deploy",
                 account: params.walletAddress,
                 chain: chainConfig.chain,
-                args: [
-                    params.orgId,
-                    chainConfig.orgFactoryAddress,
-                    params.roleRegistry,
-                    params.govToken,
-                ],
+                args: [params.subname, chainConfig.orgFactoryAddress],
             });
 
             // 2. Wait for receipt
@@ -101,7 +95,7 @@ export function useDeployMeetingComponents() {
         },
 
         onSuccess: ({ meetingFactory, actionVoting }, params) => {
-            const orgId = params.orgId.toString();
+            const orgId = params.orgId;
 
             // Optimistically inject the component set into the tactical meetings cache
             // so both TacticalView and GovernanceView see it immediately.

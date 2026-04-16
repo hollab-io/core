@@ -6,6 +6,8 @@ import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {IMeetingComponentsFactory} from 'interfaces/IMeetingComponentsFactory.sol';
+import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
  * @title MeetingComponentsFactory
@@ -49,11 +51,20 @@ contract MeetingComponentsFactory is IMeetingComponentsFactory {
 
   /// @inheritdoc IMeetingComponentsFactory
   function deploy(
-    uint256 _orgId,
-    address _orgFactory,
-    address _roleRegistry,
-    address _govToken
+    string calldata _subname,
+    address _orgFactory
   ) external returns (Deployment memory deployment) {
+    // ── 0. Resolve org addresses ────────────────────────────────────────────────
+    // Looking up by subname (instead of a predicted orgId) makes this safe to batch
+    // with createOrganization via EIP-5792: the subname is known at call-encoding
+    // time, so there is no race against other orgs being created between the
+    // client-side prediction and the batch landing on-chain.
+    HolacracyTypes.Organization memory _org = IOrganizationFactory(_orgFactory).getOrganizationBySubname(_subname);
+    if (_org.id == 0) revert MeetingComponentsFactory_OrgNotFound(_subname);
+    uint256 _orgId = _org.id;
+    address _roleRegistry = _org.roleRegistry;
+    address _govToken = _org.token;
+
     // ── 1. Clone ────────────────────────────────────────────────────────────────
     MeetingFactory meetingFactory = MeetingFactory(Clones.clone(meetingFactoryImplementation));
     ActionVoting actionVoting = ActionVoting(Clones.clone(actionVotingImplementation));

@@ -123,7 +123,8 @@ export type GovernanceChangeType =
     | "amend-policy"
     | "remove-policy"
     | "move-role"
-    | "election";
+    | "election"
+    | "expand-role-to-circle";
 
 export type GovernanceProposalStatus =
     | "draft"

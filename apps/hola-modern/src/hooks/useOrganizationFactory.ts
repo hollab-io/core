@@ -1,4 +1,5 @@
-import type { Organization } from "@hollab-io/indexing-client";
+import type { MeetingComponentSet, Organization } from "@hollab-io/indexing-client";
+import { meetingComponentsFactoryAbi } from "@hollab-io/contracts/actions";
 import { organizationFactoryAbi } from "@hollab-io/viem-extension";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createPublicClient, decodeEventLog, http } from "viem";
@@ -89,11 +90,16 @@ export type DeployParams = {
 export type DeployResult = {
     txHash: `0x${string}`;
     organization: Organization;
+    meetingComponents: {
+        meetingFactory: `0x${string}`;
+        actionVoting: `0x${string}`;
+    } | null;
+    batched: boolean;
 };
 
 export function useDeployOrganization() {
     const { address } = useAccount();
-    const { send } = useSendTransaction();
+    const { sendBatch } = useSendTransaction();
     const { chainConfig } = useChain();
     const queryClient = useQueryClient();
 
@@ -107,53 +113,90 @@ export function useDeployOrganization() {
             }
 
             const account = (address ?? params.walletAddress) as `0x${string}`;
+            const meetingFactoryAddr = chainConfig.meetingFactoryAddress;
+            const meetingBatchEnabled =
+                Boolean(meetingFactoryAddr) &&
+                meetingFactoryAddr !== "0x0000000000000000000000000000000000000000";
 
-            // 1. Send the transaction
-            const txHash = await send(
-                [
-                    {
-                        to: chainConfig.orgFactoryAddress,
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        abi: organizationFactoryAbi as any,
-                        functionName: "createOrganization",
-                        args: [
-                            subname,
-                            params.purpose,
-                            {
-                                tokenName: `${params.name} Token`,
-                                tokenSymbol: deriveTokenSymbol(params.name),
-                                initialHolders: [params.walletAddress],
-                                initialAmounts: [1_000_000n * 10n ** 18n],
-                            },
-                        ],
-                    },
-                ],
-                account,
-            );
+            // 1. Build the batch: createOrganization [+ meetingComponentsFactory.deploy].
+            //    Because MeetingComponentsFactory.deploy looks up the org by subname (not
+            //    by an auto-incrementing orgId), the second call is race-free: the subname
+            //    is known at call-encoding time and resolves to the org created in call 1.
+            const calls = [
+                {
+                    to: chainConfig.orgFactoryAddress,
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    abi: organizationFactoryAbi as any,
+                    functionName: "createOrganization",
+                    args: [
+                        subname,
+                        params.purpose,
+                        {
+                            tokenName: `${params.name} Token`,
+                            tokenSymbol: deriveTokenSymbol(params.name),
+                            initialHolders: [params.walletAddress],
+                            initialAmounts: [1_000_000n * 10n ** 18n],
+                        },
+                    ],
+                },
+            ];
 
-            // 2. Wait for the receipt
+            if (meetingBatchEnabled) {
+                calls.push({
+                    to: meetingFactoryAddr,
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    abi: meetingComponentsFactoryAbi as any,
+                    functionName: "deploy",
+                    args: [subname, chainConfig.orgFactoryAddress],
+                });
+            }
+
+            const { receipts, batched } = await sendBatch(calls, account);
+
+            // 2. Parse events across all receipts
             const publicClient = createPublicClient({
                 chain: chainConfig.chain,
                 transport: http(chainConfig.chain.rpcUrls.default.http[0]),
             });
 
-            const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
-
-            // 3. Parse OrganizationCreated event to get orgId
             let orgId: bigint | null = null;
-            for (const log of receipt.logs) {
-                try {
-                    const decoded = decodeEventLog({
-                        abi: organizationFactoryAbi,
-                        data: log.data,
-                        topics: log.topics,
-                    });
-                    if (decoded.eventName === "OrganizationCreated") {
-                        orgId = (decoded.args as { _orgId: bigint })._orgId;
-                        break;
+            let meetingFactoryOut: `0x${string}` | null = null;
+            let actionVotingOut: `0x${string}` | null = null;
+
+            for (const receipt of receipts) {
+                for (const log of receipt.logs) {
+                    // Try OrganizationCreated
+                    try {
+                        const decoded = decodeEventLog({
+                            abi: organizationFactoryAbi,
+                            data: log.data,
+                            topics: log.topics,
+                        });
+                        if (decoded.eventName === "OrganizationCreated") {
+                            orgId = (decoded.args as { _orgId: bigint })._orgId;
+                            continue;
+                        }
+                    } catch {
+                        // not an org factory event
                     }
-                } catch {
-                    // not our event
+                    // Try MeetingComponentsDeployed
+                    try {
+                        const decoded = decodeEventLog({
+                            abi: meetingComponentsFactoryAbi,
+                            data: log.data,
+                            topics: log.topics,
+                        });
+                        if (decoded.eventName === "MeetingComponentsDeployed") {
+                            const args = decoded.args as {
+                                _meetingFactory: `0x${string}`;
+                                _actionVoting: `0x${string}`;
+                            };
+                            meetingFactoryOut = args._meetingFactory;
+                            actionVotingOut = args._actionVoting;
+                        }
+                    } catch {
+                        // not a meeting components event
+                    }
                 }
             }
 
@@ -162,6 +205,8 @@ export function useDeployOrganization() {
                     "Organization created but could not find OrganizationCreated event",
                 );
             }
+
+            const txHash = receipts[0]?.transactionHash ?? ("0x" as `0x${string}`);
 
             // 4. Read org struct + token metadata from chain
             const orgData = await publicClient.readContract({
@@ -221,16 +266,51 @@ export function useDeployOrganization() {
                 updatedAt: orgData.createdAt.toString(),
             };
 
-            return { txHash, organization };
+            const meetingComponents =
+                meetingFactoryOut && actionVotingOut
+                    ? { meetingFactory: meetingFactoryOut, actionVoting: actionVotingOut }
+                    : null;
+
+            return { txHash, organization, meetingComponents, batched };
         },
 
-        onSuccess: ({ organization }) => {
+        onSuccess: ({ organization, meetingComponents }) => {
             // Optimistically prepend the new org into the cached org list
             const chainId = chainConfig.chain.id;
             queryClient.setQueryData<Organization[]>(
                 ["organizations:onchain:all", chainId],
                 (prev) => (prev ? [organization, ...prev] : [organization]),
             );
+
+            // Optimistically seed the tacticalMeetings cache so Governance/Tactical
+            // views find the components immediately without a second transaction.
+            if (meetingComponents) {
+                const componentSet: MeetingComponentSet = {
+                    id: `${organization.id}-${Date.now()}`,
+                    orgId: organization.id,
+                    meetingFactory: meetingComponents.meetingFactory,
+                    actionVoting: meetingComponents.actionVoting,
+                    deployedAt: Math.floor(Date.now() / 1000).toString(),
+                    txHash: "0x",
+                };
+
+                queryClient.setQueryData(
+                    ["tacticalMeetings", organization.id],
+                    (
+                        old:
+                            | {
+                                  components: MeetingComponentSet | null;
+                                  meetings?: unknown[];
+                                  outputs?: unknown[];
+                              }
+                            | undefined,
+                    ) => ({
+                        components: componentSet,
+                        meetings: old?.meetings ?? [],
+                        outputs: old?.outputs ?? [],
+                    }),
+                );
+            }
         },
     });
 }

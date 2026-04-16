@@ -164,7 +164,7 @@ contract SeedDemoOrgs is Script {
     // ── 2. Deploy meeting components (wires MeetingFactory as governance
     //       process on RoleRegistry so adoptProposal can mutate roles) ────
     IMeetingComponentsFactory.Deployment memory deployment =
-      meetingComponentsFactory.deploy(orgId, address(orgFactory), org.roleRegistry, org.token);
+      meetingComponentsFactory.deploy(subname, address(orgFactory));
     MeetingFactory meetingFactory = MeetingFactory(deployment.meetingFactory);
 
     // ── 3. Add agent as org member so it can call createProposal itself ───
@@ -178,9 +178,12 @@ contract SeedDemoOrgs is Script {
       bytes memory data = abi.encode(uint256(0), r.name, r.purpose, r.domains, r.accountabilities);
       uint256 proposalId = meetingFactory.createProposal(
         orgId,
-        /*circleId*/ 0,
-        /*proposerRoleId*/ 0,
-        /*tensionHash*/ bytes32(0),
+        /*circleId*/
+        0,
+        /*proposerRoleId*/
+        0,
+        /*tensionHash*/
+        bytes32(0),
         HolacracyTypes.ChangeType.CreateRole,
         data
       );
@@ -193,9 +196,12 @@ contract SeedDemoOrgs is Script {
       bytes memory electionData = abi.encode(firstRoleId, agent);
       uint256 electionProposalId = meetingFactory.createProposal(
         orgId,
-        /*circleId*/ 0,
-        /*proposerRoleId*/ 0,
-        /*tensionHash*/ bytes32(0),
+        /*circleId*/
+        0,
+        /*proposerRoleId*/
+        0,
+        /*tensionHash*/
+        bytes32(0),
         HolacracyTypes.ChangeType.Election,
         electionData
       );

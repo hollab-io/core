@@ -1213,3 +1213,531 @@ test.describe("Multi-org isolation", () => {
         ).rejects.toThrow();
     });
 });
+
+// ── Journey 6: Governance proposal lifecycle + ExpandRoleToCircle ────────────
+//
+// Uses the new MeetingComponentsFactory.deploy(subname, orgFactory) API that
+// replaced the old 4-arg variant. ABIs are defined locally to avoid changing
+// the shared constants above (which the existing tests still reference).
+
+const newMeetingComponentsFactoryAbi = parseAbi([
+    "function deploy(string _subname, address _orgFactory) external returns ((address meetingFactory, address actionVoting))",
+    "event MeetingComponentsDeployed(uint256 indexed _orgId, address indexed _meetingFactory, address _actionVoting)",
+]);
+
+const governanceProcessAbi = parseAbi([
+    "function createProposal(uint256 _orgId, uint256 _circleId, uint256 _proposerRoleId, bytes32 _tensionHash, uint8 _changeType, bytes _changeData) external returns (uint256 _proposalId)",
+    "function adoptProposal(uint256 _proposalId) external returns (uint256 _resultId)",
+    "function getProposal(uint256 _proposalId) external view returns ((uint256 id, uint256 orgId, uint256 circleId, address proposer, uint64 submittedAt, uint64 resolvedAt, uint256 proposerRoleId, bytes32 tensionHash, uint8 changeType, uint8 status, bytes changeData))",
+    "function proposalCount() external view returns (uint256)",
+    "event ProposalCreated(uint256 indexed _proposalId, uint256 indexed _orgId, uint256 indexed _circleId, address _proposer, uint256 _proposerRoleId, bytes32 _tensionHash, uint8 _changeType, bytes _changeData)",
+    "event ProposalAdopted(uint256 indexed _proposalId, uint256 indexed _orgId, uint256 _resultId, address _adoptedBy)",
+]);
+
+const roleRegistryAbi = parseAbi([
+    "function getRole(uint256 _roleId) external view returns ((uint256 id, uint256 circleId, string name, string purpose, string[] domains, string[] accountabilities, bool exists, bool isCircle))",
+]);
+
+const orgFactoryWithSubnameAbi = parseAbi([
+    "function createOrganization(string _subname, string _purpose, (string tokenName, string tokenSymbol, address[] initialHolders, uint256[] initialAmounts) _tokenConfig) external returns (uint256)",
+    "function getOrganization(uint256 _orgId) external view returns ((uint256 id, string name, string subname, address creator, address roleRegistry, address circleRegistry, address governanceProcess, address meetingFactory, address accessManager, uint256 anchorCircleId, uint256 createdAt, address token))",
+    "function organizationCount() external view returns (uint256)",
+]);
+
+test.describe("Governance proposal lifecycle", () => {
+    let orgId: bigint;
+    let anchorCircleId: bigint;
+    let roleRegistryAddr: Address;
+    let perOrgMeetingFactoryAddr: Address;
+
+    const GOV_CONFIG_GOV = {
+        tokenName: "Gov Token",
+        tokenSymbol: "GOV",
+        initialHolders: [FOUNDER.address],
+        initialAmounts: [1_000_000n * 10n ** 18n],
+    } as const;
+
+    const ORG_SUBNAME = "gov-lifecycle-e2e";
+
+    test.beforeAll(async () => {
+        const pub = publicClient();
+        const founderWc = walletClient(FOUNDER);
+
+        // Create org
+        await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: ADDRESSES.orgFactory,
+                abi: orgFactoryWithSubnameAbi,
+                functionName: "createOrganization",
+                args: [ORG_SUBNAME, "Governance lifecycle test org", GOV_CONFIG_GOV],
+            }),
+        });
+
+        orgId = await pub.readContract({
+            address: ADDRESSES.orgFactory,
+            abi: orgFactoryWithSubnameAbi,
+            functionName: "organizationCount",
+        });
+
+        const org = await pub.readContract({
+            address: ADDRESSES.orgFactory,
+            abi: orgFactoryWithSubnameAbi,
+            functionName: "getOrganization",
+            args: [orgId],
+        });
+
+        roleRegistryAddr = org.roleRegistry;
+        anchorCircleId = org.anchorCircleId;
+
+        // Deploy meeting components via the new (subname, orgFactory) API
+        const deployReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: ADDRESSES.meetingFactory,
+                abi: newMeetingComponentsFactoryAbi,
+                functionName: "deploy",
+                args: [ORG_SUBNAME, ADDRESSES.orgFactory],
+            }),
+        });
+
+        // Parse MeetingComponentsDeployed to get the per-org clone address
+        for (const log of deployReceipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: newMeetingComponentsFactoryAbi,
+                    data: log.data,
+                    topics: log.topics,
+                });
+                if (decoded.eventName === "MeetingComponentsDeployed") {
+                    perOrgMeetingFactoryAddr = decoded.args._meetingFactory;
+                }
+            } catch {
+                // not our event
+            }
+        }
+
+        if (!perOrgMeetingFactoryAddr) {
+            throw new Error("MeetingComponentsDeployed event not found — deploy may have failed");
+        }
+    });
+
+    test("creates a CreateRole proposal, adopts it, verifies role on-chain", async () => {
+        const pub = publicClient();
+        const founderWc = walletClient(FOUNDER);
+
+        // Encode CreateRole changeData: abi.encode(circleId, name, purpose, domains[], accountabilities[])
+        const { encodeAbiParameters } = await import("viem");
+        const changeData = encodeAbiParameters(
+            [
+                { type: "uint256" },
+                { type: "string" },
+                { type: "string" },
+                { type: "string[]" },
+                { type: "string[]" },
+            ],
+            [anchorCircleId, "E2E Engineer", "Build e2e coverage", ["e2e suite"], ["write tests"]],
+        );
+
+        // createProposal: ChangeType.CreateRole = 0
+        const createReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "createProposal",
+                args: [
+                    orgId,
+                    anchorCircleId,
+                    0n, // proposerRoleId — not a role lead
+                    `0x${"aa".repeat(32)}` as `0x${string}`, // tensionHash
+                    0, // ChangeType.CreateRole
+                    changeData,
+                ],
+            }),
+        });
+        expect(createReceipt.status).toBe("success");
+
+        // Parse ProposalCreated event to get proposalId
+        let proposalId: bigint | undefined;
+        for (const log of createReceipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: governanceProcessAbi,
+                    data: log.data,
+                    topics: log.topics,
+                });
+                if (decoded.eventName === "ProposalCreated") {
+                    proposalId = decoded.args._proposalId;
+                }
+            } catch {
+                // skip
+            }
+        }
+        expect(proposalId).toBeDefined();
+
+        // adoptProposal — admin only; returns the new roleId
+        const adoptReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "adoptProposal",
+                args: [proposalId!],
+            }),
+        });
+        expect(adoptReceipt.status).toBe("success");
+
+        // Parse ProposalAdopted to extract resultId (= the new roleId)
+        let newRoleId: bigint | undefined;
+        for (const log of adoptReceipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: governanceProcessAbi,
+                    data: log.data,
+                    topics: log.topics,
+                });
+                if (decoded.eventName === "ProposalAdopted") {
+                    newRoleId = decoded.args._resultId;
+                }
+            } catch {
+                // skip
+            }
+        }
+        expect(newRoleId).toBeDefined();
+        expect(newRoleId).toBeGreaterThan(0n);
+
+        // Verify role exists in RoleRegistry
+        const role = await pub.readContract({
+            address: roleRegistryAddr,
+            abi: roleRegistryAbi,
+            functionName: "getRole",
+            args: [newRoleId!],
+        });
+
+        expect(role.exists).toBe(true);
+        expect(role.name).toBe("E2E Engineer");
+        expect(role.purpose).toBe("Build e2e coverage");
+        expect([...role.domains]).toEqual(["e2e suite"]);
+        expect([...role.accountabilities]).toEqual(["write tests"]);
+        expect(role.isCircle).toBe(false);
+
+        // Store for the ExpandRoleToCircle test — expose via test.info storage
+        // (Playwright shares describe-scope variables, so we assign to outer let)
+        (test as unknown as { _e2eRoleId: bigint })._e2eRoleId = newRoleId!;
+    });
+
+    test("creates an ExpandRoleToCircle proposal, adopts it, verifies isCircle=true", async () => {
+        const pub = publicClient();
+        const founderWc = walletClient(FOUNDER);
+
+        // First create a role via a CreateRole proposal so we have an independent
+        // target for this test (does not depend on the previous test's newRoleId).
+        const { encodeAbiParameters } = await import("viem");
+
+        const createChangeData = encodeAbiParameters(
+            [
+                { type: "uint256" },
+                { type: "string" },
+                { type: "string" },
+                { type: "string[]" },
+                { type: "string[]" },
+            ],
+            [anchorCircleId, "Circle Candidate", "Will become a circle", [], []],
+        );
+
+        const createReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "createProposal",
+                args: [
+                    orgId,
+                    anchorCircleId,
+                    0n,
+                    `0x${"bb".repeat(32)}` as `0x${string}`,
+                    0, // CreateRole
+                    createChangeData,
+                ],
+            }),
+        });
+        expect(createReceipt.status).toBe("success");
+
+        let createProposalId: bigint | undefined;
+        for (const log of createReceipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: governanceProcessAbi,
+                    data: log.data,
+                    topics: log.topics,
+                });
+                if (decoded.eventName === "ProposalCreated") {
+                    createProposalId = decoded.args._proposalId;
+                }
+            } catch {
+                // skip
+            }
+        }
+
+        const adoptCreateReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "adoptProposal",
+                args: [createProposalId!],
+            }),
+        });
+
+        let targetRoleId: bigint | undefined;
+        for (const log of adoptCreateReceipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: governanceProcessAbi,
+                    data: log.data,
+                    topics: log.topics,
+                });
+                if (decoded.eventName === "ProposalAdopted") {
+                    targetRoleId = decoded.args._resultId;
+                }
+            } catch {
+                // skip
+            }
+        }
+        expect(targetRoleId).toBeDefined();
+
+        // Confirm role is NOT yet a circle
+        const roleBefore = await pub.readContract({
+            address: roleRegistryAddr,
+            abi: roleRegistryAbi,
+            functionName: "getRole",
+            args: [targetRoleId!],
+        });
+        expect(roleBefore.isCircle).toBe(false);
+
+        // Encode ExpandRoleToCircle changeData: abi.encode(roleId)
+        const expandChangeData = encodeAbiParameters([{ type: "uint256" }], [targetRoleId!]);
+
+        // createProposal: ChangeType.ExpandRoleToCircle = 12
+        const expandCreateReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "createProposal",
+                args: [
+                    orgId,
+                    anchorCircleId,
+                    0n,
+                    `0x${"cc".repeat(32)}` as `0x${string}`,
+                    12, // ChangeType.ExpandRoleToCircle
+                    expandChangeData,
+                ],
+            }),
+        });
+        expect(expandCreateReceipt.status).toBe("success");
+
+        let expandProposalId: bigint | undefined;
+        for (const log of expandCreateReceipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: governanceProcessAbi,
+                    data: log.data,
+                    topics: log.topics,
+                });
+                if (decoded.eventName === "ProposalCreated") {
+                    expandProposalId = decoded.args._proposalId;
+                }
+            } catch {
+                // skip
+            }
+        }
+        expect(expandProposalId).toBeDefined();
+
+        // adoptProposal for ExpandRoleToCircle
+        const adoptExpandReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "adoptProposal",
+                args: [expandProposalId!],
+            }),
+        });
+        expect(adoptExpandReceipt.status).toBe("success");
+
+        // Verify isCircle is now true
+        const roleAfter = await pub.readContract({
+            address: roleRegistryAddr,
+            abi: roleRegistryAbi,
+            functionName: "getRole",
+            args: [targetRoleId!],
+        });
+
+        expect(roleAfter.exists).toBe(true);
+        expect(roleAfter.name).toBe("Circle Candidate");
+        expect(roleAfter.isCircle).toBe(true);
+    });
+
+    test("ExpandRoleToCircle proposal fails if role is already a circle", async () => {
+        const pub = publicClient();
+        const founderWc = walletClient(FOUNDER);
+
+        // Create a role and expand it to a circle
+        const { encodeAbiParameters } = await import("viem");
+
+        const createChangeData = encodeAbiParameters(
+            [
+                { type: "uint256" },
+                { type: "string" },
+                { type: "string" },
+                { type: "string[]" },
+                { type: "string[]" },
+            ],
+            [anchorCircleId, "Already A Circle", "Pre-expand role", [], []],
+        );
+
+        // Create + adopt the role
+        const createProposalReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "createProposal",
+                args: [
+                    orgId,
+                    anchorCircleId,
+                    0n,
+                    `0x${"dd".repeat(32)}` as `0x${string}`,
+                    0,
+                    createChangeData,
+                ],
+            }),
+        });
+
+        let proposalId: bigint | undefined;
+        for (const log of createProposalReceipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: governanceProcessAbi,
+                    data: log.data,
+                    topics: log.topics,
+                });
+                if (decoded.eventName === "ProposalCreated") proposalId = decoded.args._proposalId;
+            } catch {
+                /* skip */
+            }
+        }
+
+        const adoptRoleReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "adoptProposal",
+                args: [proposalId!],
+            }),
+        });
+
+        let roleId: bigint | undefined;
+        for (const log of adoptRoleReceipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: governanceProcessAbi,
+                    data: log.data,
+                    topics: log.topics,
+                });
+                if (decoded.eventName === "ProposalAdopted") roleId = decoded.args._resultId;
+            } catch {
+                /* skip */
+            }
+        }
+        expect(roleId).toBeDefined();
+
+        // First expand — should succeed
+        const firstExpandData = encodeAbiParameters([{ type: "uint256" }], [roleId!]);
+        const firstExpandProposalReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "createProposal",
+                args: [
+                    orgId,
+                    anchorCircleId,
+                    0n,
+                    `0x${"ee".repeat(32)}` as `0x${string}`,
+                    12,
+                    firstExpandData,
+                ],
+            }),
+        });
+
+        let firstExpandProposalId: bigint | undefined;
+        for (const log of firstExpandProposalReceipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: governanceProcessAbi,
+                    data: log.data,
+                    topics: log.topics,
+                });
+                if (decoded.eventName === "ProposalCreated")
+                    firstExpandProposalId = decoded.args._proposalId;
+            } catch {
+                /* skip */
+            }
+        }
+
+        await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "adoptProposal",
+                args: [firstExpandProposalId!],
+            }),
+        });
+
+        // Verify it is now a circle
+        const role = await pub.readContract({
+            address: roleRegistryAddr,
+            abi: roleRegistryAbi,
+            functionName: "getRole",
+            args: [roleId!],
+        });
+        expect(role.isCircle).toBe(true);
+
+        // Second expand proposal — adopt should revert
+        const secondExpandData = encodeAbiParameters([{ type: "uint256" }], [roleId!]);
+        const secondExpandProposalReceipt = await pub.waitForTransactionReceipt({
+            hash: await founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "createProposal",
+                args: [
+                    orgId,
+                    anchorCircleId,
+                    0n,
+                    `0x${"ff".repeat(32)}` as `0x${string}`,
+                    12,
+                    secondExpandData,
+                ],
+            }),
+        });
+
+        let secondExpandProposalId: bigint | undefined;
+        for (const log of secondExpandProposalReceipt.logs) {
+            try {
+                const decoded = decodeEventLog({
+                    abi: governanceProcessAbi,
+                    data: log.data,
+                    topics: log.topics,
+                });
+                if (decoded.eventName === "ProposalCreated")
+                    secondExpandProposalId = decoded.args._proposalId;
+            } catch {
+                /* skip */
+            }
+        }
+        expect(secondExpandProposalId).toBeDefined();
+
+        // adoptProposal should revert because the role is already a circle
+        await expect(
+            founderWc.writeContract({
+                address: perOrgMeetingFactoryAddr,
+                abi: governanceProcessAbi,
+                functionName: "adoptProposal",
+                args: [secondExpandProposalId!],
+            }),
+        ).rejects.toThrow();
+    });
+});
