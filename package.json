@@ -18,6 +18,7 @@
         "create-package": "./create-package.sh",
         "dev": "turbo run dev",
         "dev:local": "./scripts/dev-local.sh",
+        "dev:sepolia": "./scripts/dev-sepolia.sh",
         "env:prebuild": "turbo run env:prebuild",
         "format": "turbo run format",
         "format:fix": "turbo run format:fix",
