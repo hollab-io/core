@@ -45,7 +45,8 @@ library HolacracyTypes {
     CreateRoleWithRefs,
     AmendRoleWithRefs,
     CreatePolicyWithRefs,
-    AmendPolicyWithRefs
+    AmendPolicyWithRefs,
+    ExpandRoleToCircle
   }
 
   /// @notice Elected role type within a circle
@@ -104,6 +105,7 @@ library HolacracyTypes {
     string[] domains;
     string[] accountabilities;
     bool exists;
+    bool isCircle;
   }
 
   /// @notice A Policy constrains or grants authority within a circle

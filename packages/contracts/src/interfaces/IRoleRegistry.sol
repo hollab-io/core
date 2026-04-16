@@ -29,6 +29,10 @@ interface IRoleRegistry {
   /// @param _circleId The circle this role belonged to
   event RoleRemoved(uint256 indexed _roleId, uint256 indexed _circleId);
 
+  /// @notice Emitted when a role is expanded into a circle
+  /// @param _roleId The ID of the role that became a circle
+  event RoleExpandedToCircle(uint256 indexed _roleId);
+
   /// @notice Emitted when a role lead is assigned to a role
   /// @param _roleId The ID of the role
   /// @param _lead The address of the assigned role lead
@@ -77,6 +81,9 @@ interface IRoleRegistry {
 
   /// @notice Thrown when the contract has already been initialized
   error RoleRegistry_AlreadyInitialized();
+
+  /// @notice Thrown when the role is already a circle
+  error RoleRegistry_AlreadyCircle(uint256 _roleId);
 
   /// @notice Thrown when fieldNames and refs arrays have different lengths
   error RoleRegistry_ArrayLengthMismatch();
@@ -182,6 +189,13 @@ interface IRoleRegistry {
   function unassignRoleLead(
     uint256 _roleId,
     address _lead
+  ) external;
+
+  /// @notice Expands a role into a circle (sets isCircle = true).
+  ///         Sub-roles are added later via createRole targeting this role's ID as circleId.
+  /// @param _roleId The role ID to expand
+  function expandToCircle(
+    uint256 _roleId
   ) external;
 
   /// @notice Creates a new role with content refs for off-chain encrypted fields

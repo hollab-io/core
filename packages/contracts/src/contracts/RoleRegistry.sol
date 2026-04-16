@@ -239,6 +239,17 @@ contract RoleRegistry is IRoleRegistry {
   }
 
   /// @inheritdoc IRoleRegistry
+  function expandToCircle(
+    uint256 _roleId
+  ) external onlyGovernanceProcess {
+    HolacracyTypes.Role storage _role = _roles[_roleId];
+    if (!_role.exists) revert RoleRegistry_RoleNotFound(_roleId);
+    if (_role.isCircle) revert RoleRegistry_AlreadyCircle(_roleId);
+    _role.isCircle = true;
+    emit RoleExpandedToCircle(_roleId);
+  }
+
+  /// @inheritdoc IRoleRegistry
   function createRoleWithRefs(
     uint256 _circleId,
     string calldata _name,

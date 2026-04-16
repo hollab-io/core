@@ -23,6 +23,7 @@ export const ChangeType = {
     AmendRoleWithRefs: 9,
     CreatePolicyWithRefs: 10,
     AmendPolicyWithRefs: 11,
+    ExpandRoleToCircle: 12,
 } as const;
 
 export type ChangeTypeValue = (typeof ChangeType)[keyof typeof ChangeType];
@@ -79,6 +80,11 @@ export function encodeRemoveRole(roleId: bigint): `0x${string}` {
 /** Encode an Election change (assign role lead): abi.encode(roleId, lead) */
 export function encodeElection(roleId: bigint, lead: `0x${string}`): `0x${string}` {
     return encodeAbiParameters([{ type: "uint256" }, { type: "address" }], [roleId, lead]);
+}
+
+/** Encode an ExpandRoleToCircle change: abi.encode(roleId) */
+export function encodeExpandRoleToCircle(roleId: bigint): `0x${string}` {
+    return encodeAbiParameters([{ type: "uint256" }], [roleId]);
 }
 
 // ── WithRefs encoding helpers ───────────────────────────────────────────────

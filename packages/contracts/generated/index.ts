@@ -689,7 +689,7 @@ export const govTokenDeployerAbi = [
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
  * -
- * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xAd8223B6e9da5Cf0b4aE03d325CC385Fd1f6a825)
  */
 export const meetingComponentsFactoryAbi = [
     {
@@ -710,10 +710,8 @@ export const meetingComponentsFactoryAbi = [
     {
         type: "function",
         inputs: [
-            { name: "_orgId", internalType: "uint256", type: "uint256" },
+            { name: "_subname", internalType: "string", type: "string" },
             { name: "_orgFactory", internalType: "address", type: "address" },
-            { name: "_roleRegistry", internalType: "address", type: "address" },
-            { name: "_govToken", internalType: "address", type: "address" },
         ],
         name: "deploy",
         outputs: [
@@ -755,24 +753,29 @@ export const meetingComponentsFactoryAbi = [
         ],
         name: "InsufficientBalance",
     },
+    {
+        type: "error",
+        inputs: [{ name: "_subname", internalType: "string", type: "string" }],
+        name: "MeetingComponentsFactory_OrgNotFound",
+    },
     { type: "error", inputs: [], name: "MeetingComponentsFactory_ZeroAddress" },
 ] as const;
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
  * -
- * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xAd8223B6e9da5Cf0b4aE03d325CC385Fd1f6a825)
  */
 export const meetingComponentsFactoryAddress = {
     1: "0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25",
     31337: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-    11155111: "0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F",
+    11155111: "0xAd8223B6e9da5Cf0b4aE03d325CC385Fd1f6a825",
 } as const;
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
  * -
- * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0x18a1Dc3b2ad282E7376AFC2Ff9214d2544aDf27F)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xAd8223B6e9da5Cf0b4aE03d325CC385Fd1f6a825)
  */
 export const meetingComponentsFactoryConfig = {
     address: meetingComponentsFactoryAddress,
@@ -1157,7 +1160,7 @@ export const meetingFactoryAbi = [
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
  * -
- * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xEdB4Da78b5C759a651a72F8E4cEF07E606FfF051)
  */
 export const organizationFactoryAbi = [
     {
@@ -1552,18 +1555,18 @@ export const organizationFactoryAbi = [
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
  * -
- * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xEdB4Da78b5C759a651a72F8E4cEF07E606FfF051)
  */
 export const organizationFactoryAddress = {
     1: "0xC0252342923238CF5509cfBd2fa46A45ADeDc921",
     31337: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
-    11155111: "0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3",
+    11155111: "0xEdB4Da78b5C759a651a72F8E4cEF07E606FfF051",
 } as const;
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
  * -
- * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xda7029ef38fDCF3bFb79f113801b5b77Be55f0b3)
+ * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xEdB4Da78b5C759a651a72F8E4cEF07E606FfF051)
  */
 export const organizationFactoryConfig = {
     address: organizationFactoryAddress,
@@ -1628,6 +1631,13 @@ export const roleRegistryAbi = [
     },
     {
         type: "function",
+        inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
+        name: "expandToCircle",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
         inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
         name: "getCircleRoleIds",
         outputs: [{ name: "_roleIds", internalType: "uint256[]", type: "uint256[]" }],
@@ -1650,6 +1660,7 @@ export const roleRegistryAbi = [
                     { name: "domains", internalType: "string[]", type: "string[]" },
                     { name: "accountabilities", internalType: "string[]", type: "string[]" },
                     { name: "exists", internalType: "bool", type: "bool" },
+                    { name: "isCircle", internalType: "bool", type: "bool" },
                 ],
             },
         ],
@@ -1825,6 +1836,12 @@ export const roleRegistryAbi = [
     {
         type: "event",
         anonymous: false,
+        inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256", indexed: true }],
+        name: "RoleExpandedToCircle",
+    },
+    {
+        type: "event",
+        anonymous: false,
         inputs: [
             { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_lead", internalType: "address", type: "address", indexed: true },
@@ -1854,6 +1871,11 @@ export const roleRegistryAbi = [
         anonymous: false,
         inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256", indexed: true }],
         name: "RoleUpdated",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
+        name: "RoleRegistry_AlreadyCircle",
     },
     { type: "error", inputs: [], name: "RoleRegistry_AlreadyInitialized" },
     {

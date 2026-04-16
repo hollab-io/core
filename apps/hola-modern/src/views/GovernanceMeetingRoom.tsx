@@ -6,6 +6,7 @@ import {
     CalendarDays,
     Check,
     ChevronRight,
+    CircleDot,
     FileText,
     Loader2,
     MinusCircle,
@@ -26,6 +27,7 @@ import type { GovernanceMeeting } from "../hooks/useGovernanceMeetingsFromIndexe
 import {
     encodeAmendRole,
     encodeCreateRole,
+    encodeExpandRoleToCircle,
     encodeRemoveRole,
     ChangeType as OnChainChangeType,
 } from "../hooks/useExecuteGovernance";
@@ -44,7 +46,8 @@ type ChangeType =
     | "create-policy"
     | "amend-policy"
     | "remove-policy"
-    | "move-role";
+    | "move-role"
+    | "expand-role-to-circle";
 
 type ProposalWizardStep = "action" | "details";
 
@@ -179,6 +182,12 @@ const CHANGE_TYPE_OPTIONS: { value: ChangeType; label: string; desc: string; ico
             desc: "Remove a policy from the circle",
             icon: MinusCircle,
         },
+        {
+            value: "expand-role-to-circle",
+            label: "Expand role to circle",
+            desc: "Turn an existing role into a circle so it can hold sub-roles",
+            icon: CircleDot,
+        },
     ];
 
 const WIZARD_STEPS: { id: ProposalWizardStep; label: string }[] = [
@@ -280,6 +289,10 @@ function buildGovernanceCalls(
         changeType = OnChainChangeType.RemoveRole;
         circleId = BigInt(action.circleId || "0");
         encodedData = encodeRemoveRole(BigInt(action.existingTargetId));
+    } else if (action.changeType === "expand-role-to-circle" && action.existingTargetId) {
+        changeType = OnChainChangeType.ExpandRoleToCircle;
+        circleId = BigInt(action.circleId || "0");
+        encodedData = encodeExpandRoleToCircle(BigInt(action.existingTargetId));
     } else {
         // Policies and move-role not yet supported on-chain
         return [];

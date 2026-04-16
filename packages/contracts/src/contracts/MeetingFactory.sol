@@ -129,6 +129,7 @@ contract MeetingFactory is IMeetingFactory {
   ///   Election:           abi.encode(roleId, lead)
   ///   CreateRoleWithRefs: abi.encode(circleId, name, purpose, domains[], accountabilities[], fieldNames[], refs[])
   ///   AmendRoleWithRefs:  abi.encode(roleId, name, purpose, domains[], accountabilities[], fieldNames[], refs[])
+  ///   ExpandRoleToCircle: abi.encode(roleId)
   function _applyChange(
     HolacracyTypes.ChangeType _changeType,
     bytes memory _data
@@ -182,6 +183,10 @@ contract MeetingFactory is IMeetingFactory {
         HolacracyTypes.ContentRef[] memory refs
       ) = abi.decode(_data, (uint256, string, string, string[], string[], bytes32[], HolacracyTypes.ContentRef[]));
       roleRegistry.updateRoleWithRefs(roleId, name, purpose, domains, accountabilities, fieldNames, refs);
+      _resultId = roleId;
+    } else if (_changeType == HolacracyTypes.ChangeType.ExpandRoleToCircle) {
+      uint256 roleId = abi.decode(_data, (uint256));
+      roleRegistry.expandToCircle(roleId);
       _resultId = roleId;
     } else {
       revert MeetingFactory_UnsupportedChangeType();

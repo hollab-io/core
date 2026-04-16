@@ -29,24 +29,27 @@ interface IMeetingComponentsFactory {
   //////////////////////////////////////////////////////////////*/
 
   error MeetingComponentsFactory_ZeroAddress();
+  error MeetingComponentsFactory_OrgNotFound(string _subname);
 
   /*///////////////////////////////////////////////////////////////
                             LOGIC
   //////////////////////////////////////////////////////////////*/
 
   /// @notice Deploy and initialize MeetingFactory and ActionVoting clones for an org.
+  ///         Looks the org up by its ENS subname so this call can be safely batched
+  ///         with createOrganization via EIP-5792 wallet_sendCalls — the subname is
+  ///         chosen by the user and known at call-encoding time, so there is no
+  ///         need to predict an auto-incrementing org ID (which would race against
+  ///         any other org created in between the prediction and the batch landing).
   ///         Also wires MeetingFactory as the governance process on the RoleRegistry,
   ///         so governance-adopted proposals can execute structural changes.
-  /// @param _orgId             Organization ID (from OrganizationFactory)
-  /// @param _orgFactory        OrganizationFactory address (for org membership/admin checks)
-  /// @param _roleRegistry      RoleRegistry clone address (for governance execution)
-  /// @param _govToken          Org governance token (IVotes) — used as ActionVoting vote weight
+  /// @param _subname    Organization ENS subname (same value passed to createOrganization)
+  /// @param _orgFactory OrganizationFactory address — source of roleRegistry/govToken and
+  ///                    used by the clones for org membership/admin checks
   /// @return deployment Addresses of the deployed clones
   function deploy(
-    uint256 _orgId,
-    address _orgFactory,
-    address _roleRegistry,
-    address _govToken
+    string calldata _subname,
+    address _orgFactory
   ) external returns (Deployment memory deployment);
 
   /*///////////////////////////////////////////////////////////////

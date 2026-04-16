@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
 import {IMeetingFactory, MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationFactory.sol';
-import {RoleRegistry} from 'contracts/RoleRegistry.sol';
+import {IRoleRegistry, RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {Test} from 'forge-std/Test.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
@@ -183,6 +183,50 @@ contract UnitMeetingFactoryProposals is Test {
 
     IMeetingFactory.ProposalRecord memory p = _meetingFactory.getProposal(proposalId);
     assertEq(uint8(p.status), uint8(HolacracyTypes.ProposalStatus.Adopted));
+  }
+
+  function test_AdoptProposal_ExpandsRoleToCircle() external {
+    // 1. Create a role first
+    uint256 createProposalId = _createCuratorProposal();
+    vm.prank(_deployer);
+    uint256 roleId = _meetingFactory.adoptProposal(createProposalId);
+
+    // 2. Propose expanding it to a circle
+    bytes memory expandData = abi.encode(roleId);
+    vm.prank(_member);
+    uint256 expandProposalId =
+      _meetingFactory.createProposal(_orgId, 0, 0, TENSION, HolacracyTypes.ChangeType.ExpandRoleToCircle, expandData);
+
+    // 3. Adopt
+    vm.prank(_deployer);
+    uint256 resultId = _meetingFactory.adoptProposal(expandProposalId);
+    assertEq(resultId, roleId);
+
+    // 4. Verify flag
+    HolacracyTypes.Role memory role = _roleRegistry.getRole(roleId);
+    assertTrue(role.isCircle);
+  }
+
+  function test_ExpandRoleToCircle_RevertsIfAlreadyCircle() external {
+    uint256 createProposalId = _createCuratorProposal();
+    vm.prank(_deployer);
+    uint256 roleId = _meetingFactory.adoptProposal(createProposalId);
+
+    // Expand once
+    bytes memory expandData = abi.encode(roleId);
+    vm.prank(_member);
+    uint256 p1 =
+      _meetingFactory.createProposal(_orgId, 0, 0, TENSION, HolacracyTypes.ChangeType.ExpandRoleToCircle, expandData);
+    vm.prank(_deployer);
+    _meetingFactory.adoptProposal(p1);
+
+    // Expand again — should revert
+    vm.prank(_member);
+    uint256 p2 =
+      _meetingFactory.createProposal(_orgId, 0, 0, TENSION, HolacracyTypes.ChangeType.ExpandRoleToCircle, expandData);
+    vm.prank(_deployer);
+    vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_AlreadyCircle.selector, roleId));
+    _meetingFactory.adoptProposal(p2);
   }
 
   /*//////////////////////////////////////////////////////////////
