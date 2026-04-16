@@ -108,8 +108,11 @@ interface IMeetingFactory {
     uint256 indexed _objectionId, uint256 indexed _proposalId, address indexed _objector, bytes32 _concernHash
   );
 
-  /// @notice Emitted when an objection is resolved (by the objector or by an admin).
+  /// @notice Emitted when an objection is resolved (by the objector or by the facilitator).
   event ObjectionResolved(uint256 indexed _objectionId, uint256 indexed _proposalId, address _resolvedBy);
+
+  /// @notice Emitted when a circle facilitator is set.
+  event CircleFacilitatorSet(uint256 indexed _circleId, address indexed _facilitator);
 
   /*///////////////////////////////////////////////////////////////
                             ERRORS
@@ -124,13 +127,18 @@ interface IMeetingFactory {
   error MeetingFactory_ObjectionNotFound(uint256 _objectionId);
   error MeetingFactory_InvalidProposalStatus(uint256 _proposalId, HolacracyTypes.ProposalStatus _status);
   error MeetingFactory_InvalidObjectionStatus(uint256 _objectionId, HolacracyTypes.ObjectionStatus _status);
-  error MeetingFactory_NotObjectorOrAdmin(uint256 _objectionId, address _caller);
+  error MeetingFactory_NotObjectorOrFacilitator(uint256 _objectionId, address _caller);
+  error MeetingFactory_OrgIdMismatch(uint256 _expected, uint256 _provided);
+  error MeetingFactory_UnresolvedObjections(uint256 _proposalId, uint256 _count);
+  error MeetingFactory_ProposalExpired(uint256 _proposalId);
+  error MeetingFactory_ProposalNotExpired(uint256 _proposalId);
 
   /*///////////////////////////////////////////////////////////////
                             LOGIC
   //////////////////////////////////////////////////////////////*/
 
   function initialize(
+    uint256 _orgId,
     address _orgFactory,
     address _roleRegistry
   ) external;
@@ -202,11 +210,25 @@ interface IMeetingFactory {
   ) external returns (uint256 _objectionId);
 
   /// @notice Resolve a Raised objection.
-  /// @dev    Either the original objector (withdrawal) or an org admin
-  ///         (integration confirmed). The `resolvedBy` address in the event
-  ///         lets indexers/UI distinguish the two.
+  /// @dev    Either the original objector (withdrawal) or the circle's
+  ///         Facilitator (dismissal/integration per §5.3.3-5.3.4).
+  ///         Per Holacracy: Lead Link / admin CANNOT unilaterally resolve.
   function resolveObjection(
     uint256 _objectionId
+  ) external;
+
+  /// @notice Discard an expired proposal. Permissionless — anyone can call.
+  /// @param _proposalId The proposal to discard
+  function discardExpiredProposal(
+    uint256 _proposalId
+  ) external;
+
+  /// @notice Set the Facilitator for a circle. Admin only (until elections are onchain).
+  /// @param _circleId The circle ID
+  /// @param _facilitator The facilitator address
+  function setCircleFacilitator(
+    uint256 _circleId,
+    address _facilitator
   ) external;
 
   /*///////////////////////////////////////////////////////////////

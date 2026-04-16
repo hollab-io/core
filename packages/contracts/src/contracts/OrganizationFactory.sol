@@ -7,6 +7,7 @@ import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {GovToken} from 'contracts/governance/GovToken.sol';
 import {GovTokenDeployer} from 'contracts/governance/GovTokenDeployer.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
+import {IERC8004} from 'interfaces/IERC8004.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
@@ -58,19 +59,34 @@ contract OrganizationFactory is IOrganizationFactory {
   /// @notice orgId => account => is org member
   mapping(uint256 => mapping(address => bool)) internal _orgMembers;
 
+  /// @notice orgId => number of org admins
+  mapping(uint256 => uint256) internal _orgAdminCount;
+
+  /// @notice orgId => account => linked ERC-8004 agent ID (0 = no agent identity)
+  mapping(uint256 => mapping(address => uint256)) internal _agentIds;
+
+  /// @notice orgId => account => ERC-8004 registry address for the linked agent
+  mapping(uint256 => mapping(address => address)) internal _agentRegistries;
+
+  /// @notice Authorized MeetingComponentsFactory address
+  address public immutable meetingComponentsFactory;
+
   /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
   /// @param _roleRegistryImpl The RoleRegistry implementation address
   /// @param _ensRegistrar ENSSubdomainRegistrar authorized to register subnames under the parent node
+  /// @param _meetingComponentsFactory Authorized MeetingComponentsFactory for wiring governance process
   constructor(
     address _roleRegistryImpl,
-    address _ensRegistrar
+    address _ensRegistrar,
+    address _meetingComponentsFactory
   ) {
     roleRegistryImplementation = _roleRegistryImpl;
     TOKEN_DEPLOYER = new GovTokenDeployer();
     ENS_REGISTRAR = IENSSubdomainRegistrar(_ensRegistrar);
+    meetingComponentsFactory = _meetingComponentsFactory;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -94,8 +110,8 @@ contract OrganizationFactory is IOrganizationFactory {
     // Clone remaining core contract(s)
     RoleRegistry _roleRegistry = RoleRegistry(Clones.clone(roleRegistryImplementation));
 
-    // Initialize role registry
-    _roleRegistry.initialize();
+    // Initialize role registry — this contract becomes the authorized factory
+    _roleRegistry.initialize(address(this));
     _purpose;
 
     // Deploy AccessManager with org creator as initial admin
@@ -120,10 +136,8 @@ contract OrganizationFactory is IOrganizationFactory {
       _org.subname = _subname;
       _org.creator = msg.sender;
       _org.roleRegistry = address(_roleRegistry);
-      _org.circleRegistry = address(0);
-      _org.governanceProcess = address(0);
+      // circleRegistry, governanceProcess, meetingFactory, anchorCircleId default to 0
       _org.accessManager = _accessManagerAddr;
-      _org.anchorCircleId = 0;
       _org.createdAt = block.timestamp;
       _org.token = address(_token);
     }
@@ -192,6 +206,7 @@ contract OrganizationFactory is IOrganizationFactory {
     _assertOrgAdmin(orgId);
     if (!_orgAdmins[orgId][account]) {
       _orgAdmins[orgId][account] = true;
+      _orgAdminCount[orgId] += 1;
       emit OrgAdminAdded(orgId, account);
     }
   }
@@ -203,7 +218,9 @@ contract OrganizationFactory is IOrganizationFactory {
   ) external {
     _assertOrgAdmin(orgId);
     if (_orgAdmins[orgId][account]) {
+      if (_orgAdminCount[orgId] <= 1) revert OrganizationFactory_LastAdmin(orgId);
       _orgAdmins[orgId][account] = false;
+      _orgAdminCount[orgId] -= 1;
       emit OrgAdminRemoved(orgId, account);
     }
   }
@@ -230,6 +247,23 @@ contract OrganizationFactory is IOrganizationFactory {
       _orgMembers[orgId][account] = false;
       emit OrgMemberRemoved(orgId, account);
     }
+  }
+
+  /// @inheritdoc IOrganizationFactory
+  function linkAgentIdentity(
+    uint256 orgId,
+    address agentRegistry,
+    uint256 agentId
+  ) external {
+    if (!_orgMembers[orgId][msg.sender]) {
+      revert OrganizationFactory_JoinRequestUnauthorized(msg.sender, orgId);
+    }
+    if (IERC8004(agentRegistry).ownerOf(agentId) != msg.sender) {
+      revert OrganizationFactory_AgentNotOwner(agentId, msg.sender);
+    }
+    _agentIds[orgId][msg.sender] = agentId;
+    _agentRegistries[orgId][msg.sender] = agentRegistry;
+    emit AgentIdentityLinked(orgId, msg.sender, agentRegistry, agentId);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -308,11 +342,25 @@ contract OrganizationFactory is IOrganizationFactory {
                             INTERNAL
   //////////////////////////////////////////////////////////////*/
 
+  /// @inheritdoc IOrganizationFactory
+  function setRoleRegistryGovernanceProcess(
+    uint256 orgId,
+    address governanceProcess
+  ) external {
+    if (msg.sender != meetingComponentsFactory) revert OrganizationFactory_JoinRequestUnauthorized(msg.sender, orgId);
+    HolacracyTypes.Organization storage org = _organizations[orgId];
+    if (org.id == 0) revert OrganizationFactory_OrgNotFound(orgId);
+    RoleRegistry(org.roleRegistry).setGovernanceProcess(governanceProcess);
+  }
+
   /// @notice Mints initial token allocations to holders.
   function _mintInitialTokens(
     GovToken _token,
     TokenConfig calldata _cfg
   ) internal {
+    if (_cfg.initialHolders.length != _cfg.initialAmounts.length) {
+      revert OrganizationFactory_ArrayLengthMismatch();
+    }
     for (uint256 _i; _i < _cfg.initialHolders.length; ++_i) {
       _token.mint(_cfg.initialHolders[_i], _cfg.initialAmounts[_i]);
     }
@@ -349,8 +397,7 @@ contract OrganizationFactory is IOrganizationFactory {
   function _assertOrgAdmin(
     uint256 orgId
   ) internal view {
-    HolacracyTypes.Organization memory org = _organizations[orgId];
-    if (org.id == 0) revert OrganizationFactory_OrgNotFound(orgId);
+    if (_organizations[orgId].id == 0) revert OrganizationFactory_OrgNotFound(orgId);
     if (!_orgAdmins[orgId][msg.sender]) revert OrganizationFactory_JoinRequestUnauthorized(msg.sender, orgId);
   }
 
@@ -359,6 +406,7 @@ contract OrganizationFactory is IOrganizationFactory {
     address creator
   ) internal {
     _orgAdmins[orgId][creator] = true;
+    _orgAdminCount[orgId] = 1;
     _orgMembers[orgId][creator] = true;
     emit OrgAdminAdded(orgId, creator);
     emit OrgMemberAdded(orgId, creator);

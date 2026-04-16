@@ -43,7 +43,8 @@ contract UnitActionVoting is Test {
   }
 
   function setUp() external {
-    _orgFactory = new OrganizationFactory(address(new RoleRegistry()), address(new StubENSRegistrarForActionVoting()));
+    _orgFactory =
+      new OrganizationFactory(address(new RoleRegistry()), address(new StubENSRegistrarForActionVoting()), address(0));
     _meetingFactory = MeetingFactory(Clones.clone(address(new MeetingFactory())));
     _actionVoting = ActionVoting(Clones.clone(address(new ActionVoting())));
     _govToken = new GovToken('HolLab Gov', 'GOV', address(this));
@@ -55,8 +56,8 @@ contract UnitActionVoting is Test {
     _orgFactory.addOrgAdmin(_orgId, _member1);
     _orgFactory.addOrgMember(_orgId, _member1);
     _orgFactory.addOrgMember(_orgId, _member2);
-    _meetingFactory.initialize(address(_orgFactory), address(0));
-    _actionVoting.initialize(address(_orgFactory), address(_meetingFactory), address(_govToken));
+    _meetingFactory.initialize(_orgId, address(_orgFactory), address(0));
+    _actionVoting.initialize(_orgId, address(_orgFactory), address(_meetingFactory), address(_govToken));
     vm.stopPrank();
 
     _govToken.mint(_member1, 100e18);
@@ -133,6 +134,6 @@ contract UnitActionVoting is Test {
 
   function test_initializeRevertsIfAlreadyInitialized() external {
     vm.expectRevert(IActionVoting.ActionVoting_AlreadyInitialized.selector);
-    _actionVoting.initialize(address(_orgFactory), address(_meetingFactory), address(_govToken));
+    _actionVoting.initialize(_orgId, address(_orgFactory), address(_meetingFactory), address(_govToken));
   }
 }

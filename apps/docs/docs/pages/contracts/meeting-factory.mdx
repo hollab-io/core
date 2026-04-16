@@ -53,16 +53,19 @@ function raiseObjection(uint256 proposalId, bytes32 concernHash)
     external returns (uint256 objectionId);
 
 function resolveObjection(uint256 objectionId) external;
-    // callable by the original objector (withdrawal) or an org admin (integration confirmed)
+    // callable by the original objector (withdrawal) or the circle facilitator (§5.3.3 dismissal)
 
 function adoptProposal(uint256 proposalId) external returns (uint256 resultId);
-    // org admin only; applies the stored changeData to the RoleRegistry
+    // org admin only; reverts if open objections remain or proposal has expired
 
 function discardProposal(uint256 proposalId) external;
     // org admin only
+
+function discardExpiredProposal(uint256 proposalId) external;
+    // permissionless — anyone can discard proposals older than MAX_PROPOSAL_AGE (14 days)
 ```
 
-Any org member can create a proposal or raise an objection. Only org admins can adopt or discard. The contract does **not** enforce "all objections resolved before adopt" — that is the facilitator's job. The event log provides the full auditable trail.
+Any org member can create a proposal or raise an objection. Only org admins can adopt or discard. The contract **enforces** that all objections must be resolved before adoption (`_openObjectionCount == 0`). Proposals expire after 14 days and can be permissionlessly discarded via `discardExpiredProposal`.
 
 ### ProposalRecord fields
 
@@ -98,7 +101,7 @@ The encoding for `changeData` per `ChangeType` lives in the NatSpec of `MeetingF
 CreateRole:  abi.encode(circleId, name, purpose, domains[], accountabilities[])
 AmendRole:   abi.encode(roleId,   name, purpose, domains[], accountabilities[])
 RemoveRole:  abi.encode(roleId)
-Election:    abi.encode(roleId, lead)
+Election:    abi.encode(roleId, newLead, previousLead)
 ```
 
 ## Linking Proposals to Meetings

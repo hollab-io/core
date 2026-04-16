@@ -80,7 +80,8 @@ contract DeploySepolia is Script {
       new MeetingComponentsFactory(address(meetingImpl), address(actionVotingImpl));
 
     // ── 4. OrganizationFactory ────────────────────────────────────────────────
-    OrganizationFactory orgFactory = new OrganizationFactory(address(roleRegistryImpl), address(ensRegistrar));
+    OrganizationFactory orgFactory =
+      new OrganizationFactory(address(roleRegistryImpl), address(ensRegistrar), address(meetingFactory));
     ensRegistrar.authorize(address(orgFactory));
 
     // ── 5. Create the first organization ──────────────────────────────────────

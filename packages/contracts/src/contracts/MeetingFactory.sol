@@ -24,6 +24,7 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
  *         "On-chain Commitments Surface".
  */
 contract MeetingFactory is IMeetingFactory {
+  uint256 public orgId;
   IOrganizationFactory public orgFactory;
   IRoleRegistry public roleRegistry;
 
@@ -39,6 +40,13 @@ contract MeetingFactory is IMeetingFactory {
   uint256 internal _objectionCounter;
   mapping(uint256 => ProposalRecord) internal _proposals;
   mapping(uint256 => ObjectionRecord) internal _objections;
+  mapping(uint256 => uint256) internal _openObjectionCount;
+
+  /// @notice Circle ID => elected facilitator address (§5.1.2)
+  mapping(uint256 => address) internal _circleFacilitators;
+
+  /// @notice Maximum age of a proposal before it expires (14 days)
+  uint64 public constant MAX_PROPOSAL_AGE = 14 days;
 
   modifier initializer() {
     if (_initialized) revert MeetingFactory_AlreadyInitialized();
@@ -51,11 +59,19 @@ contract MeetingFactory is IMeetingFactory {
   }
 
   function initialize(
+    uint256 _orgId,
     address _orgFactory,
     address _roleRegistry
   ) external initializer {
+    orgId = _orgId;
     orgFactory = IOrganizationFactory(_orgFactory);
     roleRegistry = IRoleRegistry(_roleRegistry);
+  }
+
+  function _validateOrgId(
+    uint256 _orgId
+  ) internal view {
+    if (_orgId != orgId) revert MeetingFactory_OrgIdMismatch(orgId, _orgId);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -66,6 +82,7 @@ contract MeetingFactory is IMeetingFactory {
     uint256 _orgId,
     MeetingKind _kind
   ) external returns (uint256 _meetingId) {
+    _validateOrgId(_orgId);
     if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
     }
@@ -79,6 +96,7 @@ contract MeetingFactory is IMeetingFactory {
     uint256 _orgId,
     MeetingKind _kind
   ) external {
+    _validateOrgId(_orgId);
     if (!orgFactory.isOrgAdmin(_orgId, msg.sender)) {
       revert MeetingFactory_NotOrgAdmin(_orgId, msg.sender);
     }
@@ -93,6 +111,7 @@ contract MeetingFactory is IMeetingFactory {
     address _assignedTo,
     uint256 _roleId
   ) external returns (uint256 _itemId) {
+    _validateOrgId(_orgId);
     if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
     }
@@ -107,6 +126,7 @@ contract MeetingFactory is IMeetingFactory {
     uint256 _orgId,
     uint256 _proposalId
   ) external returns (uint256 _itemId) {
+    _validateOrgId(_orgId);
     if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
     }
@@ -158,8 +178,11 @@ contract MeetingFactory is IMeetingFactory {
       roleRegistry.removeRole(roleId);
       _resultId = roleId;
     } else if (_changeType == HolacracyTypes.ChangeType.Election) {
-      (uint256 roleId, address lead) = abi.decode(_data, (uint256, address));
-      roleRegistry.assignRoleLead(roleId, lead);
+      (uint256 roleId, address newLead, address previousLead) = abi.decode(_data, (uint256, address, address));
+      if (previousLead != address(0)) {
+        roleRegistry.unassignRoleLead(roleId, previousLead);
+      }
+      roleRegistry.assignRoleLead(roleId, newLead);
       _resultId = roleId;
     } else if (_changeType == HolacracyTypes.ChangeType.CreateRoleWithRefs) {
       (
@@ -206,6 +229,7 @@ contract MeetingFactory is IMeetingFactory {
     HolacracyTypes.ChangeType _changeType,
     bytes calldata _changeData
   ) external returns (uint256 _proposalId) {
+    _validateOrgId(_orgId);
     if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
     }
@@ -220,9 +244,8 @@ contract MeetingFactory is IMeetingFactory {
     p.tensionHash = _tensionHash;
     p.changeType = _changeType;
     p.changeData = _changeData;
-    p.status = HolacracyTypes.ProposalStatus.Draft;
+    // status defaults to Draft (== 0), resolvedAt defaults to 0
     p.submittedAt = uint64(block.timestamp);
-    // resolvedAt stays 0 until adopt/discard
 
     emit ProposalCreated(
       _proposalId, _orgId, _circleId, msg.sender, _proposerRoleId, _tensionHash, uint8(_changeType), _changeData
@@ -240,6 +263,12 @@ contract MeetingFactory is IMeetingFactory {
     }
     if (!orgFactory.isOrgAdmin(p.orgId, msg.sender)) {
       revert MeetingFactory_NotOrgAdmin(p.orgId, msg.sender);
+    }
+    if (uint64(block.timestamp) > p.submittedAt + MAX_PROPOSAL_AGE) {
+      revert MeetingFactory_ProposalExpired(_proposalId);
+    }
+    if (_openObjectionCount[_proposalId] > 0) {
+      revert MeetingFactory_UnresolvedObjections(_proposalId, _openObjectionCount[_proposalId]);
     }
 
     _resultId = _applyChange(p.changeType, p.changeData);
@@ -290,6 +319,7 @@ contract MeetingFactory is IMeetingFactory {
     o.concernHash = _concernHash;
     o.status = HolacracyTypes.ObjectionStatus.Raised;
     o.raisedAt = uint64(block.timestamp);
+    _openObjectionCount[_proposalId] += 1;
 
     emit ObjectionRaised(_objectionId, _proposalId, msg.sender, _concernHash);
   }
@@ -306,15 +336,51 @@ contract MeetingFactory is IMeetingFactory {
 
     ProposalRecord storage p = _proposals[o.proposalId];
     bool isObjector = msg.sender == o.objector;
-    bool isAdmin = orgFactory.isOrgAdmin(p.orgId, msg.sender);
-    if (!isObjector && !isAdmin) {
-      revert MeetingFactory_NotObjectorOrAdmin(_objectionId, msg.sender);
+    bool isFacilitator = _circleFacilitators[p.circleId] == msg.sender;
+    if (!isObjector && !isFacilitator) {
+      revert MeetingFactory_NotObjectorOrFacilitator(_objectionId, msg.sender);
     }
 
     o.status = HolacracyTypes.ObjectionStatus.Resolved;
     o.resolvedAt = uint64(block.timestamp);
+    _openObjectionCount[o.proposalId] -= 1;
 
     emit ObjectionResolved(_objectionId, o.proposalId, msg.sender);
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                      FACILITATOR & EXPIRY
+  //////////////////////////////////////////////////////////////*/
+
+  /// @inheritdoc IMeetingFactory
+  function setCircleFacilitator(
+    uint256 _circleId,
+    address _facilitator
+  ) external {
+    if (!orgFactory.isOrgAdmin(orgId, msg.sender)) {
+      revert MeetingFactory_NotOrgAdmin(orgId, msg.sender);
+    }
+    _circleFacilitators[_circleId] = _facilitator;
+    emit CircleFacilitatorSet(_circleId, _facilitator);
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function discardExpiredProposal(
+    uint256 _proposalId
+  ) external {
+    ProposalRecord storage p = _proposals[_proposalId];
+    if (p.id == 0) revert MeetingFactory_ProposalNotFound(_proposalId);
+    if (p.status != HolacracyTypes.ProposalStatus.Draft) {
+      revert MeetingFactory_InvalidProposalStatus(_proposalId, p.status);
+    }
+    if (uint64(block.timestamp) <= p.submittedAt + MAX_PROPOSAL_AGE) {
+      revert MeetingFactory_ProposalNotExpired(_proposalId);
+    }
+
+    p.status = HolacracyTypes.ProposalStatus.Discarded;
+    p.resolvedAt = uint64(block.timestamp);
+
+    emit ProposalDiscarded(_proposalId, p.orgId, msg.sender);
   }
 
   /*///////////////////////////////////////////////////////////////

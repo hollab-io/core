@@ -49,6 +49,11 @@ interface IOrganizationFactory {
   event OrgMemberAdded(uint256 indexed orgId, address indexed account);
   event OrgMemberRemoved(uint256 indexed orgId, address indexed account);
 
+  /// @notice Emitted when a member links an ERC-8004 agent identity to their org membership.
+  event AgentIdentityLinked(
+    uint256 indexed orgId, address indexed account, address indexed agentRegistry, uint256 agentId
+  );
+
   /*///////////////////////////////////////////////////////////////
                             ERRORS
   //////////////////////////////////////////////////////////////*/
@@ -65,6 +70,9 @@ interface IOrganizationFactory {
   error OrganizationFactory_JoinRequestNotFound(address requester, uint256 orgId);
   error OrganizationFactory_JoinRequestUnauthorized(address caller, uint256 orgId);
   error OrganizationFactory_OrgNotFound(uint256 orgId);
+  error OrganizationFactory_LastAdmin(uint256 orgId);
+  error OrganizationFactory_ArrayLengthMismatch();
+  error OrganizationFactory_AgentNotOwner(uint256 agentId, address caller);
 
   /*///////////////////////////////////////////////////////////////
                             LOGIC
@@ -107,6 +115,25 @@ interface IOrganizationFactory {
   function removeOrgMember(
     uint256 orgId,
     address account
+  ) external;
+
+  /// @notice Link an ERC-8004 agent identity to your org membership.
+  ///         Verifies caller owns the agent NFT on the given registry.
+  /// @param orgId The organization ID
+  /// @param agentRegistry The ERC-8004 Identity Registry address
+  /// @param agentId The agent's tokenId in the registry
+  function linkAgentIdentity(
+    uint256 orgId,
+    address agentRegistry,
+    uint256 agentId
+  ) external;
+
+  /// @notice Sets the governance process on an org's RoleRegistry. Org admin only.
+  /// @param orgId The organization ID
+  /// @param governanceProcess The MeetingFactory address to authorize on the RoleRegistry
+  function setRoleRegistryGovernanceProcess(
+    uint256 orgId,
+    address governanceProcess
   ) external;
 
   /*///////////////////////////////////////////////////////////////

@@ -74,8 +74,17 @@ contract DeployInfrastructure is Script {
 
     vm.startBroadcast();
 
+    // ── Load prior deployment for resumable runs ────────────────────────────
+    // Every step below reuses the existing address if it still has code on-chain,
+    // so you can rerun this script until all contracts are deployed. Any run that
+    // reuses every address is a no-op (besides writing the artifact).
+    Infrastructure memory prior = _readExistingInfra(chainId);
+
     // ── 1. ENS subdomain registrar ──────────────────────────────────────────
-    if (DeployConfig.hasENS(chainId)) {
+    if (_hasCode(prior.ensRegistrar)) {
+      console.log('Reusing ENSSubdomainRegistrar at', prior.ensRegistrar);
+      infra.ensRegistrar = prior.ensRegistrar;
+    } else if (DeployConfig.hasENS(chainId)) {
       bytes32 parentNode = vm.envBytes32('ENS_PARENT_NODE');
       require(
         IENS(DeployConfig.ENS_REGISTRY).owner(parentNode) == deployer,
@@ -90,20 +99,48 @@ contract DeployInfrastructure is Script {
     }
 
     // ── 2. Implementation contracts (clone sources) ─────────────────────────
-    infra.roleRegistryImpl = address(new RoleRegistry());
-    infra.meetingImpl = address(new MeetingFactory());
-    infra.actionVotingImpl = address(new ActionVoting());
+    if (_hasCode(prior.roleRegistryImpl)) {
+      console.log('Reusing RoleRegistry impl at', prior.roleRegistryImpl);
+      infra.roleRegistryImpl = prior.roleRegistryImpl;
+    } else {
+      infra.roleRegistryImpl = address(new RoleRegistry());
+    }
+
+    if (_hasCode(prior.meetingImpl)) {
+      console.log('Reusing MeetingFactory impl at', prior.meetingImpl);
+      infra.meetingImpl = prior.meetingImpl;
+    } else {
+      infra.meetingImpl = address(new MeetingFactory());
+    }
+
+    if (_hasCode(prior.actionVotingImpl)) {
+      console.log('Reusing ActionVoting impl at', prior.actionVotingImpl);
+      infra.actionVotingImpl = prior.actionVotingImpl;
+    } else {
+      infra.actionVotingImpl = address(new ActionVoting());
+    }
 
     // ── 3. MeetingComponentsFactory ─────────────────────────────────────────
-    infra.meetingFactory = address(new MeetingComponentsFactory(infra.meetingImpl, infra.actionVotingImpl));
+    if (_hasCode(prior.meetingFactory)) {
+      console.log('Reusing MeetingComponentsFactory at', prior.meetingFactory);
+      infra.meetingFactory = prior.meetingFactory;
+    } else {
+      infra.meetingFactory = address(new MeetingComponentsFactory(infra.meetingImpl, infra.actionVotingImpl));
+    }
 
     // ── 4. OrganizationFactory ──────────────────────────────────────────────
-    OrganizationFactory orgFactory = new OrganizationFactory(infra.roleRegistryImpl, infra.ensRegistrar);
-    infra.orgFactory = address(orgFactory);
+    if (_hasCode(prior.orgFactory)) {
+      console.log('Reusing OrganizationFactory at', prior.orgFactory);
+      infra.orgFactory = prior.orgFactory;
+    } else {
+      OrganizationFactory orgFactory =
+        new OrganizationFactory(infra.roleRegistryImpl, infra.ensRegistrar, infra.meetingFactory);
+      infra.orgFactory = address(orgFactory);
 
-    // Authorize factory for ENS registration
-    if (DeployConfig.hasENS(chainId)) {
-      ENSSubdomainRegistrar(infra.ensRegistrar).authorize(infra.orgFactory);
+      // Authorize fresh factory for ENS registration (only needed on first deploy)
+      if (DeployConfig.hasENS(chainId)) {
+        ENSSubdomainRegistrar(infra.ensRegistrar).authorize(infra.orgFactory);
+      }
     }
 
     vm.stopBroadcast();
@@ -113,6 +150,39 @@ contract DeployInfrastructure is Script {
     _logDeployment(infra, chainId);
 
     return infra;
+  }
+
+  function _readExistingInfra(
+    uint256 _chainId
+  ) internal view returns (Infrastructure memory prior) {
+    string memory path = string.concat('./deployments/', vm.toString(_chainId), '-infrastructure.json');
+    try vm.readFile(path) returns (string memory json) {
+      prior.ensRegistrar = _tryReadAddress(json, '.ensRegistrar');
+      prior.roleRegistryImpl = _tryReadAddress(json, '.roleRegistryImpl');
+      prior.meetingImpl = _tryReadAddress(json, '.meetingImpl');
+      prior.actionVotingImpl = _tryReadAddress(json, '.actionVotingImpl');
+      prior.meetingFactory = _tryReadAddress(json, '.meetingFactory');
+      prior.orgFactory = _tryReadAddress(json, '.orgFactory');
+    } catch {
+      // no prior artifact; all fields remain address(0)
+    }
+  }
+
+  function _tryReadAddress(
+    string memory _json,
+    string memory _key
+  ) internal view returns (address) {
+    try vm.parseJsonAddress(_json, _key) returns (address addr) {
+      return addr;
+    } catch {
+      return address(0);
+    }
+  }
+
+  function _hasCode(
+    address _addr
+  ) internal view returns (bool) {
+    return _addr != address(0) && _addr.code.length > 0;
   }
 
   function _writeArtifacts(

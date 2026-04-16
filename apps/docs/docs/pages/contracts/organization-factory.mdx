@@ -4,6 +4,8 @@ The entry point for creating and managing hollab.eth organizations. Deployed onc
 
 **Source:** `packages/contracts/src/contracts/OrganizationFactory.sol`
 
+**Constructor:** `OrganizationFactory(roleRegistryImpl, ensRegistrar, meetingComponentsFactory)`
+
 ## Creating an Organization
 
 ```solidity
@@ -31,6 +33,7 @@ Organizations have two roles: **admin** and **member**.
 // Admin management (owner only)
 function addOrgAdmin(uint256 orgId, address admin) external
 function removeOrgAdmin(uint256 orgId, address admin) external
+    // prevents removing the last admin (_orgAdminCount tracking)
 
 // Member management (admin only)
 function addOrgMember(uint256 orgId, address member) external
@@ -46,6 +49,16 @@ function requestToJoin(uint256 orgId) external
 function approveJoinRequest(uint256 orgId, uint256 requestId) external
 function rejectJoinRequest(uint256 orgId, uint256 requestId) external
 ```
+
+## Agent Identity (ERC-8004)
+
+Org members can link ERC-8004 agent NFTs to their org identity:
+
+```solidity
+function linkAgentIdentity(uint256 orgId, address agentRegistry, uint256 agentId) external
+```
+
+Emits `AgentIdentityLinked(orgId, member, agentRegistry, agentId)`. This enables the agent-native surface where AI agents participate in governance through linked identities.
 
 ## Queries
 

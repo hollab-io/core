@@ -37,7 +37,9 @@ contract UnitMeetingFactory is Test {
   }
 
   function setUp() external {
-    _orgFactory = new OrganizationFactory(address(new RoleRegistry()), address(new StubENSRegistrarForMeetingFactory()));
+    _orgFactory = new OrganizationFactory(
+      address(new RoleRegistry()), address(new StubENSRegistrarForMeetingFactory()), address(0)
+    );
     _meetingFactory = MeetingFactory(Clones.clone(address(new MeetingFactory())));
 
     vm.prank(_deployer);
@@ -47,7 +49,7 @@ contract UnitMeetingFactory is Test {
     _orgFactory.addOrgMember(_orgId, _member);
 
     vm.prank(_deployer);
-    _meetingFactory.initialize(address(_orgFactory), address(0));
+    _meetingFactory.initialize(_orgId, address(_orgFactory), address(0));
   }
 
   function test_startMeeting() external {

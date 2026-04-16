@@ -60,7 +60,8 @@ contract DeployLocal is Script {
       new MeetingComponentsFactory(address(meetingImpl), address(actionVotingImpl));
 
     // ── 4. OrganizationFactory ──────────────────────────────────────────────
-    OrganizationFactory factory = new OrganizationFactory(address(roleRegistryImpl), address(ensRegistrar));
+    OrganizationFactory factory =
+      new OrganizationFactory(address(roleRegistryImpl), address(ensRegistrar), address(meetingFactory));
 
     // ── 5. Create a sample organization ─────────────────────────────────────
     address[] memory holders = new address[](1);

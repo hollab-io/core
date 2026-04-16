@@ -12,12 +12,14 @@ OrganizationFactory (singleton)
 └── registers → ENS subname via ENSSubdomainRegistrar
 
 MeetingComponentsFactory (singleton)
-├── clones → MeetingFactory (per org/circle)
-└── clones → ActionVoting (per org/circle)
+├── clones → MeetingFactory (per org/circle, stores orgId at init)
+├── clones → ActionVoting (per org/circle, stores orgId at init)
+└── deploy() requires org admin (isOrgAdmin check)
 
 MeetingFactory
 └── set as governanceProcess on RoleRegistry
     (only contract that can modify roles)
+    setGovernanceProcess restricted to OrgFactory (msg.sender == factory)
 ```
 
 ## Core Contracts

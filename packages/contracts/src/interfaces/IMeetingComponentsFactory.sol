@@ -30,6 +30,7 @@ interface IMeetingComponentsFactory {
 
   error MeetingComponentsFactory_ZeroAddress();
   error MeetingComponentsFactory_OrgNotFound(string _subname);
+  error MeetingComponentsFactory_Unauthorized();
 
   /*///////////////////////////////////////////////////////////////
                             LOGIC
