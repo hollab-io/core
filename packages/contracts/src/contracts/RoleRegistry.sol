@@ -18,6 +18,9 @@ contract RoleRegistry is IRoleRegistry {
                             STATE
   //////////////////////////////////////////////////////////////*/
 
+  /// @notice Entity type hash for content refs
+  bytes32 internal constant _ROLE_ENTITY_TYPE = keccak256('role');
+
   /// @notice Auto-incrementing role ID counter
   uint256 internal _roleCounter;
 
@@ -35,6 +38,9 @@ contract RoleRegistry is IRoleRegistry {
 
   /// @notice Address authorized to manage roles (the governance process / MeetingFactory)
   address public governanceProcess;
+
+  /// @notice OrganizationFactory that deployed this clone (only address that can set governance process)
+  address public factory;
 
   /// @notice Whether the contract has been initialized
   bool internal _initialized;
@@ -71,19 +77,26 @@ contract RoleRegistry is IRoleRegistry {
   }
 
   /// @notice Initializes a clone of RoleRegistry
-  function initialize() external initializer {}
+  /// @param _factory The OrganizationFactory (only address that can set governance process)
+  function initialize(
+    address _factory
+  ) external initializer {
+    factory = _factory;
+  }
 
   /*///////////////////////////////////////////////////////////////
                             ADMIN
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Sets the governance process address (can only be set once)
+  /// @notice Sets the governance process address (can only be set once, factory only)
   /// @param _governanceProcess The address of the governance process (MeetingFactory)
   function setGovernanceProcess(
     address _governanceProcess
   ) external {
+    if (msg.sender != factory) revert RoleRegistry_Unauthorized();
     if (governanceProcess != address(0)) revert RoleRegistry_Unauthorized();
     governanceProcess = _governanceProcess;
+    emit GovernanceProcessSet(_governanceProcess);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -262,7 +275,7 @@ contract RoleRegistry is IRoleRegistry {
     if (_fieldNames.length != _refs.length) revert RoleRegistry_ArrayLengthMismatch();
 
     _roleId = _createRole(_circleId, _name, _purpose, _domains, _accountabilities);
-    _setContentRefs(keccak256('role'), _roleId, _fieldNames, _refs);
+    _setContentRefs(_ROLE_ENTITY_TYPE, _roleId, _fieldNames, _refs);
   }
 
   /// @inheritdoc IRoleRegistry
@@ -278,7 +291,7 @@ contract RoleRegistry is IRoleRegistry {
     if (_fieldNames.length != _refs.length) revert RoleRegistry_ArrayLengthMismatch();
 
     _updateRole(_roleId, _name, _purpose, _domains, _accountabilities);
-    _setContentRefs(keccak256('role'), _roleId, _fieldNames, _refs);
+    _setContentRefs(_ROLE_ENTITY_TYPE, _roleId, _fieldNames, _refs);
   }
 
   /// @inheritdoc IRoleRegistry

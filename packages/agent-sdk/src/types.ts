@@ -51,6 +51,8 @@ export type AmendRoleInput = {
 export type ElectionInput = {
     roleId: bigint;
     lead: `0x${string}`;
+    /** Address of the previous lead being replaced. Defaults to address(0) if omitted. */
+    previousLead?: `0x${string}`;
 };
 
 export type RecordOutputInput = {

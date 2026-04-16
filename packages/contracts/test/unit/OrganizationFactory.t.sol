@@ -48,7 +48,7 @@ contract UnitOrganizationFactory is Test {
 
     address roleRegistryImpl = address(new RoleRegistry());
 
-    _factory = new OrganizationFactory(roleRegistryImpl, address(_mockRegistrar));
+    _factory = new OrganizationFactory(roleRegistryImpl, address(_mockRegistrar), address(0));
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -342,7 +342,7 @@ contract UnitOrganizationFactory is Test {
 
     // it prevents re-initialization of RoleRegistry clone
     vm.expectRevert(IRoleRegistry.RoleRegistry_AlreadyInitialized.selector);
-    RoleRegistry(_org.roleRegistry).initialize();
+    RoleRegistry(_org.roleRegistry).initialize(address(_factory));
 
     // governance process is disabled in simplified architecture
     assertEq(_org.governanceProcess, address(0));
@@ -360,5 +360,120 @@ contract UnitOrganizationFactory is Test {
     // governance process is intentionally not deployed or linked
     assertEq(_org.governanceProcess, address(0));
     assertEq(_org.circleRegistry, address(0));
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                    LAST-ADMIN PROTECTION (M-2)
+  //////////////////////////////////////////////////////////////*/
+
+  function test_RemoveLastAdmin_Reverts() external {
+    vm.prank(_creator1);
+    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
+
+    // Creator is the only admin — cannot remove themselves
+    vm.prank(_creator1);
+    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_LastAdmin.selector, _orgId));
+    _factory.removeOrgAdmin(_orgId, _creator1);
+  }
+
+  function test_RemoveAdminWhenMultiple_Succeeds() external {
+    vm.prank(_creator1);
+    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
+
+    vm.startPrank(_creator1);
+    _factory.addOrgAdmin(_orgId, _creator2);
+    // Now there are 2 admins — can remove one
+    _factory.removeOrgAdmin(_orgId, _creator2);
+    vm.stopPrank();
+
+    assertFalse(_factory.isOrgAdmin(_orgId, _creator2));
+    assertTrue(_factory.isOrgAdmin(_orgId, _creator1));
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                    ARRAY LENGTH MISMATCH (M-3)
+  //////////////////////////////////////////////////////////////*/
+
+  function test_CreateOrganization_ArrayLengthMismatch_Reverts() external {
+    address[] memory holders = new address[](2);
+    holders[0] = _creator1;
+    holders[1] = _creator2;
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = 1_000_000e18;
+
+    IOrganizationFactory.TokenConfig memory cfg = IOrganizationFactory.TokenConfig({
+      tokenName: 'BadToken', tokenSymbol: 'BAD', initialHolders: holders, initialAmounts: amounts
+    });
+
+    vm.prank(_creator1);
+    vm.expectRevert(IOrganizationFactory.OrganizationFactory_ArrayLengthMismatch.selector);
+    _factory.createOrganization('badorg', 'Purpose', cfg);
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                    ERC-8004 AGENT IDENTITY
+  //////////////////////////////////////////////////////////////*/
+
+  function test_LinkAgentIdentity_EmitsEvent() external {
+    vm.prank(_creator1);
+    uint256 _orgId = _factory.createOrganization('agentorg', 'Purpose', _defaultTokenConfig());
+
+    // Deploy a mock ERC-8004 registry that says _creator1 owns agentId 42
+    MockERC8004 registry = new MockERC8004();
+    registry.setOwner(42, _creator1);
+
+    vm.prank(_creator1);
+    vm.expectEmit(true, true, true, true);
+    emit IOrganizationFactory.AgentIdentityLinked(_orgId, _creator1, address(registry), 42);
+    _factory.linkAgentIdentity(_orgId, address(registry), 42);
+  }
+
+  function test_LinkAgentIdentity_RevertsIfNotOwner() external {
+    vm.prank(_creator1);
+    uint256 _orgId = _factory.createOrganization('agentorg2', 'Purpose', _defaultTokenConfig());
+
+    MockERC8004 registry = new MockERC8004();
+    registry.setOwner(42, _creator2); // creator2 owns it, not creator1
+
+    vm.prank(_creator1);
+    vm.expectRevert(
+      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_AgentNotOwner.selector, 42, _creator1)
+    );
+    _factory.linkAgentIdentity(_orgId, address(registry), 42);
+  }
+
+  function test_LinkAgentIdentity_RevertsIfNotMember() external {
+    vm.prank(_creator1);
+    uint256 _orgId = _factory.createOrganization('agentorg3', 'Purpose', _defaultTokenConfig());
+
+    MockERC8004 registry = new MockERC8004();
+    registry.setOwner(42, _creator2);
+
+    // creator2 is not a member of this org
+    vm.prank(_creator2);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IOrganizationFactory.OrganizationFactory_JoinRequestUnauthorized.selector, _creator2, _orgId
+      )
+    );
+    _factory.linkAgentIdentity(_orgId, address(registry), 42);
+  }
+}
+
+/// @notice Minimal mock for ERC-8004 Identity Registry
+contract MockERC8004 {
+  mapping(uint256 => address) internal _owners;
+
+  function setOwner(
+    uint256 tokenId,
+    address owner
+  ) external {
+    _owners[tokenId] = owner;
+  }
+
+  function ownerOf(
+    uint256 tokenId
+  ) external view returns (address) {
+    return _owners[tokenId];
   }
 }

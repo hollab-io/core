@@ -43,6 +43,10 @@ interface IRoleRegistry {
   /// @param _lead The address of the unassigned role lead
   event RoleLeadUnassigned(uint256 indexed _roleId, address indexed _lead);
 
+  /// @notice Emitted when the governance process address is set
+  /// @param _governanceProcess The new governance process address
+  event GovernanceProcessSet(address indexed _governanceProcess);
+
   /// @notice Emitted when a content ref is set for an entity field
   /// @param _entityType The entity type (keccak256 of "role", "policy", etc.)
   /// @param _entityId The entity ID
@@ -138,7 +142,10 @@ interface IRoleRegistry {
   //////////////////////////////////////////////////////////////*/
 
   /// @notice Initializes a clone of the RoleRegistry
-  function initialize() external;
+  /// @param _factory The address authorized to call setGovernanceProcess (typically the OrganizationFactory)
+  function initialize(
+    address _factory
+  ) external;
 
   /// @notice Creates a new role within a circle
   /// @param _circleId The circle ID this role belongs to

@@ -19,7 +19,7 @@ forge script script/DeployInfrastructure.s.sol \
 2. **Implementation contracts** — RoleRegistry, MeetingFactory, ActionVoting (these are the clone sources)
 3. **MeetingComponentsFactory** — Clones meeting components
 4. **GovTokenDeployer** — Helper for token deployment
-5. **OrganizationFactory** — Main entry point
+5. **OrganizationFactory** — Main entry point. Constructor takes 3 params: `(roleRegistryImpl, ensRegistrar, meetingComponentsFactory)`
 6. Authorize OrganizationFactory on ENSSubdomainRegistrar
 
 ### Output
@@ -50,7 +50,7 @@ OrganizationFactory.createOrganization(name, subname)
 
 This deploys per-org contracts (RoleRegistry clone, GovToken, AccessManager) in a single transaction.
 
-Meeting components are deployed separately per circle:
+Meeting components are deployed separately per circle (requires org admin):
 
 ```
 MeetingComponentsFactory.deploy(orgId, circleId, roleRegistryAddress, tokenAddress)

@@ -25,7 +25,7 @@ Only the current **minter** can mint tokens. The minter is initially set to the 
 function setMinter(address newMinter) external
 ```
 
-Only the current minter can transfer the minter role.
+Only the current minter can transfer the minter role. Reverts with `ZeroAddress()` if `newMinter` is `address(0)`. Emits `MinterChanged(oldMinter, newMinter)`.
 
 ## Delegation
 

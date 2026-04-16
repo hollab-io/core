@@ -47,7 +47,7 @@ contract E2EJourney is Test {
     ActionVoting _avImpl = new ActionVoting();
     _mcFactory = new MeetingComponentsFactory(address(_mfImpl), address(_avImpl));
 
-    _orgFactory = new OrganizationFactory(address(_rrImpl), address(_ensReg));
+    _orgFactory = new OrganizationFactory(address(_rrImpl), address(_ensReg), address(_mcFactory));
   }
 
   function _tokenConfig() internal view returns (IOrganizationFactory.TokenConfig memory _cfg) {
@@ -470,9 +470,9 @@ contract E2EJourney is Test {
     assertEq(_meetingId, 1);
 
     vm.expectRevert(IMeetingFactory.MeetingFactory_AlreadyInitialized.selector);
-    _mfClone.initialize(address(_orgFactory), address(0));
+    _mfClone.initialize(_orgId, address(_orgFactory), address(0));
 
     vm.expectRevert(IActionVoting.ActionVoting_AlreadyInitialized.selector);
-    _avClone.initialize(address(_orgFactory), address(0), _org.token);
+    _avClone.initialize(_orgId, address(_orgFactory), address(0), _org.token);
   }
 }

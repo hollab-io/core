@@ -59,14 +59,28 @@ describe("encoding", () => {
         expect(roleId).toBe(123n);
     });
 
-    it("encodeElection encodes (roleId, lead)", () => {
+    it("encodeElection encodes (roleId, newLead, previousLead) defaulting previousLead to address(0)", () => {
         const lead = "0x1111111111111111111111111111111111111111" as const;
         const data = encodeElection(9n, lead);
-        const [roleId, decodedLead] = decodeAbiParameters(
-            [{ type: "uint256" }, { type: "address" }],
+        const [roleId, decodedLead, decodedPrevious] = decodeAbiParameters(
+            [{ type: "uint256" }, { type: "address" }, { type: "address" }],
             data,
         );
         expect(roleId).toBe(9n);
         expect((decodedLead as string).toLowerCase()).toBe(lead);
+        expect(decodedPrevious).toBe("0x0000000000000000000000000000000000000000");
+    });
+
+    it("encodeElection encodes an explicit previousLead", () => {
+        const lead = "0x1111111111111111111111111111111111111111" as const;
+        const previous = "0x2222222222222222222222222222222222222222" as const;
+        const data = encodeElection(9n, lead, previous);
+        const [roleId, decodedLead, decodedPrevious] = decodeAbiParameters(
+            [{ type: "uint256" }, { type: "address" }, { type: "address" }],
+            data,
+        );
+        expect(roleId).toBe(9n);
+        expect((decodedLead as string).toLowerCase()).toBe(lead);
+        expect((decodedPrevious as string).toLowerCase()).toBe(previous);
     });
 });

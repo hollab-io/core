@@ -205,9 +205,13 @@ describe("encodeRemoveRole", () => {
 // ── encodeElection ───────────────────────────────────────────────────────────
 
 describe("encodeElection", () => {
-    const paramTypes = [{ type: "uint256" as const }, { type: "address" as const }] as const;
+    const paramTypes = [
+        { type: "uint256" as const },
+        { type: "address" as const },
+        { type: "address" as const },
+    ] as const;
 
-    it("round-trips roleId and lead address", () => {
+    it("round-trips roleId, lead, and previousLead (defaulting to address(0))", () => {
         const roleId = 3n;
         const lead = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" as const;
 
@@ -215,15 +219,36 @@ describe("encodeElection", () => {
 
         expect(encoded).toMatch(/^0x/);
 
-        const [decodedRoleId, decodedLead] = decodeAbiParameters(paramTypes, encoded);
+        const [decodedRoleId, decodedLead, decodedPrevious] = decodeAbiParameters(
+            paramTypes,
+            encoded,
+        );
         expect(decodedRoleId).toBe(roleId);
         expect(decodedLead.toLowerCase()).toBe(lead.toLowerCase());
+        expect(decodedPrevious).toBe("0x0000000000000000000000000000000000000000");
     });
 
-    it("encodes the zero address", () => {
+    it("encodes the zero address for lead", () => {
         const encoded = encodeElection(1n, "0x0000000000000000000000000000000000000000");
-        const [, decodedLead] = decodeAbiParameters(paramTypes, encoded);
+        const [, decodedLead, decodedPrevious] = decodeAbiParameters(paramTypes, encoded);
         expect(decodedLead).toBe("0x0000000000000000000000000000000000000000");
+        expect(decodedPrevious).toBe("0x0000000000000000000000000000000000000000");
+    });
+
+    it("encodes an explicit previousLead", () => {
+        const roleId = 5n;
+        const lead = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" as const;
+        const previous = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as const;
+
+        const encoded = encodeElection(roleId, lead, previous);
+
+        const [decodedRoleId, decodedLead, decodedPrevious] = decodeAbiParameters(
+            paramTypes,
+            encoded,
+        );
+        expect(decodedRoleId).toBe(roleId);
+        expect(decodedLead.toLowerCase()).toBe(lead.toLowerCase());
+        expect(decodedPrevious.toLowerCase()).toBe(previous.toLowerCase());
     });
 });
 

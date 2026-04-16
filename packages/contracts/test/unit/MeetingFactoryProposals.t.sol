@@ -41,7 +41,8 @@ contract UnitMeetingFactoryProposals is Test {
   }
 
   function setUp() external {
-    _orgFactory = new OrganizationFactory(address(new RoleRegistry()), address(new StubENSRegistrarForProposals()));
+    _orgFactory =
+      new OrganizationFactory(address(new RoleRegistry()), address(new StubENSRegistrarForProposals()), address(0));
     _meetingFactory = MeetingFactory(Clones.clone(address(new MeetingFactory())));
 
     vm.prank(_deployer);
@@ -50,9 +51,12 @@ contract UnitMeetingFactoryProposals is Test {
     // Pull the cloned RoleRegistry the org was assigned and wire our
     // MeetingFactory clone as its governance process so role mutations work.
     _roleRegistry = RoleRegistry(_orgFactory.getOrganization(_orgId).roleRegistry);
+
+    // OrgFactory is the factory on RoleRegistry, so prank as OrgFactory to set governance process
+    vm.prank(address(_orgFactory));
     _roleRegistry.setGovernanceProcess(address(_meetingFactory));
 
-    _meetingFactory.initialize(address(_orgFactory), address(_roleRegistry));
+    _meetingFactory.initialize(_orgId, address(_orgFactory), address(_roleRegistry));
 
     vm.prank(_deployer);
     _orgFactory.addOrgMember(_orgId, _member);
@@ -158,25 +162,57 @@ contract UnitMeetingFactoryProposals is Test {
     assertGt(o.resolvedAt, 0);
   }
 
-  function test_ResolveObjection_ByAdmin() external {
+  function test_ResolveObjection_ByFacilitator() external {
+    // Set up a facilitator for circle 0 (anchor circle)
+    address facilitator = makeAddr('facilitator');
+    vm.prank(_deployer);
+    _orgFactory.addOrgMember(_orgId, facilitator);
+    vm.prank(_deployer);
+    _meetingFactory.setCircleFacilitator(0, facilitator);
+
     uint256 proposalId = _createCuratorProposal();
     vm.prank(_member);
     uint256 objectionId = _meetingFactory.raiseObjection(proposalId, CONCERN);
 
-    vm.prank(_deployer); // admin, not the objector
+    // Facilitator can resolve (per Holacracy §5.3.3)
+    vm.prank(facilitator);
     _meetingFactory.resolveObjection(objectionId);
 
     IMeetingFactory.ObjectionRecord memory o = _meetingFactory.getObjection(objectionId);
     assertEq(uint8(o.status), uint8(HolacracyTypes.ObjectionStatus.Resolved));
   }
 
-  function test_AdoptWithUnresolvedObjections_Succeeds() external {
-    // Documents the intentional non-enforcement: contract trusts the
-    // coordinator. Event log + objection records still reflect the
-    // unresolved state for off-chain audit.
+  function test_ResolveObjection_AdminCannotResolve() external {
+    uint256 proposalId = _createCuratorProposal();
+    vm.prank(_member);
+    uint256 objectionId = _meetingFactory.raiseObjection(proposalId, CONCERN);
+
+    // Admin (Lead Link) CANNOT resolve objections — Holacracy compliance
+    vm.prank(_deployer);
+    vm.expectRevert(
+      abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotObjectorOrFacilitator.selector, objectionId, _deployer)
+    );
+    _meetingFactory.resolveObjection(objectionId);
+  }
+
+  function test_AdoptWithUnresolvedObjections_Reverts() external {
     uint256 proposalId = _createCuratorProposal();
     vm.prank(_member);
     _meetingFactory.raiseObjection(proposalId, CONCERN);
+
+    // M-1 fix: adoption blocked while objections are unresolved
+    vm.prank(_deployer);
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_UnresolvedObjections.selector, proposalId, 1));
+    _meetingFactory.adoptProposal(proposalId);
+  }
+
+  function test_AdoptAfterResolvingObjections_Succeeds() external {
+    uint256 proposalId = _createCuratorProposal();
+    vm.prank(_member);
+    uint256 objectionId = _meetingFactory.raiseObjection(proposalId, CONCERN);
+
+    vm.prank(_member);
+    _meetingFactory.resolveObjection(objectionId);
 
     vm.prank(_deployer);
     _meetingFactory.adoptProposal(proposalId);
@@ -262,14 +298,14 @@ contract UnitMeetingFactoryProposals is Test {
     _meetingFactory.raiseObjection(proposalId, CONCERN);
   }
 
-  function test_ResolveObjection_RevertsNonObjectorNonAdmin() external {
+  function test_ResolveObjection_RevertsNonObjectorNonFacilitator() external {
     uint256 proposalId = _createCuratorProposal();
     vm.prank(_member);
     uint256 objectionId = _meetingFactory.raiseObjection(proposalId, CONCERN);
 
     vm.prank(_stranger);
     vm.expectRevert(
-      abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotObjectorOrAdmin.selector, objectionId, _stranger)
+      abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotObjectorOrFacilitator.selector, objectionId, _stranger)
     );
     _meetingFactory.resolveObjection(objectionId);
   }
@@ -389,5 +425,172 @@ contract UnitMeetingFactoryProposals is Test {
     vm.prank(_deployer);
     uint256 result = _meetingFactory.adoptProposal(amendId);
     assertEq(result, roleId);
+  }
+
+  /*//////////////////////////////////////////////////////////////
+                       PROPOSAL EXPIRY (M-5)
+  //////////////////////////////////////////////////////////////*/
+
+  function test_AdoptExpiredProposal_Reverts() external {
+    uint256 proposalId = _createCuratorProposal();
+
+    // Warp past MAX_PROPOSAL_AGE (14 days)
+    vm.warp(block.timestamp + 14 days + 1);
+
+    vm.prank(_deployer);
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_ProposalExpired.selector, proposalId));
+    _meetingFactory.adoptProposal(proposalId);
+  }
+
+  function test_AdoptProposalJustBeforeExpiry_Succeeds() external {
+    uint256 proposalId = _createCuratorProposal();
+
+    // Warp to exactly MAX_PROPOSAL_AGE — should still work
+    vm.warp(block.timestamp + 14 days);
+
+    vm.prank(_deployer);
+    _meetingFactory.adoptProposal(proposalId);
+
+    IMeetingFactory.ProposalRecord memory p = _meetingFactory.getProposal(proposalId);
+    assertEq(uint8(p.status), uint8(HolacracyTypes.ProposalStatus.Adopted));
+  }
+
+  function test_DiscardExpiredProposal_Permissionless() external {
+    uint256 proposalId = _createCuratorProposal();
+
+    // Warp past expiry
+    vm.warp(block.timestamp + 14 days + 1);
+
+    // Anyone can discard expired proposals — no admin required
+    vm.prank(_stranger);
+    _meetingFactory.discardExpiredProposal(proposalId);
+
+    IMeetingFactory.ProposalRecord memory p = _meetingFactory.getProposal(proposalId);
+    assertEq(uint8(p.status), uint8(HolacracyTypes.ProposalStatus.Discarded));
+    assertGt(p.resolvedAt, 0);
+  }
+
+  function test_DiscardExpiredProposal_RevertsIfNotExpired() external {
+    uint256 proposalId = _createCuratorProposal();
+
+    vm.prank(_stranger);
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_ProposalNotExpired.selector, proposalId));
+    _meetingFactory.discardExpiredProposal(proposalId);
+  }
+
+  function test_DiscardExpiredProposal_RevertsIfAlreadyAdopted() external {
+    uint256 proposalId = _createCuratorProposal();
+    vm.prank(_deployer);
+    _meetingFactory.adoptProposal(proposalId);
+
+    vm.warp(block.timestamp + 14 days + 1);
+
+    vm.prank(_stranger);
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        IMeetingFactory.MeetingFactory_InvalidProposalStatus.selector, proposalId, HolacracyTypes.ProposalStatus.Adopted
+      )
+    );
+    _meetingFactory.discardExpiredProposal(proposalId);
+  }
+
+  /*//////////////////////////////////////////////////////////////
+                     FACILITATOR MANAGEMENT
+  //////////////////////////////////////////////////////////////*/
+
+  function test_SetCircleFacilitator_EmitsEvent() external {
+    address facilitator = makeAddr('facilitator');
+
+    vm.prank(_deployer);
+    vm.expectEmit(true, true, true, true);
+    emit IMeetingFactory.CircleFacilitatorSet(0, facilitator);
+    _meetingFactory.setCircleFacilitator(0, facilitator);
+  }
+
+  function test_SetCircleFacilitator_RevertsNonAdmin() external {
+    vm.prank(_member);
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotOrgAdmin.selector, _orgId, _member));
+    _meetingFactory.setCircleFacilitator(0, makeAddr('facilitator'));
+  }
+
+  function test_ResolveObjection_FacilitatorCanResolveMultipleObjections() external {
+    address facilitator = makeAddr('facilitator');
+    vm.prank(_deployer);
+    _meetingFactory.setCircleFacilitator(0, facilitator);
+
+    uint256 proposalId = _createCuratorProposal();
+
+    // Two members raise objections
+    vm.prank(_member);
+    uint256 obj1 = _meetingFactory.raiseObjection(proposalId, CONCERN);
+
+    vm.prank(_deployer);
+    _orgFactory.addOrgMember(_orgId, _stranger);
+    vm.prank(_stranger);
+    uint256 obj2 = _meetingFactory.raiseObjection(proposalId, keccak256('different concern'));
+
+    // Facilitator resolves both
+    vm.startPrank(facilitator);
+    _meetingFactory.resolveObjection(obj1);
+    _meetingFactory.resolveObjection(obj2);
+    vm.stopPrank();
+
+    // Now admin can adopt
+    vm.prank(_deployer);
+    _meetingFactory.adoptProposal(proposalId);
+
+    IMeetingFactory.ProposalRecord memory p = _meetingFactory.getProposal(proposalId);
+    assertEq(uint8(p.status), uint8(HolacracyTypes.ProposalStatus.Adopted));
+  }
+
+  /*//////////////////////////////////////////////////////////////
+                     ORG ID VALIDATION (H-3)
+  //////////////////////////////////////////////////////////////*/
+
+  function test_CreateProposal_WrongOrgId_Reverts() external {
+    uint256 wrongOrgId = 999;
+    vm.prank(_member);
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_OrgIdMismatch.selector, _orgId, wrongOrgId));
+    _meetingFactory.createProposal(
+      wrongOrgId, 0, 0, TENSION, HolacracyTypes.ChangeType.CreateRole, _encodeCreateRole('Curator')
+    );
+  }
+
+  function test_StartMeeting_WrongOrgId_Reverts() external {
+    uint256 wrongOrgId = 999;
+    vm.prank(_deployer);
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_OrgIdMismatch.selector, _orgId, wrongOrgId));
+    _meetingFactory.startMeeting(wrongOrgId, IMeetingFactory.MeetingKind.Governance);
+  }
+
+  /*//////////////////////////////////////////////////////////////
+                   ELECTION WITH PREVIOUS LEAD (L-7)
+  //////////////////////////////////////////////////////////////*/
+
+  function test_AdoptElection_UnassignsPreviousLead() external {
+    // Create a role first
+    uint256 createId = _createCuratorProposal();
+    vm.prank(_deployer);
+    uint256 roleId = _meetingFactory.adoptProposal(createId);
+
+    // Elect first lead
+    address lead1 = makeAddr('lead1');
+    bytes memory electData1 = abi.encode(roleId, lead1, address(0));
+    vm.prank(_member);
+    uint256 e1 = _meetingFactory.createProposal(_orgId, 0, 0, TENSION, HolacracyTypes.ChangeType.Election, electData1);
+    vm.prank(_deployer);
+    _meetingFactory.adoptProposal(e1);
+    assertTrue(_roleRegistry.isRoleLead(roleId, lead1));
+
+    // Elect second lead, unassigning the first
+    address lead2 = makeAddr('lead2');
+    bytes memory electData2 = abi.encode(roleId, lead2, lead1);
+    vm.prank(_member);
+    uint256 e2 = _meetingFactory.createProposal(_orgId, 0, 0, TENSION, HolacracyTypes.ChangeType.Election, electData2);
+    vm.prank(_deployer);
+    _meetingFactory.adoptProposal(e2);
+
+    assertTrue(_roleRegistry.isRoleLead(roleId, lead2));
+    assertFalse(_roleRegistry.isRoleLead(roleId, lead1));
   }
 }

@@ -26,7 +26,8 @@ contract UnitRoleRegistry is Test {
   function setUp() external {
     RoleRegistry _impl = new RoleRegistry();
     _roleRegistry = RoleRegistry(Clones.clone(address(_impl)));
-    _roleRegistry.initialize();
+    // Use address(this) as factory so this test contract can call setGovernanceProcess
+    _roleRegistry.initialize(address(this));
     _roleRegistry.setGovernanceProcess(_governanceProcess);
 
     _domains.push('Codebase');
@@ -41,6 +42,16 @@ contract UnitRoleRegistry is Test {
     // it reverts
     vm.expectRevert(IRoleRegistry.RoleRegistry_Unauthorized.selector);
     _roleRegistry.setGovernanceProcess(makeAddr('other'));
+  }
+
+  function test_SetGovernanceProcessWhenNotFactory() external {
+    RoleRegistry _fresh = RoleRegistry(Clones.clone(address(new RoleRegistry())));
+    _fresh.initialize(address(this));
+
+    // stranger can't call setGovernanceProcess
+    vm.prank(_stranger);
+    vm.expectRevert(IRoleRegistry.RoleRegistry_Unauthorized.selector);
+    _fresh.setGovernanceProcess(_governanceProcess);
   }
 
   /*///////////////////////////////////////////////////////////////

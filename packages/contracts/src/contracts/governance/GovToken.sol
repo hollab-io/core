@@ -14,6 +14,9 @@ contract GovToken is ERC20, ERC20Permit, ERC20Votes {
   address public minter;
 
   error NotMinter();
+  error ZeroAddress();
+
+  event MinterChanged(address indexed previousMinter, address indexed newMinter);
 
   constructor(
     string memory _name,
@@ -37,6 +40,8 @@ contract GovToken is ERC20, ERC20Permit, ERC20Votes {
     address _newMinter
   ) external {
     if (msg.sender != minter) revert NotMinter();
+    if (_newMinter == address(0)) revert ZeroAddress();
+    emit MinterChanged(minter, _newMinter);
     minter = _newMinter;
   }
 

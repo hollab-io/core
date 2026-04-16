@@ -77,13 +77,21 @@ Read `README.md` and `specs/00-overview.md` for the full model. The essentials:
 
 **Per-org contract set, cloned via ERC-1167 from `OrganizationFactory`:**
 
+`OrganizationFactory` constructor takes three params: `(roleRegistryImpl, ensRegistrar, meetingComponentsFactory)`.
+
 -   `CircleRegistry` — circle hierarchy, role-to-circle assignments, elected positions (Facilitator, Secretary, Circle Rep)
--   `RoleRegistry` — role definitions (purpose, domains, accountabilities)
--   `GovernanceProcess` — proposal lifecycle: `createProposal` → `raiseObjection` (opens an objection sub-lifecycle closed by `resolveObjection`) → `adopt` / `discard`. This is the only path; `executeGovernance` no longer exists.
+-   `RoleRegistry` — role definitions (purpose, domains, accountabilities). `setGovernanceProcess` is restricted to the OrgFactory (routed via `setRoleRegistryGovernanceProcess`, gated to `meetingComponentsFactory`). Emits `GovernanceProcessSet` when wired.
+-   `GovernanceProcess` — proposal lifecycle: `createProposal` → `raiseObjection` (opens an objection sub-lifecycle closed by `resolveObjection`) → `adopt` / `discard`. `adoptProposal` enforces zero open objections and reverts on expired proposals (`MAX_PROPOSAL_AGE` = 14 days). `discardExpiredProposal` is permissionless. This is the only path; `executeGovernance` no longer exists.
 -   `GovernanceMeeting` — meeting outcomes (adopted proposals, election results)
 -   DAO layer: `GovToken` (ERC20Votes) + `HolGovernor` + `TimelockController` + `CircleTreasury` + ENS subname `<org>.hollab.eth`
 
-Proposals encode structural ops (CreateRole / AmendRole / RemoveRole, CreatePolicy / AmendPolicy / RemovePolicy, Elections) executed atomically on adoption. The DAO layer is optional oversight — per-org flags like `daoVoteRequired` decide whether token-holder approval is required before governance changes take effect.
+Proposals encode structural ops (CreateRole / AmendRole / RemoveRole, CreatePolicy / AmendPolicy / RemovePolicy, Elections) executed atomically on adoption. Election change type uses 3-param encoding `(roleId, newLead, previousLead)`. The DAO layer is optional oversight — per-org flags like `daoVoteRequired` decide whether token-holder approval is required before governance changes take effect.
+
+**Facilitator role:** `resolveObjection` requires the original objector (withdrawal) or the circle facilitator (dismissal per Holacracy §5.3.3-5.3.4). `setCircleFacilitator(circleId, facilitator)` is admin-gated for now.
+
+**ERC-8004 agent identity:** Members can link agent NFTs to their org identity via `linkAgentIdentity(orgId, agentRegistry, agentId)`, emitting `AgentIdentityLinked`. This enables the agent-native surface described in the agent-sdk.
+
+**Admin safety:** `removeOrgAdmin` prevents removing the last admin via `_orgAdminCount` tracking. `MeetingComponentsFactory.deploy()` requires org admin (`isOrgAdmin` check). `MeetingFactory` stores `orgId` at init and validates all `_orgId` params via `_validateOrgId()`. `ActionVoting` stores `orgId` at init and uses it for admin checks instead of `circleId`.
 
 **Data flow:**
 

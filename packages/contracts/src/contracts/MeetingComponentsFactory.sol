@@ -59,25 +59,30 @@ contract MeetingComponentsFactory is IMeetingComponentsFactory {
     // with createOrganization via EIP-5792: the subname is known at call-encoding
     // time, so there is no race against other orgs being created between the
     // client-side prediction and the batch landing on-chain.
-    HolacracyTypes.Organization memory _org = IOrganizationFactory(_orgFactory).getOrganizationBySubname(_subname);
+    IOrganizationFactory _factory = IOrganizationFactory(_orgFactory);
+    HolacracyTypes.Organization memory _org = _factory.getOrganizationBySubname(_subname);
     if (_org.id == 0) revert MeetingComponentsFactory_OrgNotFound(_subname);
     uint256 _orgId = _org.id;
     address _roleRegistry = _org.roleRegistry;
     address _govToken = _org.token;
+
+    // ── 0b. Authorize caller ───────────────────────────────────────────────────
+    if (!_factory.isOrgAdmin(_orgId, msg.sender)) revert MeetingComponentsFactory_Unauthorized();
 
     // ── 1. Clone ────────────────────────────────────────────────────────────────
     MeetingFactory meetingFactory = MeetingFactory(Clones.clone(meetingFactoryImplementation));
     ActionVoting actionVoting = ActionVoting(Clones.clone(actionVotingImplementation));
 
     // ── 2. Initialize ────────────────────────────────────────────────────────────
-    meetingFactory.initialize(_orgFactory, _roleRegistry);
-    actionVoting.initialize(_orgFactory, address(meetingFactory), _govToken);
+    meetingFactory.initialize(_orgId, _orgFactory, _roleRegistry);
+    actionVoting.initialize(_orgId, _orgFactory, address(meetingFactory), _govToken);
 
     // ── 3. Wire governance process ───────────────────────────────────────────────
     // MeetingFactory becomes the only address that can modify roles on this
     // org's RoleRegistry — enforcing Holacracy's governance-only structure changes.
+    // Routes through OrgFactory which is the only address the RoleRegistry trusts.
     if (_roleRegistry != address(0)) {
-      RoleRegistry(_roleRegistry).setGovernanceProcess(address(meetingFactory));
+      _factory.setRoleRegistryGovernanceProcess(_orgId, address(meetingFactory));
     }
 
     // ── 4. Emit for indexer auto-discovery ───────────────────────────────────────

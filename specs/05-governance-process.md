@@ -418,6 +418,8 @@ ElectionCompleted(electionId, electedId)
 ProcessBreakdownDeclared(breakdownId, circleId, declaredBy)
 ProcessRestored(breakdownId, circleId)
 ProcessBreakdownEscalated(breakdownId, superCircleId)
+GovernanceProcessSet(orgId, roleRegistry, governanceProcess)
+AgentIdentityLinked(orgId, member, agentRegistry, agentId)
 ```
 
 ---
@@ -447,13 +449,14 @@ as off-chain records pointed at by content hashes when persistence is needed.
 `packages/contracts/src/contracts/MeetingFactory.sol` exposes five proposal
 lifecycle events and five corresponding entry points:
 
-| Step            | IDM mapping (§5.4.5) | Contract event                                                                                                | Entry point             |
-| --------------- | -------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| a               | Present Proposal     | `ProposalCreated(proposalId, orgId, circleId, proposer, proposerRoleId, tensionHash, changeType, changeData)` | `createProposal(...)`   |
-| e               | Objection Round      | `ObjectionRaised(objectionId, proposalId, objector, concernHash)`                                             | `raiseObjection(...)`   |
-| f               | Integration          | `ObjectionResolved(objectionId, proposalId, resolvedBy)`                                                      | `resolveObjection(...)` |
-| § 5.2           | Enactment            | `ProposalAdopted(proposalId, orgId, resultId, adoptedBy)`                                                     | `adoptProposal(...)`    |
-| § 5.3.1 / § 5.5 | Discard              | `ProposalDiscarded(proposalId, orgId, discardedBy)`                                                           | `discardProposal(...)`  |
+| Step            | IDM mapping (§5.4.5) | Contract event                                                                                                | Entry point                   |
+| --------------- | -------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| a               | Present Proposal     | `ProposalCreated(proposalId, orgId, circleId, proposer, proposerRoleId, tensionHash, changeType, changeData)` | `createProposal(...)`         |
+| e               | Objection Round      | `ObjectionRaised(objectionId, proposalId, objector, concernHash)`                                             | `raiseObjection(...)`         |
+| f               | Integration          | `ObjectionResolved(objectionId, proposalId, resolvedBy)`                                                      | `resolveObjection(...)`       |
+| § 5.2           | Enactment            | `ProposalAdopted(proposalId, orgId, resultId, adoptedBy)`                                                     | `adoptProposal(...)`          |
+| § 5.3.1 / § 5.5 | Discard              | `ProposalDiscarded(proposalId, orgId, discardedBy)`                                                           | `discardProposal(...)`        |
+| —               | Expiry cleanup       | `ProposalDiscarded(proposalId, orgId, discardedBy)`                                                           | `discardExpiredProposal(...)` |
 
 Steps b, c, and d — Clarifying Questions, Reaction Round, Option to Clarify
 — produce no on-chain artifacts because nothing committed changes. If a
@@ -477,36 +480,53 @@ plaintext and the storage backend.
 
 ### Authorization
 
-| Action             | Who can call                                                        |
-| ------------------ | ------------------------------------------------------------------- |
-| `createProposal`   | Any org member                                                      |
-| `raiseObjection`   | Any org member                                                      |
-| `resolveObjection` | Original objector (withdrawal) OR org admin (integration confirmed) |
-| `adoptProposal`    | Org admin only                                                      |
-| `discardProposal`  | Org admin only                                                      |
+| Action                   | Who can call                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------- |
+| `createProposal`         | Any org member                                                                         |
+| `raiseObjection`         | Any org member                                                                         |
+| `resolveObjection`       | Original objector (withdrawal) OR circle facilitator (§5.3.3 dismissal)                |
+| `adoptProposal`          | Org admin only (reverts if open objections remain or proposal has expired)             |
+| `discardProposal`        | Org admin only                                                                         |
+| `discardExpiredProposal` | Permissionless — anyone can discard a proposal older than `MAX_PROPOSAL_AGE` (14 days) |
 
 The `resolvedBy` address in `ObjectionResolved` lets indexers and UIs
-distinguish a withdrawal from an integration without a separate event or
-status enum entry.
+distinguish a withdrawal (objector address) from a facilitator dismissal
+(facilitator address) without a separate event or status enum entry.
 
-### Non-enforcement: "no adopt with unresolved objections"
+### Enforcement: "no adopt with unresolved objections"
 
-The spec says a proposal with valid outstanding objections must not be
-adopted. The contract does **not enforce this**. Reasons:
+`adoptProposal` now enforces that `_openObjectionCount == 0` — a proposal
+with any unresolved objections cannot be adopted on-chain. While the
+constitution's definition of a "valid" objection is judgment-based (§5.3.4
+criteria), the contract enforces the simpler structural invariant: every
+raised objection must be explicitly resolved (by the objector withdrawing
+or the circle facilitator dismissing per §5.3.3) before adoption proceeds.
 
-1. The constitution's definition of a "valid" objection is judgment-based
-   (§5.3.4 criteria) — the contract cannot reliably determine validity
-   without duplicating the meeting facilitator's role on-chain.
-2. On-chain enforcement would require iterating objections in `adoptProposal`
-   (an SLOAD loop) for a rule that the coordinator is already applying.
-3. The event log preserves full auditability: anyone can read the proposal
-   and objection trail and determine whether the adoption was procedurally
-   valid.
-
-The contract _does_ enforce cheap state-machine invariants:
+The contract also enforces these state-machine invariants:
 `Draft → {Adopted, Discarded}` (no double-transition, no discard-after-adopt);
 `Raised → Resolved` (no double-resolve); objections can only be raised on
 Draft proposals. These are one-SLOAD checks and catch the common bugs.
+
+### Proposal expiry
+
+Proposals have a maximum age of `MAX_PROPOSAL_AGE` (14 days). After expiry:
+
+-   `adoptProposal` reverts — expired proposals cannot be adopted.
+-   `discardExpiredProposal` is permissionless — anyone can clean up stale
+    proposals without admin privileges.
+
+### Facilitator-based objection resolution
+
+Per §5.3.3-5.3.4, the circle facilitator can test and dismiss objections
+that fail the validity criteria. `resolveObjection` accepts calls from:
+
+-   The **original objector** (voluntary withdrawal)
+-   The **circle facilitator** (dismissal after testing per §5.3.3)
+
+The facilitator for each circle is set via `setCircleFacilitator(circleId,
+facilitator)`, currently gated to org admin. This aligns with the
+constitution's requirement that objection testing is a facilitator
+responsibility, not an admin one.
 
 ### Out of scope (for now)
 
@@ -518,7 +538,9 @@ on-chain in the current contract set. Each is either a coordination concern
 -   Integrative Election Process — the contract has a generic `Election`
     `ChangeType` that records an outcome, but the nomination / reaction / final
     round mechanics happen in the meeting room
--   Objection validity tests (the 4 criteria in §5.3.4)
+-   Objection validity tests (the 4 subjective criteria in §5.3.4) — the
+    contract enforces that all objections are resolved before adoption, but the
+    facilitator judges validity off-chain per §5.3.3
 -   `Withdrawn` proposal status — the MVP uses `Discarded` for both
     admin-initiated rejection and proposer withdrawal, distinguishing them via
     the `discardedBy` address in the event

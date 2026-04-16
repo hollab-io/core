@@ -101,6 +101,7 @@ interface IActionVoting {
 
   /// @notice Initializes a clone of ActionVoting
   function initialize(
+    uint256 _orgId,
     address _orgFactory,
     address _meetingFactory,
     address _govToken

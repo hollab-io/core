@@ -29,6 +29,9 @@ contract ActionVoting is IActionVoting {
                             STATE
   //////////////////////////////////////////////////////////////*/
 
+  /// @notice The org ID this ActionVoting clone belongs to
+  uint256 public orgId;
+
   /// @notice Reference to the organization factory
   IOrganizationFactory public orgFactory;
 
@@ -81,10 +84,12 @@ contract ActionVoting is IActionVoting {
 
   /// @inheritdoc IActionVoting
   function initialize(
+    uint256 _orgId,
     address _orgFactory,
     address,
     address _govToken
   ) external initializer {
+    orgId = _orgId;
     orgFactory = IOrganizationFactory(_orgFactory);
     govToken = IVotes(_govToken);
   }
@@ -276,7 +281,7 @@ contract ActionVoting is IActionVoting {
   function _assertOrgAdmin(
     uint256 _circleId
   ) internal view {
-    if (!orgFactory.isOrgAdmin(_circleId, msg.sender)) {
+    if (!orgFactory.isOrgAdmin(orgId, msg.sender)) {
       revert ActionVoting_NotCircleLeadOrFacilitator(_circleId);
     }
   }
