@@ -1,6 +1,6 @@
 import type { MeetingOutput, TacticalMeeting } from "@hollab-io/indexing-client";
 import { meetingFactoryAbi } from "@hollab-io/contracts/actions";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
     Check,
@@ -42,6 +42,8 @@ const MEETING_PHASES: MeetingPhaseId[] = [
     "Triage items",
     "Closing round",
 ];
+
+const EMPTY_OUTPUTS: MeetingOutput[] = [];
 
 const PHASE_DESCRIPTIONS: Record<MeetingPhaseId, string> = {
     "Check-in": "Each participant shares a brief word or phrase about how they are arriving.",
@@ -150,28 +152,21 @@ export default function TacticalMeetingRoom({
     const [phaseIndex, setPhaseIndex] = useState(0);
     const activePhase = MEETING_PHASES[phaseIndex]!;
 
-    // Reset phase when meeting changes
+    // Reset phase when meeting changes (indexed outputs are cache-keyed on meetingId).
     useEffect(() => {
         setPhaseIndex(0);
         setPendingOutputs([]);
-        setIndexedOutputs([]);
         setCompletedScreen(false);
         setActiveTab("meeting");
     }, [activeMeetingId]);
 
     /* ── Indexed outputs ──────────────────────────────────────────────────── */
-    const [indexedOutputs, setIndexedOutputs] = useState<MeetingOutput[]>([]);
-
-    useEffect(() => {
-        if (!activeMeeting) return;
-        let cancelled = false;
-        fetchOutputs(activeMeeting.meetingId).then((outputs) => {
-            if (!cancelled) setIndexedOutputs(outputs);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [activeMeeting, fetchOutputs]);
+    const { data: indexedOutputs = EMPTY_OUTPUTS } = useQuery({
+        queryKey: ["tacticalMeeting:outputs", activeMeeting?.meetingId ?? null] as const,
+        enabled: Boolean(activeMeeting),
+        staleTime: 10_000,
+        queryFn: () => fetchOutputs(activeMeeting!.meetingId),
+    });
 
     /* ── Pending (local) outputs ──────────────────────────────────────────── */
     const [pendingOutputs, setPendingOutputs] = useState<PendingOutput[]>([]);

@@ -7,7 +7,12 @@ import logoSvg from "../assets/logo.svg";
 import ChainSwitcher from "../components/ChainSwitcher";
 import ThemeToggle from "../components/ThemeToggle";
 import WalletAuthControl from "../components/WalletAuthControl";
-import { useDeployOrganization } from "../hooks/useOrganizationFactory";
+import { useChain } from "../context/ChainContext";
+import {
+    deriveSubname,
+    isValidSubname,
+    useDeployOrganization,
+} from "../hooks/useOrganizationFactory";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 import JoinOrganizationPanel from "./JoinOrganizationPanel";
 
@@ -146,6 +151,7 @@ export default function OrganizationsHome({
     onPreview,
 }: Props) {
     const { authenticatedWalletAddress } = useWorkspaceSnapshot();
+    const { chainConfig } = useChain();
     const deploy = useDeployOrganization();
 
     // ── Discover: all orgs the user is not a member/creator of ───────────────
@@ -165,16 +171,28 @@ export default function OrganizationsHome({
     >(undefined);
     const [orgName, setOrgName] = useState("");
     const [purpose, setPurpose] = useState("");
+    // Subname edit state. `null` = auto-derive from name; otherwise use the override.
+    const [subnameOverride, setSubnameOverride] = useState<string | null>(null);
+
+    const derivedSubname = deriveSubname(orgName);
+    const effectiveSubname = subnameOverride ?? derivedSubname;
+    const subnameValid = isValidSubname(effectiveSubname);
+    const showSubnameBlock = orgName.trim().length > 0 || subnameOverride !== null;
 
     const txState = deploy.isPending ? "pending" : deploy.isError ? "error" : "idle";
     const txHash = deploy.data?.txHash ?? null;
     const txError = deploy.error?.message ?? null;
+    const explorerUrl = chainConfig.chain.blockExplorers?.default?.url;
 
     const canCreate =
-        Boolean(authenticatedWalletAddress) && orgName.trim().length > 2 && !deploy.isPending;
+        Boolean(authenticatedWalletAddress) &&
+        orgName.trim().length > 2 &&
+        subnameValid &&
+        !deploy.isPending;
 
     const handleCreate = () => {
         if (!authenticatedWalletAddress || orgName.trim().length < 3) return;
+        if (!subnameValid) return;
         if (deploy.isPending) return;
 
         deploy.mutate(
@@ -184,6 +202,7 @@ export default function OrganizationsHome({
                     purpose.trim() ||
                     "Run circles, governance, and tactical work in one shared organizational workspace.",
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
+                subname: effectiveSubname,
             },
             {
                 onSuccess: ({ organization: newOrg }) => {
@@ -197,6 +216,7 @@ export default function OrganizationsHome({
     const openCreate = () => {
         setOrgName("");
         setPurpose("");
+        setSubnameOverride(null);
         deploy.reset();
         setShowCreate(true);
     };
@@ -630,6 +650,81 @@ export default function OrganizationsHome({
                                             </div>
                                         </div>
 
+                                        {/* ENS subname preview / override */}
+                                        {showSubnameBlock && (
+                                            <div>
+                                                <label
+                                                    className="mb-2 flex items-center justify-between text-[10px] font-semibold
+                                                    uppercase tracking-[0.18em] text-slate-600"
+                                                >
+                                                    <span>ENS identity</span>
+                                                    {subnameOverride !== null && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setSubnameOverride(null)}
+                                                            className="rounded-full px-2 py-0.5 text-[9px] font-semibold tracking-[0.14em]
+                                                                text-slate-500 hover:text-[#3481FF]"
+                                                        >
+                                                            reset
+                                                        </button>
+                                                    )}
+                                                </label>
+                                                <div
+                                                    className={`flex items-center gap-0 rounded-[0.875rem]
+                                                    border bg-slate-50 dark:bg-white/[0.03] p-[3px]
+                                                    transition-all duration-300
+                                                    focus-within:shadow-[0_0_0_3px_rgba(52,129,255,0.08)]
+                                                    ${
+                                                        subnameValid
+                                                            ? "border-slate-200 dark:border-white/[0.07] focus-within:border-[#3481FF]/40"
+                                                            : "border-red-400/50 focus-within:border-red-500/60 focus-within:shadow-[0_0_0_3px_rgba(239,68,68,0.08)]"
+                                                    }`}
+                                                >
+                                                    <input
+                                                        type="text"
+                                                        value={effectiveSubname}
+                                                        onChange={(e) =>
+                                                            setSubnameOverride(
+                                                                e.target.value
+                                                                    .toLowerCase()
+                                                                    .replace(/[^a-z0-9-]/g, ""),
+                                                            )
+                                                        }
+                                                        onKeyDown={(e) =>
+                                                            e.key === "Enter" && handleCreate()
+                                                        }
+                                                        placeholder="acme"
+                                                        spellCheck={false}
+                                                        className="min-w-0 flex-1 rounded-l-[calc(0.875rem-3px)]
+                                                            bg-white dark:bg-[#0c0c10]
+                                                            py-3 pl-4 pr-1 text-[13px] font-mono font-medium
+                                                            text-slate-900 dark:text-white
+                                                            placeholder:text-slate-400 dark:placeholder:text-slate-700
+                                                            outline-none"
+                                                    />
+                                                    <span
+                                                        className="flex-shrink-0 rounded-r-[calc(0.875rem-3px)]
+                                                            bg-white dark:bg-[#0c0c10]
+                                                            py-3 pr-4 pl-0 text-[13px] font-mono font-medium
+                                                            text-slate-400 dark:text-slate-600"
+                                                    >
+                                                        .hollab.eth
+                                                    </span>
+                                                </div>
+                                                <p
+                                                    className={`mt-1.5 text-[11px] leading-snug ${
+                                                        subnameValid
+                                                            ? "text-slate-500"
+                                                            : "text-red-500 dark:text-red-400"
+                                                    }`}
+                                                >
+                                                    {subnameValid
+                                                        ? "Your organization’s onchain identity. You can edit this before deploying."
+                                                        : "3–32 chars: lowercase letters, digits, or dashes (no leading/trailing dash)."}
+                                                </p>
+                                            </div>
+                                        )}
+
                                         <div>
                                             <label
                                                 className="mb-2 block text-[10px] font-semibold
@@ -695,14 +790,16 @@ export default function OrganizationsHome({
                                                     />
                                                 </svg>
                                                 <span className="flex-1">Deploying…</span>
-                                                <a
-                                                    href={`https://etherscan.io/tx/${txHash}`}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center gap-1 opacity-70 hover:opacity-100"
-                                                >
-                                                    <ExternalLink size={10} strokeWidth={2} />
-                                                </a>
+                                                {explorerUrl && (
+                                                    <a
+                                                        href={`${explorerUrl}/tx/${txHash}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="flex items-center gap-1 opacity-70 hover:opacity-100"
+                                                    >
+                                                        <ExternalLink size={10} strokeWidth={2} />
+                                                    </a>
+                                                )}
                                             </div>
                                         )}
 

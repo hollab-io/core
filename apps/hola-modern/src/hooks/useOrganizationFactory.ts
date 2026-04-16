@@ -8,13 +8,22 @@ import { useAccount } from "wagmi";
 import { useChain } from "../context/ChainContext";
 import { useSendTransaction } from "./useSendTransaction";
 
-function deriveSubname(orgName: string): string {
+export function deriveSubname(orgName: string): string {
     return orgName
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "")
-        .slice(0, 48);
+        .slice(0, 32);
+}
+
+/**
+ * Checks whether a subname matches the on-chain ENS constraints:
+ * 3–32 chars, lowercase alphanumerics and dashes, no leading/trailing dash.
+ * The 32-char upper bound tracks the contract audit's [I-3] finding.
+ */
+export function isValidSubname(subname: string): boolean {
+    return /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/.test(subname);
 }
 
 function deriveTokenSymbol(orgName: string): string {
@@ -85,6 +94,8 @@ export type DeployParams = {
     name: string;
     purpose: string;
     walletAddress: `0x${string}`;
+    /** Optional override — if omitted, derived from name. */
+    subname?: string;
 };
 
 export type DeployResult = {
@@ -105,10 +116,10 @@ export function useDeployOrganization() {
 
     return useMutation<DeployResult, Error, DeployParams>({
         mutationFn: async (params) => {
-            const subname = deriveSubname(params.name);
-            if (subname.length < 3) {
+            const subname = params.subname ?? deriveSubname(params.name);
+            if (!isValidSubname(subname)) {
                 throw new Error(
-                    "Organization name too short — needs at least 3 alphanumeric characters.",
+                    "Invalid subname — use 3–32 lowercase letters, digits, or dashes (no leading/trailing dash).",
                 );
             }
 

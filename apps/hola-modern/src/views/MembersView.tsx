@@ -1,6 +1,7 @@
 import type { Organization } from "@hollab-io/indexing-client";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, BadgeCheck, Loader2, Mail, Plus, Users, Wallet } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { isAddress } from "viem";
 
 import { useChain } from "../context/ChainContext";
@@ -29,6 +30,8 @@ const INPUT_CLS = `w-full rounded-xl
 
 type Props = { org: Organization };
 
+const EMPTY_ADDRESS_SET: Set<string> = new Set();
+
 export default function MembersView({ org }: Props) {
     const { chainConfig } = useChain();
     const { authenticatedWalletAddress, circleMap, inviteMember, organization, snapshot } =
@@ -43,20 +46,18 @@ export default function MembersView({ org }: Props) {
     const [txHash, setTxHash] = useState<string | null>(null);
 
     // ── On-chain members (from indexer) ──────────────────────────────────────
-    const [onChainAddresses, setOnChainAddresses] = useState<Set<string>>(new Set());
-
-    useEffect(() => {
-        const client = getIndexingClient();
-        if (!client) return;
-        client
-            .listOrgMembersByOrg(chainConfig.orgFactoryAddress, org.id, { limit: 500 })
-            .then((r) =>
-                setOnChainAddresses(new Set(r.items.map((m) => m.memberAddress.toLowerCase()))),
-            )
-            .catch(() => {
-                /* silent — indexer may not have caught up yet */
+    const { data: onChainAddresses = EMPTY_ADDRESS_SET } = useQuery({
+        queryKey: ["orgMembers:addresses", chainConfig.orgFactoryAddress, org.id] as const,
+        queryFn: async () => {
+            const client = getIndexingClient();
+            if (!client) return new Set<string>();
+            const r = await client.listOrgMembersByOrg(chainConfig.orgFactoryAddress, org.id, {
+                limit: 500,
             });
-    }, [chainConfig.orgFactoryAddress, org.id]);
+            return new Set(r.items.map((m) => m.memberAddress.toLowerCase()));
+        },
+        staleTime: 15_000,
+    });
 
     const members = useMemo(() => {
         const rolesByPartnerId = new Map<string, string[]>();

@@ -6,6 +6,7 @@ import type { AppTabId } from "./config/navigation";
 import ChainSwitcher from "./components/ChainSwitcher";
 import ThemeToggle from "./components/ThemeToggle";
 import WalletAuthControl from "./components/WalletAuthControl";
+import WrongNetworkBanner from "./components/WrongNetworkBanner";
 import { useChain } from "./context/ChainContext";
 import { useTheme } from "./context/ThemeContext";
 import { useCirclesFromIndexer } from "./hooks/useCirclesFromIndexer";
@@ -91,23 +92,9 @@ function App() {
     const { meetings: indexedGovernanceMeetings, pollForNewMeeting: pollForNewGovernanceMeeting } =
         useGovernanceMeetingsFromIndexer(governanceMeetingAddress);
 
-    // When true, StructureView should auto-open the add-members panel
+    // When true, StructureView should auto-open the add-members panel.
+    // Set by fresh org creation so the new org creator lands on "add your first members".
     const [autoOpenInvite, setAutoOpenInvite] = useState(false);
-    // Org IDs that have completed (or skipped) member onboarding this session
-    const [onboardedOrgIds, setOnboardedOrgIds] = useState<Set<string>>(() => new Set());
-
-    // Skip invite onboarding if the org already has more than 1 member (creator + others)
-    const isOnboarding = Boolean(
-        routeOrgId &&
-            !onboardedOrgIds.has(routeOrgId) &&
-            route.page !== "join" &&
-            (activeOrg ? Number(activeOrg.memberCount) <= 1 : true),
-    );
-    const completeOnboarding = () => {
-        if (routeOrgId) {
-            setOnboardedOrgIds((prev) => new Set([...prev, routeOrgId]));
-        }
-    };
 
     const isGuest = route.page === "join";
     const [showGuestJoin, setShowGuestJoin] = useState(false);
@@ -132,13 +119,6 @@ function App() {
             syncIndexedRoles(indexedRoles);
         }
     }, [indexedRoles, syncIndexedRoles]);
-
-    // Skip onboarding screen — just mark it complete
-    useEffect(() => {
-        if (isOnboarding && activeOrg) {
-            completeOnboarding();
-        }
-    }, [isOnboarding, activeOrg]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Public (wallet-less) org surface ─────────────────────────────────────
     // Must render BEFORE the auth gate so incognito / no-wallet visitors work.
@@ -230,21 +210,30 @@ function App() {
                 </div>
             );
         }
-        return <Welcome onShowConstitution={() => navigate({ page: "constitution" })} />;
+        return (
+            <Welcome
+                onShowConstitution={() => navigate({ page: "constitution" })}
+                onBrowsePublic={() => navigate({ page: "explore" })}
+            />
+        );
     }
 
     // ── Org list ─────────────────────────────────────────────────────────────
 
     if (!routeOrgId) {
         return (
-            <div className="relative flex h-screen w-full overflow-hidden bg-white dark:bg-[#050505]">
+            <div className="relative flex h-screen w-full flex-col overflow-hidden bg-white dark:bg-[#050505]">
                 <div className="grain-overlay hidden dark:block" aria-hidden="true" />
+                <WrongNetworkBanner />
                 <main className="custom-scrollbar relative z-10 min-w-0 flex-1 overflow-auto">
                     <OrganizationsHome
                         organizations={organizations}
                         discoverOrganizations={allOrganizations}
                         onSelect={(id) => setOrgId(id)}
-                        onSelectNew={(id) => setOrgId(id)}
+                        onSelectNew={(id) => {
+                            setAutoOpenInvite(true);
+                            navigate({ page: "org", orgId: id, tab: "structure" });
+                        }}
                         onPreview={(id) => navigate({ page: "join", orgId: id })}
                     />
                 </main>
@@ -353,6 +342,8 @@ function App() {
                 <ChainSwitcher />
                 <WalletAuthControl />
             </header>
+
+            <WrongNetworkBanner />
 
             {/* ── Guest join banner ── */}
             <AnimatePresence>
