@@ -7,7 +7,10 @@
  * Requires ethers BrowserProvider to bridge the wallet signer to the
  * 0G SDK's ethers-based upload API.
  */
-import { Indexer, MemData } from "@0gfoundation/0g-ts-sdk";
+// Use the SDK's /browser entry to avoid pulling `node:fs/promises` via ZgFile,
+// which Rollup cannot bundle for the browser. The /browser subpath ships the
+// same public API (Indexer, MemData) compiled for the browser target.
+import { Indexer, MemData } from "@0gfoundation/0g-ts-sdk/browser";
 import { useMutation } from "@tanstack/react-query";
 import { BrowserProvider } from "ethers";
 
