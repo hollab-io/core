@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useGovernanceMeeting } from "../hooks/useGovernanceMeeting";
 import { useDeployMeetingComponents } from "../hooks/useMeetingComponentsFactory";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
+import OpenProposalsPanel from "./OpenProposalsPanel";
 
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const SPRING = { type: "spring", stiffness: 340, damping: 28 } as const;
@@ -277,6 +278,9 @@ export default function GovernanceView({
                         )}
                     </div>
                 </motion.div>
+
+                {/* Open proposals with full objection lifecycle */}
+                <OpenProposalsPanel orgId={activeOrg?.id ?? null} />
 
                 {/* Two-column: active proposals + recent meetings */}
                 <motion.div
