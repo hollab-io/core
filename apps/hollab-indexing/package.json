@@ -14,7 +14,7 @@
     },
     "dependencies": {
         "@hollab-io/contracts": "workspace:*",
-        "hono": "^4.5.0",
+        "hono": "^4.12.14",
         "ponder": "^0.16.6",
         "viem": "^2.21.3"
     },
