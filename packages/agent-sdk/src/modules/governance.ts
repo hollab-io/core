@@ -119,11 +119,17 @@ export class GovernanceModule {
         return { txHash };
     }
 
-    /** Raise an objection against a Draft proposal. Any org member. */
+    /**
+     * Raise an objection against a Draft proposal. Any org member.
+     *
+     * `objectorRoleId` must be a role the caller leads in the proposal's
+     * circle, or `0n` when the caller is the circle's elected Facilitator
+     * or Secretary.
+     */
     async raiseObjection(
         meetingFactoryAddress: `0x${string}`,
         proposalId: bigint,
-        concern: { text?: string; hash?: `0x${string}` },
+        concern: { objectorRoleId?: bigint; text?: string; hash?: `0x${string}` },
     ): Promise<RaiseObjectionResult> {
         const { walletClient, publicClient } = this.config;
         const concernHash =
@@ -132,7 +138,7 @@ export class GovernanceModule {
             abi: meetingFactoryAbi,
             address: meetingFactoryAddress,
             functionName: "raiseObjection",
-            args: [proposalId, concernHash],
+            args: [proposalId, concern.objectorRoleId ?? 0n, concernHash],
         });
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
         const objectionId = findIdFromEvent(receipt.logs, "ObjectionRaised", "_objectionId");
