@@ -7,30 +7,31 @@ import { getIndexingClient } from "./useOrganizationsFromIndexer";
 export type { OrgMember };
 
 /**
- * Fetches on-chain org members from the indexer (OrganizationFactory + orgId scope).
+ * Fetches on-chain org members from the indexer scoped to the per-org
+ * OrganizationInstance clone (the authoritative membership registry).
  */
 export function useOrgMembersFromIndexer(
-    orgFactoryAddress: string | undefined,
+    instanceAddress: string | undefined,
     orgId: string | undefined,
 ) {
     const queryClient = useQueryClient();
 
     const { data: members = [], isLoading: loading } = useQuery({
-        queryKey: ["orgMembers", orgFactoryAddress, orgId],
+        queryKey: ["orgMembers", instanceAddress, orgId],
         queryFn: async () => {
             const client = getIndexingClient();
-            if (!client || !orgFactoryAddress || !orgId) return [];
-            const result = await client.listOrgMembersByOrg(orgFactoryAddress, orgId);
+            if (!client || !instanceAddress || !orgId) return [];
+            const result = await client.listOrgMembersByOrg(instanceAddress, orgId);
             return result.items;
         },
-        enabled: Boolean(orgFactoryAddress && orgId),
+        enabled: Boolean(instanceAddress && orgId),
     });
 
     const refetch = useCallback(() => {
         return queryClient.invalidateQueries({
-            queryKey: ["orgMembers", orgFactoryAddress, orgId],
+            queryKey: ["orgMembers", instanceAddress, orgId],
         });
-    }, [queryClient, orgFactoryAddress, orgId]);
+    }, [queryClient, instanceAddress, orgId]);
 
     return { members, loading, refetch };
 }

@@ -46,7 +46,6 @@ contract RoleRegistry is Initializable, IRoleRegistry {
   /// @notice OrganizationFactory that deployed this clone (only address that can set governance process)
   address public factory;
 
-
   /// @notice Role ID => field name hash => ContentRef
   mapping(uint256 => mapping(bytes32 => HolacracyTypes.ContentRef)) internal _roleContentRefs;
 
@@ -85,7 +84,6 @@ contract RoleRegistry is Initializable, IRoleRegistry {
     }
     _;
   }
-
 
   /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR

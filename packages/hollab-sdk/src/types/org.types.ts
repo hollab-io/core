@@ -57,6 +57,32 @@ export interface ContentRef {
     visibility: DataVisibility;
 }
 
+/** A single key result linked to concrete work items */
+export interface OkrKeyResult {
+    id: string;
+    label: string;
+    linkedActionIds: string[];
+    linkedProjectIds: string[];
+    linkedProposalIds: string[];
+    progress?: number; // 0..1 optional externally-computed hint
+}
+
+/** An OKR objective anchored on a role via AmendRoleWithRefs content ref */
+export interface OkrObjective {
+    id: string;
+    roleId: string;
+    circleId: string;
+    quarter: string; // e.g. "Q2-2026"
+    title: string;
+    description: string;
+    ownerId?: string;
+    startOffset: number; // weeks from quarter start
+    endOffset: number;
+    keyResults: OkrKeyResult[];
+    createdAt: number;
+    updatedAt: number;
+}
+
 /** Configuration for OrgClient */
 export interface OrgClientConfig {
     orgId: bigint;

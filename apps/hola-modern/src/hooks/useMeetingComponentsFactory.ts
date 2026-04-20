@@ -16,6 +16,7 @@ export type DeployMeetingComponentsResult = {
     txHash: `0x${string}`;
     meetingFactory: `0x${string}`;
     actionVoting: `0x${string}`;
+    roleDataRegistry: `0x${string}`;
 };
 
 export function useDeployMeetingComponents() {
@@ -62,6 +63,7 @@ export function useDeployMeetingComponents() {
             // 3. Parse MeetingComponentsDeployed event
             let meetingFactory: `0x${string}` | null = null;
             let actionVoting: `0x${string}` | null = null;
+            let roleDataRegistry: `0x${string}` | null = null;
 
             for (const log of receipt.logs) {
                 try {
@@ -75,9 +77,11 @@ export function useDeployMeetingComponents() {
                             _orgId: bigint;
                             _meetingFactory: `0x${string}`;
                             _actionVoting: `0x${string}`;
+                            _roleDataRegistry: `0x${string}`;
                         };
                         meetingFactory = args._meetingFactory;
                         actionVoting = args._actionVoting;
+                        roleDataRegistry = args._roleDataRegistry;
                         break;
                     }
                 } catch {
@@ -85,16 +89,16 @@ export function useDeployMeetingComponents() {
                 }
             }
 
-            if (!meetingFactory || !actionVoting) {
+            if (!meetingFactory || !actionVoting || !roleDataRegistry) {
                 throw new Error(
                     "Meeting components deployed but could not find MeetingComponentsDeployed event",
                 );
             }
 
-            return { txHash, meetingFactory, actionVoting };
+            return { txHash, meetingFactory, actionVoting, roleDataRegistry };
         },
 
-        onSuccess: ({ meetingFactory, actionVoting }, params) => {
+        onSuccess: ({ meetingFactory, actionVoting, roleDataRegistry }, params) => {
             const orgId = params.orgId;
 
             // Optimistically inject the component set into the tactical meetings cache
@@ -104,6 +108,7 @@ export function useDeployMeetingComponents() {
                 orgId,
                 meetingFactory,
                 actionVoting,
+                roleDataRegistry,
                 deployedAt: Math.floor(Date.now() / 1000).toString(),
                 txHash: "0x",
             };

@@ -167,7 +167,14 @@ export default function OrganizationsHome({
     const [showCreate, setShowCreate] = useState(false);
     const [showJoin, setShowJoin] = useState(false);
     const [joinPrefilled, setJoinPrefilled] = useState<
-        { id: bigint; name: string; subname: string; creator: `0x${string}` } | undefined
+        | {
+              id: bigint;
+              name: string;
+              subname: string;
+              creator: `0x${string}`;
+              instanceAddress: `0x${string}`;
+          }
+        | undefined
     >(undefined);
     const [orgName, setOrgName] = useState("");
     const [purpose, setPurpose] = useState("");
@@ -514,6 +521,8 @@ export default function OrganizationsHome({
                                                             name: org.name,
                                                             subname: org.subname,
                                                             creator: org.creator as `0x${string}`,
+                                                            instanceAddress:
+                                                                org.instanceAddress as `0x${string}`,
                                                         });
                                                         setShowJoin(true);
                                                         setShowCreate(false);

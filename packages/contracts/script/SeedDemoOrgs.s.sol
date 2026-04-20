@@ -8,6 +8,7 @@ import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {Script, console} from 'forge-std/Script.sol';
 import {IMeetingComponentsFactory} from 'interfaces/IMeetingComponentsFactory.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
@@ -103,14 +104,11 @@ contract SeedDemoOrgs is Script {
     // Gives the public #/o/:orgId/p/:proposalId permalink real data to render
     // across all three terminal states (Draft / Adopted / Discarded) plus one
     // unresolved objection so the objection trail UI has something to show.
-    HolacracyTypes.Organization memory lanternOrg = orgFactory.getOrganization(lanternId);
+    IOrganizationInstance lanternOrg = IOrganizationInstance(orgFactory.getOrganization(lanternId));
     // The MeetingFactory clone for lantern is the one the _seedOrg helper
-    // deployed above; we need its address to call the new proposal API.
-    // MeetingComponentsFactory emits MeetingComponentsDeployed which we
-    // could parse, but simpler: look it up via the indexer-compatible path —
-    // the RoleRegistry knows its governance process (= the MeetingFactory).
-    address lanternMeetingFactory = address(RoleRegistry(lanternOrg.roleRegistry).governanceProcess());
-    _seedProposals(lanternId, MeetingFactory(lanternMeetingFactory), agent);
+    // deployed above; we read it directly off the instance now.
+    address lanternMeetingFactory = lanternOrg.meetingFactory();
+    _seedProposals(lanternId, MeetingFactory(lanternMeetingFactory), agent, IOrganizationFactory(address(orgFactory)));
 
     vm.stopBroadcast();
 
@@ -148,7 +146,7 @@ contract SeedDemoOrgs is Script {
     uint256[] memory amounts = new uint256[](1);
     amounts[0] = 1_000_000e18;
 
-    orgId = orgFactory.createOrganization(
+    (uint256 newOrgId,) = orgFactory.createOrganization(
       subname,
       string.concat('Demo org: ', subname),
       IOrganizationFactory.TokenConfig({
@@ -158,8 +156,9 @@ contract SeedDemoOrgs is Script {
         initialAmounts: amounts
       })
     );
+    orgId = newOrgId;
 
-    HolacracyTypes.Organization memory org = orgFactory.getOrganization(orgId);
+    IOrganizationInstance org = IOrganizationInstance(orgFactory.getOrganization(orgId));
 
     // ── 2. Deploy meeting components (wires MeetingFactory as governance
     //       process on RoleRegistry so adoptProposal can mutate roles) ────
@@ -168,24 +167,23 @@ contract SeedDemoOrgs is Script {
     MeetingFactory meetingFactory = MeetingFactory(deployment.meetingFactory);
 
     // ── 3. Add agent as org member so it can call createProposal itself ───
-    orgFactory.addOrgMember(orgId, agent);
+    org.addMember(agent);
+
+    // Anchor circle + role are seeded by OrganizationFactory.createOrganization;
+    // deployer is the anchor role lead. All baseline proposals run under that
+    // role to satisfy §5.3's representation rule.
+    RoleRegistry roleRegistry = RoleRegistry(org.roleRegistry());
+    uint256 anchorCircleId = roleRegistry.anchorCircleId();
+    uint256 anchorRoleId = roleRegistry.getCircle(anchorCircleId).roleId;
 
     // ── 4. Create baseline roles via createProposal + adoptProposal.
-    //       Deployer is both member and admin so one signer covers both. ────
+    //       Deployer leads the anchor role, so one signer covers propose+adopt. ─
     uint256 firstRoleId;
     for (uint256 i; i < roles.length; ++i) {
       RoleSpec memory r = roles[i];
-      bytes memory data = abi.encode(uint256(0), r.name, r.purpose, r.domains, r.accountabilities);
+      bytes memory data = abi.encode(anchorCircleId, r.name, r.purpose, r.domains, r.accountabilities);
       uint256 proposalId = meetingFactory.createProposal(
-        orgId,
-        /*circleId*/
-        0,
-        /*proposerRoleId*/
-        0,
-        /*tensionHash*/
-        bytes32(0),
-        HolacracyTypes.ChangeType.CreateRole,
-        data
+        orgId, anchorCircleId, anchorRoleId, bytes32(0), HolacracyTypes.ChangeType.CreateRole, data
       );
       uint256 roleId = meetingFactory.adoptProposal(proposalId);
       if (i == 0) firstRoleId = roleId;
@@ -193,17 +191,9 @@ contract SeedDemoOrgs is Script {
 
     // ── 5. Elect agent on the first role (gives the permalink a 🤖 chip) ──
     if (electAgentOnFirstRole && firstRoleId != 0) {
-      bytes memory electionData = abi.encode(firstRoleId, agent);
+      bytes memory electionData = abi.encode(firstRoleId, agent, address(0));
       uint256 electionProposalId = meetingFactory.createProposal(
-        orgId,
-        /*circleId*/
-        0,
-        /*proposerRoleId*/
-        0,
-        /*tensionHash*/
-        bytes32(0),
-        HolacracyTypes.ChangeType.Election,
-        electionData
+        orgId, anchorCircleId, anchorRoleId, bytes32(0), HolacracyTypes.ChangeType.Election, electionData
       );
       meetingFactory.adoptProposal(electionProposalId);
     }
@@ -219,21 +209,25 @@ contract SeedDemoOrgs is Script {
   function _seedProposals(
     uint256 orgId,
     MeetingFactory meetingFactory,
-    address /*agent*/
+    address, /*agent*/
+    IOrganizationFactory orgFactory
   ) internal {
+    IOrganizationInstance org = IOrganizationInstance(orgFactory.getOrganization(orgId));
+    RoleRegistry roleRegistry = RoleRegistry(org.roleRegistry());
+    uint256 anchorCircleId = roleRegistry.anchorCircleId();
+    uint256 anchorRoleId = roleRegistry.getCircle(anchorCircleId).roleId;
+
     // ── Adopted: "QA Inspector" role. Deployer proposes and adopts. ────────
     {
       string[] memory domains = new string[](1);
       domains[0] = 'inbound submissions queue';
       string[] memory accts = new string[](1);
       accts[0] = 'Reject spam within 24h';
-      bytes memory data = abi.encode(uint256(0), 'QA Inspector', 'Keep the submissions queue clean', domains, accts);
+      bytes memory data = abi.encode(anchorCircleId, 'QA Inspector', 'Keep the submissions queue clean', domains, accts);
       uint256 pid = meetingFactory.createProposal(
         orgId,
-        /*circleId*/
-        0,
-        /*proposerRoleId*/
-        0,
+        anchorCircleId,
+        anchorRoleId,
         keccak256('Spam submissions are overwhelming the curator'),
         HolacracyTypes.ChangeType.CreateRole,
         data
@@ -247,18 +241,16 @@ contract SeedDemoOrgs is Script {
       string[] memory accts = new string[](1);
       accts[0] = 'Publish a behind-the-scenes note monthly';
       bytes memory data =
-        abi.encode(uint256(0), 'Storyteller', 'Make the inside legible from the outside', noDomains, accts);
+        abi.encode(anchorCircleId, 'Storyteller', 'Make the inside legible from the outside', noDomains, accts);
       uint256 draftPid = meetingFactory.createProposal(
         orgId,
-        /*circleId*/
-        0,
-        /*proposerRoleId*/
-        0,
+        anchorCircleId,
+        anchorRoleId,
         keccak256('Outsiders want a peek behind the curtain'),
         HolacracyTypes.ChangeType.CreateRole,
         data
       );
-      meetingFactory.raiseObjection(draftPid, keccak256('Scope overlaps with Curator role'));
+      meetingFactory.raiseObjection(draftPid, anchorRoleId, keccak256('Scope overlaps with Curator role'));
     }
 
     // ── Discarded ──────────────────────────────────────────────────────────
@@ -266,13 +258,11 @@ contract SeedDemoOrgs is Script {
       string[] memory noDomains = new string[](0);
       string[] memory accts = new string[](1);
       accts[0] = 'Host a weekly dinner party';
-      bytes memory data = abi.encode(uint256(0), 'Party Planner', 'Maintain team chemistry', noDomains, accts);
+      bytes memory data = abi.encode(anchorCircleId, 'Party Planner', 'Maintain team chemistry', noDomains, accts);
       uint256 discardPid = meetingFactory.createProposal(
         orgId,
-        /*circleId*/
-        0,
-        /*proposerRoleId*/
-        0,
+        anchorCircleId,
+        anchorRoleId,
         keccak256('Team is feeling disconnected'),
         HolacracyTypes.ChangeType.CreateRole,
         data

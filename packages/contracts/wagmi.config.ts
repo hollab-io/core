@@ -26,7 +26,9 @@ export default defineConfig({
       project: ".",
       include: [
         "OrganizationFactory.sol/**",
+        "OrganizationInstance.sol/**",
         "RoleRegistry.sol/**",
+        "RoleDataRegistry.sol/**",
         "GovToken.sol/**",
         "GovTokenDeployer.sol/**",
         "MeetingFactory.sol/**",

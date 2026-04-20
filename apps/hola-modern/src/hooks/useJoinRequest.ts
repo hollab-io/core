@@ -1,16 +1,19 @@
 /**
- * useJoinRequest — interact with org-level join requests in OrganizationFactory.
+ * useJoinRequest — interact with org-level join requests on the per-org
+ * OrganizationInstance clone (post factory-to-instance refactor).
  *
- * Outsiders call requestToJoin(orgId, message).
- * Org admins call approveWithTokens(orgId, requester, govToken)
- *   which batches approveJoinRequest(orgId, requester) + ERC-20 transfer(requester, 100 tokens)
- *   into a single ZeroDev UserOp (or two sequential EOA txs as fallback).
+ * Outsiders call instance.requestToJoin(message).
+ * Org admins call approveWithTokens({ instanceAddress, requester, govToken })
+ *   which batches instance.approveJoinRequest(requester) + ERC-20
+ *   transfer(requester, 100 tokens) into a single ZeroDev UserOp (or two
+ *   sequential EOA txs as fallback).
  *
  * Read operations (pending requests list) are served by the Ponder indexer.
  * Only hasPendingRequest is checked on-chain (lightweight single-slot read).
  */
 import type { Abi, Address } from "viem";
 import { createIndexingClient } from "@hollab-io/indexing-client";
+import { organizationInstanceAbi } from "@hollab-io/viem-extension";
 import { useCallback } from "react";
 import { createPublicClient, http, isAddress } from "viem";
 import { useAccount } from "wagmi";
@@ -23,77 +26,6 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 const TOKENS_PER_APPROVAL = 100n * 10n ** 18n; // 100 tokens
 
 // ── ABIs ───────────────────────────────────────────────────────────────────────
-
-export const organizationFactoryJoinAbi = [
-    {
-        type: "function",
-        name: "requestToJoin",
-        stateMutability: "nonpayable",
-        inputs: [
-            { name: "orgId", type: "uint256" },
-            { name: "message", type: "string" },
-        ],
-        outputs: [{ name: "requestId", type: "uint256" }],
-    },
-    {
-        type: "function",
-        name: "approveJoinRequest",
-        stateMutability: "nonpayable",
-        inputs: [
-            { name: "orgId", type: "uint256" },
-            { name: "requester", type: "address" },
-        ],
-        outputs: [],
-    },
-    {
-        type: "function",
-        name: "rejectJoinRequest",
-        stateMutability: "nonpayable",
-        inputs: [
-            { name: "orgId", type: "uint256" },
-            { name: "requester", type: "address" },
-        ],
-        outputs: [],
-    },
-    {
-        type: "function",
-        name: "hasPendingRequest",
-        stateMutability: "view",
-        inputs: [
-            { name: "requester", type: "address" },
-            { name: "orgId", type: "uint256" },
-        ],
-        outputs: [{ name: "", type: "bool" }],
-    },
-    {
-        type: "event",
-        name: "JoinRequested",
-        inputs: [
-            { name: "requestId", type: "uint256", indexed: true },
-            { name: "requester", type: "address", indexed: true },
-            { name: "orgId", type: "uint256", indexed: true },
-            { name: "message", type: "string", indexed: false },
-        ],
-    },
-    {
-        type: "event",
-        name: "JoinApproved",
-        inputs: [
-            { name: "requestId", type: "uint256", indexed: true },
-            { name: "requester", type: "address", indexed: true },
-            { name: "orgId", type: "uint256", indexed: true },
-        ],
-    },
-    {
-        type: "event",
-        name: "JoinRejected",
-        inputs: [
-            { name: "requestId", type: "uint256", indexed: true },
-            { name: "requester", type: "address", indexed: true },
-            { name: "orgId", type: "uint256", indexed: true },
-        ],
-    },
-] as const satisfies Abi;
 
 const erc20Abi = [
     {
@@ -129,7 +61,6 @@ export function useJoinRequest() {
     const { send } = useSendTransaction();
     const { chainConfig } = useChain();
 
-    const organizationFactoryAddress = chainConfig.orgFactoryAddress;
     const publicClient = createPublicClient({
         chain: chainConfig.chain,
         transport: http(chainConfig.chain.rpcUrls.default.http[0]),
@@ -139,19 +70,19 @@ export function useJoinRequest() {
     // ── Write ──────────────────────────────────────────────────────────────────
 
     const requestToJoin = async (params: {
-        orgId: bigint;
+        instanceAddress: Address;
         message: string;
     }): Promise<`0x${string}`> => {
-        if (organizationFactoryAddress === ZERO_ADDRESS) {
-            throw new Error("OrganizationFactory contract not deployed on this chain yet.");
+        if (params.instanceAddress === ZERO_ADDRESS) {
+            throw new Error("Organization instance address missing.");
         }
         return send(
             [
                 {
-                    to: organizationFactoryAddress,
-                    abi: organizationFactoryJoinAbi as Abi,
+                    to: params.instanceAddress,
+                    abi: organizationInstanceAbi as Abi,
                     functionName: "requestToJoin",
-                    args: [params.orgId, params.message],
+                    args: [params.message],
                 },
             ],
             account(),
@@ -163,7 +94,7 @@ export function useJoinRequest() {
      * With ZeroDev: single UserOp. Without ZeroDev: two sequential EOA txs.
      */
     const approveWithTokens = async (params: {
-        orgId: bigint;
+        instanceAddress: Address;
         requester: Address;
         govTokenAddress: Address;
     }): Promise<`0x${string}`> => {
@@ -171,10 +102,10 @@ export function useJoinRequest() {
         return send(
             [
                 {
-                    to: organizationFactoryAddress,
-                    abi: organizationFactoryJoinAbi as Abi,
+                    to: params.instanceAddress,
+                    abi: organizationInstanceAbi as Abi,
                     functionName: "approveJoinRequest",
-                    args: [params.orgId, params.requester],
+                    args: [params.requester],
                 },
                 {
                     to: params.govTokenAddress,
@@ -188,16 +119,16 @@ export function useJoinRequest() {
     };
 
     const rejectRequest = async (params: {
-        orgId: bigint;
+        instanceAddress: Address;
         requester: Address;
     }): Promise<`0x${string}`> =>
         send(
             [
                 {
-                    to: organizationFactoryAddress,
-                    abi: organizationFactoryJoinAbi as Abi,
+                    to: params.instanceAddress,
+                    abi: organizationInstanceAbi as Abi,
                     functionName: "rejectJoinRequest",
-                    args: [params.orgId, params.requester],
+                    args: [params.requester],
                 },
             ],
             account(),
@@ -229,17 +160,17 @@ export function useJoinRequest() {
 
     const walletAddress = connectedAddress;
     const hasPendingRequest = useCallback(
-        async (orgId: bigint): Promise<boolean> => {
+        async (instanceAddress: Address): Promise<boolean> => {
             if (!walletAddress) return false;
-            if (organizationFactoryAddress === ZERO_ADDRESS) return false;
+            if (instanceAddress === ZERO_ADDRESS) return false;
             return (await publicClient.readContract({
-                address: organizationFactoryAddress,
-                abi: organizationFactoryJoinAbi as Abi,
+                address: instanceAddress,
+                abi: organizationInstanceAbi,
                 functionName: "hasPendingRequest",
-                args: [walletAddress, orgId],
+                args: [walletAddress],
             })) as boolean;
         },
-        [walletAddress, organizationFactoryAddress, publicClient],
+        [walletAddress, publicClient],
     );
 
     return {

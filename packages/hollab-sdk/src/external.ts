@@ -10,6 +10,8 @@ export type {
     Tension,
     Proposal,
     RoleConfig,
+    OkrObjective,
+    OkrKeyResult,
     OrgClientConfig,
     ContentRefEvent,
     IndexedEvent,
@@ -44,6 +46,7 @@ export {
     buildAgentStateKey,
     buildCircleKeyShareKey,
     buildRoleKeyShareKey,
+    buildOkrKey,
 } from "./internal.js";
 
 // Constants

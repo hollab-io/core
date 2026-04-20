@@ -28,7 +28,7 @@ This calls `OrganizationFactory.createOrganization()`, deploying the full infras
 
 ### Member Onboarding
 
-The creator invites initial members by wallet address or ENS name. Members are added via `addOrgMember()` and receive governance tokens via `GovToken.mint()`.
+The creator invites initial members by wallet address or ENS name. Members are added via `OrganizationInstance.addMember()` on the per-org instance clone and receive governance tokens via `GovToken.mint()`.
 
 ## 4. Workspace
 

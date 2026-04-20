@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
-import {Test} from 'forge-std/Test.sol';
 import {Initializable} from '@openzeppelin/contracts/proxy/utils/Initializable.sol';
+import {Test} from 'forge-std/Test.sol';
 
 import {ActionVoting, IActionVoting} from 'contracts/ActionVoting.sol';
 import {IMeetingComponentsFactory, MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
@@ -53,8 +53,7 @@ contract E2EJourney is Test {
     RoleDataRegistry _rdrImpl = new RoleDataRegistry();
     _mcFactory = new MeetingComponentsFactory(address(_mfImpl), address(_avImpl), address(_rdrImpl));
 
-    _orgFactory =
-      new OrganizationFactory(address(_rrImpl), address(_oiImpl), address(_ensReg), address(_mcFactory));
+    _orgFactory = new OrganizationFactory(address(_rrImpl), address(_oiImpl), address(_ensReg), address(_mcFactory));
   }
 
   function _tokenConfig() internal view returns (IOrganizationFactory.TokenConfig memory _cfg) {
@@ -433,8 +432,7 @@ contract E2EJourney is Test {
     IOrganizationInstance _org1 = _org;
 
     vm.prank(_alice);
-    (uint256 _org2Id, address _org2Addr) =
-      _orgFactory.createOrganization('beta-dao', 'Another DAO', _tokenConfig());
+    (uint256 _org2Id, address _org2Addr) = _orgFactory.createOrganization('beta-dao', 'Another DAO', _tokenConfig());
     IOrganizationInstance _org2 = IOrganizationInstance(_org2Addr);
 
     assertTrue(_org1.isAdmin(_founder));

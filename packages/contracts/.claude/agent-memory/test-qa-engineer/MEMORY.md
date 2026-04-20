@@ -1,0 +1,1 @@
+- [contracts_testing_infra.md](./contracts_testing_infra.md) — Foundry test conventions: forge-std Test, remappings, import paths, naming patterns

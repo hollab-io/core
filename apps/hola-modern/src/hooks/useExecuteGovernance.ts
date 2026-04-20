@@ -158,3 +158,42 @@ export function encodeAmendRoleWithRefs(params: {
         params.refs.map((r) => ({ contentHash: r.contentHash, visibility: r.visibility })),
     ]);
 }
+
+// ── Policy encoding helpers ──────────────────────────────────────────────────
+
+const policyParamTypes = [
+    { type: "uint256" as const },
+    { type: "string" as const },
+    { type: "string" as const },
+] as const;
+
+/** Encode a CreatePolicy change: abi.encode(circleId, name, body) */
+export function encodeCreatePolicy(params: {
+    circleId: bigint;
+    name: string;
+    body: string;
+}): `0x${string}` {
+    return encodeAbiParameters(policyParamTypes, [params.circleId, params.name, params.body]);
+}
+
+/** Encode an AmendPolicy change: abi.encode(policyId, name, body) */
+export function encodeAmendPolicy(params: {
+    policyId: bigint;
+    name: string;
+    body: string;
+}): `0x${string}` {
+    return encodeAbiParameters(policyParamTypes, [params.policyId, params.name, params.body]);
+}
+
+/** Encode a RemovePolicy change: abi.encode(policyId) */
+export function encodeRemovePolicy(policyId: bigint): `0x${string}` {
+    return encodeAbiParameters([{ type: "uint256" }], [policyId]);
+}
+
+/** Encode a MoveRole change: abi.encode(roleId, toCircleId) */
+export function encodeMoveRole(params: { roleId: bigint; toCircleId: bigint }): `0x${string}` {
+    return encodeAbiParameters(
+        [{ type: "uint256" }, { type: "uint256" }],
+        [params.roleId, params.toCircleId],
+    );
+}

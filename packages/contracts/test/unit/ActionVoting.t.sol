@@ -10,8 +10,8 @@ import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {GovToken} from 'contracts/governance/GovToken.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
-import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {Test} from 'forge-std/Test.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 contract StubENSRegistrarForActionVoting is IENSSubdomainRegistrar {

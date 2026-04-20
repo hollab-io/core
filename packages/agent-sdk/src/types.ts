@@ -85,6 +85,8 @@ export type TxResult = {
 
 export type CreateOrgResult = TxResult & {
     orgId: bigint;
+    /** The OrganizationInstance clone — the one-stop address for all org state. */
+    instance: `0x${string}`;
 };
 
 export type StartMeetingResult = TxResult & {

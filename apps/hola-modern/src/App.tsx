@@ -5,9 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { AppTabId } from "./config/navigation";
 import ChainSwitcher from "./components/ChainSwitcher";
 import ThemeToggle from "./components/ThemeToggle";
+import ToastHost from "./components/ToastHost";
 import WalletAuthControl from "./components/WalletAuthControl";
 import WrongNetworkBanner from "./components/WrongNetworkBanner";
-import { useChain } from "./context/ChainContext";
 import { useTheme } from "./context/ThemeContext";
 import { useCirclesFromIndexer } from "./hooks/useCirclesFromIndexer";
 import { useGovernanceMeetingsFromIndexer } from "./hooks/useGovernanceMeetingsFromIndexer";
@@ -44,7 +44,6 @@ const NAV = [
 ] as const;
 
 function App() {
-    const { chainConfig } = useChain();
     const { isDark } = useTheme();
     const { route, navigate, setOrgId, setTab } = useHashRouter();
     const {
@@ -76,7 +75,7 @@ function App() {
         [routeOrgId, organizations],
     );
     const { members: indexedMembers } = useOrgMembersFromIndexer(
-        chainConfig.orgFactoryAddress,
+        activeOrg?.instanceAddress,
         activeOrg?.id,
     );
     const { circles: indexedCircles } = useCirclesFromIndexer(routeOrgId);
@@ -84,6 +83,7 @@ function App() {
     const {
         tacticalMeetingAddress,
         governanceMeetingAddress,
+        roleDataRegistryAddress,
         meetings: indexedMeetings,
         outputs: indexedOutputs,
         refetch: refetchMeetings,
@@ -263,7 +263,16 @@ function App() {
                     />
                 );
             case "actions":
-                return <ActionItemsView outputs={indexedOutputs} meetings={indexedMeetings} />;
+                return (
+                    <ActionItemsView
+                        outputs={indexedOutputs}
+                        meetings={indexedMeetings}
+                        orgId={activeOrg?.id}
+                        roleRegistryAddress={activeOrg?.roleRegistry as `0x${string}` | undefined}
+                        roleDataRegistryAddress={roleDataRegistryAddress}
+                        meetingFactoryAddress={tacticalMeetingAddress}
+                    />
+                );
             case "structure":
                 return (
                     <StructureView
@@ -392,6 +401,8 @@ function App() {
                                               name: activeOrg.name,
                                               subname: activeOrg.subname,
                                               creator: activeOrg.creator as `0x${string}`,
+                                              instanceAddress:
+                                                  activeOrg.instanceAddress as `0x${string}`,
                                           }
                                         : undefined
                                 }
@@ -468,6 +479,7 @@ function App() {
             <TacticalMeetingRoom
                 onNavigateToTab={setTab}
                 tacticalMeetingAddress={tacticalMeetingAddress}
+                roleDataRegistryAddress={roleDataRegistryAddress}
                 indexedMeetings={indexedMeetings}
                 allOutputs={indexedOutputs}
                 fetchOutputs={fetchOutputs}
@@ -479,6 +491,7 @@ function App() {
                 indexedGovernanceMeetings={indexedGovernanceMeetings}
                 orgId={activeOrg?.id}
             />
+            <ToastHost />
         </div>
     );
 }

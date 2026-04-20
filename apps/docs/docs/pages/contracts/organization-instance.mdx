@@ -1,0 +1,129 @@
+# OrganizationInstance
+
+The per-org **one-stop address**. An ERC-1167 clone deployed by `OrganizationFactory.createOrganization` that holds all per-organization state and is the authoritative target for membership writes, join-request flows, admin ops, and agent identity links.
+
+**Source:** `packages/contracts/src/contracts/OrganizationInstance.sol`
+
+**Interface:** `packages/contracts/src/interfaces/IOrganizationInstance.sol`
+
+## Why a per-org instance
+
+Before the refactor, `OrganizationFactory` stored every org's members/admins/join requests in nested mappings keyed by `orgId`. That coupled every org's writes to the same contract, inflated the factory's storage graph, and made per-org upgrades impossible.
+
+`OrganizationInstance` splits that apart:
+
+-   one clone per org, ~100K gas to deploy
+-   addressable independently — each org is its own contract
+-   factory becomes a thin directory; all consumer contracts (MeetingFactory, MeetingComponentsFactory, ActionVoting) take an `IOrganizationInstance` reference
+
+## Initialization
+
+```solidity
+function initialize(InitParams calldata params) external;
+
+struct InitParams {
+    uint256 id;
+    string subname;
+    string purpose;
+    address creator;
+    address roleRegistry;
+    address accessManager;
+    address token;
+    uint256 anchorCircleId;
+    address meetingComponentsFactory;
+}
+```
+
+Called exactly once, immediately after the factory clones the implementation. Reverts with `OrganizationInstance_AlreadyInitialized` on any subsequent call. The creator is seeded as the first admin and first member.
+
+## Membership
+
+```solidity
+function addMember(address account) external;    // admin only
+function removeMember(address account) external; // admin only
+function isMember(address account) external view returns (bool);
+```
+
+Emits `MemberAdded(account)` and `MemberRemoved(account)`.
+
+## Admins
+
+```solidity
+function addAdmin(address account) external;    // admin only
+function removeAdmin(address account) external; // admin only — reverts if last admin
+function isAdmin(address account) external view returns (bool);
+function adminCount() external view returns (uint256);
+```
+
+Emits `AdminAdded(account)` / `AdminRemoved(account)`. The `_orgAdminCount` tracking prevents removing the last admin (`OrganizationInstance_LastAdmin`).
+
+## Join Requests
+
+Outsiders can request membership:
+
+```solidity
+function requestToJoin(string calldata message) external returns (uint256 requestId);
+function approveJoinRequest(address requester) external; // admin only
+function rejectJoinRequest(address requester) external;  // admin only
+function hasPendingRequest(address requester) external view returns (bool);
+```
+
+Emits `JoinRequested(requestId, requester, message)`, `JoinApproved(requestId, requester)`, or `JoinRejected(requestId, requester)`.
+
+## Agent Identity (ERC-8004)
+
+```solidity
+function linkAgentIdentity(address agentRegistry, uint256 agentId) external;
+function getAgentIdentity(address account) external view
+    returns (address agentRegistry, uint256 agentId);
+```
+
+Members link an ERC-8004 agent NFT they own to their org identity. Emits `AgentIdentityLinked(account, agentRegistry, agentId)`. Reverts with `OrganizationInstance_AgentNotOwner` if `msg.sender` doesn't own the NFT.
+
+## Component Wiring
+
+```solidity
+function setMeetingFactory(address meetingFactory) external; // meetingComponentsFactory only, once
+function setRoleRegistryGovernanceProcess(address governanceProcess) external; // meetingComponentsFactory only
+```
+
+The `MeetingComponentsFactory.deploy()` flow calls these to plug a freshly deployed `MeetingFactory` into the org as its `governanceProcess`. The instance — not the factory — is the authority that gates these writes.
+
+## summary()
+
+```solidity
+function summary() external view returns (HolacracyTypes.Organization memory);
+```
+
+Returns the full org struct: `id`, `name`, `subname`, `creator`, `roleRegistry`, `circleRegistry`, `governanceProcess`, `meetingFactory`, `accessManager`, `anchorCircleId`, `createdAt`, `token`. This is the authoritative read for everything off-chain — frontend hooks, the indexer, and the agent-sdk all call `summary()` to refresh their snapshot.
+
+## Discovering the instance
+
+Given an `orgId`, resolve the instance address from the factory:
+
+```solidity
+address instance = IOrganizationFactory(factory).getOrganization(orgId);
+// or
+address instance = IOrganizationFactory(factory).getOrganizationBySubname("myorg");
+```
+
+From TypeScript:
+
+```ts
+import { organizationInstanceAbi } from "@hollab-io/viem-extension";
+
+const instance = await publicClient.readContract({
+    address: factoryAddress,
+    abi: organizationFactoryAbi,
+    functionName: "getOrganization",
+    args: [orgId],
+});
+
+const summary = await publicClient.readContract({
+    address: instance,
+    abi: organizationInstanceAbi,
+    functionName: "summary",
+});
+```
+
+The indexer surfaces `organization.instanceAddress` on every row, so most consumers don't need to resolve it manually.

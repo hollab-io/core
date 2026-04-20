@@ -75,3 +75,14 @@ export function buildProposalFieldKey(proposalId: bigint, fieldName: string): st
 export function buildObjectionFieldKey(objectionId: bigint, fieldName: string): string {
     return `objection:${objectionId}:field:${fieldName}`;
 }
+
+/** Key for the aggregate OKR blob for a role in a given quarter: "role:{roleId}:okr:{quarter}"
+ *
+ * All objectives for the (role, quarter) live in a single JSON blob anchored
+ * by one on-chain ContentRef under fieldName = keccak256("okr:{quarter}").
+ * Mutations go through AmendRoleWithRefs governance proposals that replace
+ * the blob atomically. One proposal per quarter per role is the common case.
+ */
+export function buildOkrKey(roleId: bigint, quarter: string): string {
+    return `${KEY_PREFIX.ROLE}${roleId}${KEY_PREFIX.OKR}${quarter}`;
+}

@@ -4,7 +4,6 @@ import { ArrowRight, BadgeCheck, Loader2, Mail, Plus, Users, Wallet } from "luci
 import { useMemo, useState } from "react";
 import { isAddress } from "viem";
 
-import { useChain } from "../context/ChainContext";
 import { getIndexingClient } from "../hooks/useOrganizationsFromIndexer";
 import { useOrgMemberActions } from "../hooks/useOrgMemberActions";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
@@ -33,7 +32,6 @@ type Props = { org: Organization };
 const EMPTY_ADDRESS_SET: Set<string> = new Set();
 
 export default function MembersView({ org }: Props) {
-    const { chainConfig } = useChain();
     const { authenticatedWalletAddress, circleMap, inviteMember, organization, snapshot } =
         useWorkspaceSnapshot();
     const { addOrgMembers } = useOrgMemberActions();
@@ -47,16 +45,17 @@ export default function MembersView({ org }: Props) {
 
     // ── On-chain members (from indexer) ──────────────────────────────────────
     const { data: onChainAddresses = EMPTY_ADDRESS_SET } = useQuery({
-        queryKey: ["orgMembers:addresses", chainConfig.orgFactoryAddress, org.id] as const,
+        queryKey: ["orgMembers:addresses", org.instanceAddress, org.id] as const,
         queryFn: async () => {
             const client = getIndexingClient();
             if (!client) return new Set<string>();
-            const r = await client.listOrgMembersByOrg(chainConfig.orgFactoryAddress, org.id, {
+            const r = await client.listOrgMembersByOrg(org.instanceAddress, org.id, {
                 limit: 500,
             });
             return new Set(r.items.map((m) => m.memberAddress.toLowerCase()));
         },
         staleTime: 15_000,
+        enabled: Boolean(org.instanceAddress),
     });
 
     const members = useMemo(() => {
@@ -123,8 +122,7 @@ export default function MembersView({ org }: Props) {
 
         try {
             const hash = await addOrgMembers({
-                orgFactoryAddress: chainConfig.orgFactoryAddress,
-                orgId: BigInt(org.id),
+                instanceAddress: org.instanceAddress as `0x${string}`,
                 memberAddresses: [addr as `0x${string}`],
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
             });

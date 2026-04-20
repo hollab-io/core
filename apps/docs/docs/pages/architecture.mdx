@@ -17,9 +17,10 @@ hollab.eth is a monorepo with smart contracts, an event indexer, a TypeScript SD
 │   (Sepolia / L1)     │───▶│  (indexes events → GraphQL)    │
 │                      │    │                                 │
 │  OrganizationFactory │    │  Organizations, Roles, Circles  │
-│  RoleRegistry        │    │  Meetings, Outputs, Proposals   │
-│  MeetingFactory      │    │  Members, Votes, Policies       │
-│  ActionVoting        │    └─────────────────────────────────┘
+│  OrganizationInstance│    │  Meetings, Outputs, Proposals   │
+│  RoleRegistry        │    │  Members, Votes, Policies       │
+│  MeetingFactory      │    └─────────────────────────────────┘
+│  ActionVoting        │
 │  GovToken            │
 │  ENSSubdomainReg.    │
 └──────────────────────┘
@@ -65,13 +66,20 @@ The frontend reads data through the Ponder indexer:
 
 ### Contract Discovery
 
-Ponder uses **contract discovery** — it starts by watching the factory contracts (OrganizationFactory, MeetingComponentsFactory), then automatically registers per-org clones (RoleRegistry, MeetingFactory, ActionVoting) as they're deployed.
+Ponder uses **contract discovery** — it starts by watching the factory contracts (OrganizationFactory, MeetingComponentsFactory), then automatically registers per-org clones as they're deployed:
+
+-   `OrganizationCreated(orgId, subname, creator, instance, roleRegistry)` → registers **OrganizationInstance** + **RoleRegistry** for the new org
+-   `MeetingComponentsDeployed(...)` → registers **MeetingFactory** + **ActionVoting** for the org
 
 ## Key Design Decisions
 
 ### ERC-1167 Minimal Proxies
 
-All per-organization contracts (RoleRegistry, MeetingFactory, ActionVoting) are deployed as [ERC-1167 minimal proxy clones](https://eips.ethereum.org/EIPS/eip-1167). This reduces deployment gas from ~3M to ~100K per org while keeping the same interface.
+All per-organization contracts (OrganizationInstance, RoleRegistry, MeetingFactory, ActionVoting) are deployed as [ERC-1167 minimal proxy clones](https://eips.ethereum.org/EIPS/eip-1167). This reduces deployment gas from ~3M to ~100K per org while keeping the same interface.
+
+### Factory + Instance Split
+
+`OrganizationFactory` is a thin directory — it mints clones and indexes `(orgId, subname) → instance`. Every org's state (members, admins, join requests, agent identity links, component wiring) lives on its own [`OrganizationInstance`](/contracts/organization-instance) clone. This keeps per-org writes contained, makes individual orgs addressable on their own, and lets consumer contracts (MeetingFactory, MeetingComponentsFactory, ActionVoting) target a single `IOrganizationInstance` reference instead of passing `orgId` on every call.
 
 ### Governance-Only Structure Changes
 

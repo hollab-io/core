@@ -76,6 +76,7 @@ const MOCK_ORG: Organization = {
     name: "Acme DAO",
     creator: "0xabc",
     token: "0xtoken",
+    instanceAddress: "0xinstance",
     circleRegistry: "0xcr",
     roleRegistry: "0xrr",
     governanceProcess: "0xgp",
@@ -230,6 +231,7 @@ const MOCK_MEETING_COMPONENT_SET: MeetingComponentSet = {
     orgId: "1",
     meetingFactory: "0xmf",
     actionVoting: "0xav",
+    roleDataRegistry: "0xrdr",
     deployedAt: "1700000000",
     txHash: "0xtx",
 };
@@ -290,6 +292,7 @@ const MOCK_OBJECTION: Objection = {
     processAddress: "0xgp",
     proposalId: "1",
     objector: "0xobjector",
+    objectorRoleId: "1",
     concernHash: "0xdef",
     status: 0,
     raisedAt: "1700000000",

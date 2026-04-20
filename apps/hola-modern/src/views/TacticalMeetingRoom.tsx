@@ -19,6 +19,15 @@ import { encodeFunctionData } from "viem";
 import { useWalletClient } from "wagmi";
 
 import type { AppTabId } from "../config/navigation";
+import {
+    useAddChecklistItem,
+    useAddMetric,
+    useChecklistItemsByContract,
+    useMetricsByContract,
+    useRemoveChecklistItem,
+    useRemoveMetric,
+} from "../hooks/useRoleData";
+import { useRolesFromIndexer } from "../hooks/useRolesFromIndexer";
 import { OutputType, useTacticalMeeting } from "../hooks/useTacticalMeeting";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
@@ -89,6 +98,7 @@ export default function TacticalMeetingRoom({
     fetchOutputs,
     refetchMeetings,
     tacticalMeetingAddress,
+    roleDataRegistryAddress,
     orgId,
 }: {
     indexedMeetings: TacticalMeeting[];
@@ -96,6 +106,7 @@ export default function TacticalMeetingRoom({
     fetchOutputs: (meetingId: string) => Promise<MeetingOutput[]>;
     refetchMeetings: () => Promise<void>;
     tacticalMeetingAddress?: `0x${string}`;
+    roleDataRegistryAddress?: `0x${string}`;
     onNavigateToTab: (tabId: AppTabId) => void;
     orgId?: string;
 }) {
@@ -112,6 +123,33 @@ export default function TacticalMeetingRoom({
                 : null,
         [activeMeetingId, indexedMeetings],
     );
+
+    /* ── Role data (checklists & metrics) ─────────────────────────────────── */
+    const { roles: indexedRoles } = useRolesFromIndexer(orgId ?? null);
+    const roleNameById = useMemo(() => {
+        const map = new Map<string, string>();
+        for (const r of indexedRoles) map.set(r.roleId.toString(), r.name);
+        return map;
+    }, [indexedRoles]);
+    const { data: checklistItems = [] } = useChecklistItemsByContract(roleDataRegistryAddress);
+    const { data: metrics = [] } = useMetricsByContract(roleDataRegistryAddress);
+    const addChecklistItem = useAddChecklistItem(roleDataRegistryAddress);
+    const removeChecklistItem = useRemoveChecklistItem(roleDataRegistryAddress);
+    const addMetric = useAddMetric(roleDataRegistryAddress);
+    const removeMetric = useRemoveMetric(roleDataRegistryAddress);
+    const [newChecklistLabel, setNewChecklistLabel] = useState("");
+    const [newChecklistRoleId, setNewChecklistRoleId] = useState("");
+    const [newMetricLabel, setNewMetricLabel] = useState("");
+    const [newMetricRoleId, setNewMetricRoleId] = useState("");
+    const [checklistAckIds, setChecklistAckIds] = useState<Set<string>>(new Set());
+    const toggleChecklistAck = useCallback((id: string) => {
+        setChecklistAckIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }, []);
 
     /* ── Outputs from previous huddles (for Progress updates phase) ────── */
     const previousOutputs = useMemo(() => {
@@ -699,6 +737,326 @@ export default function TacticalMeetingRoom({
                                                                     previous huddles to review.
                                                                 </div>
                                                             )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Checklist review: render checklist items grouped by role */}
+                                                    {activePhase === "Checklist review" && (
+                                                        <div className="mt-4 space-y-3">
+                                                            {!roleDataRegistryAddress ? (
+                                                                <p className="text-[12px] text-slate-500">
+                                                                    Checklist storage isn't deployed
+                                                                    yet for this org.
+                                                                </p>
+                                                            ) : checklistItems.length === 0 ? (
+                                                                <p className="text-[12px] text-slate-500">
+                                                                    No checklist items yet. Add
+                                                                    recurring items below to surface
+                                                                    them every huddle.
+                                                                </p>
+                                                            ) : (
+                                                                <ul className="space-y-2">
+                                                                    {checklistItems.map((item) => {
+                                                                        const id = item.id;
+                                                                        const acked =
+                                                                            checklistAckIds.has(id);
+                                                                        return (
+                                                                            <li
+                                                                                key={id}
+                                                                                className={`flex items-start gap-3 rounded-xl border px-3 py-2 text-left ${
+                                                                                    acked
+                                                                                        ? "border-emerald-400/30 bg-emerald-500/[0.04]"
+                                                                                        : "border-slate-200 dark:border-white/[0.06] bg-white/[0.03]"
+                                                                                }`}
+                                                                            >
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() =>
+                                                                                        toggleChecklistAck(
+                                                                                            id,
+                                                                                        )
+                                                                                    }
+                                                                                    aria-label={
+                                                                                        acked
+                                                                                            ? "Unmark"
+                                                                                            : "Mark reviewed"
+                                                                                    }
+                                                                                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                                                                                        acked
+                                                                                            ? "border-emerald-400/40 bg-emerald-500/20"
+                                                                                            : "border-slate-300 dark:border-white/[0.15] bg-white/[0.04]"
+                                                                                    }`}
+                                                                                >
+                                                                                    {acked && (
+                                                                                        <Check
+                                                                                            size={
+                                                                                                11
+                                                                                            }
+                                                                                            className="text-emerald-400"
+                                                                                            strokeWidth={
+                                                                                                2.5
+                                                                                            }
+                                                                                        />
+                                                                                    )}
+                                                                                </button>
+                                                                                <div className="min-w-0 flex-1">
+                                                                                    <p
+                                                                                        className={`text-[13px] ${acked ? "text-slate-500 line-through" : "text-slate-800 dark:text-slate-200"}`}
+                                                                                    >
+                                                                                        {item.label}
+                                                                                    </p>
+                                                                                    <p className="mt-0.5 text-[10px] text-slate-500">
+                                                                                        {roleNameById.get(
+                                                                                            item.roleId.toString(),
+                                                                                        ) ??
+                                                                                            `Role #${item.roleId}`}
+                                                                                    </p>
+                                                                                </div>
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() =>
+                                                                                        removeChecklistItem.mutate(
+                                                                                            {
+                                                                                                itemId: BigInt(
+                                                                                                    item.itemId,
+                                                                                                ),
+                                                                                                roleId: BigInt(
+                                                                                                    item.roleId,
+                                                                                                ),
+                                                                                            },
+                                                                                        )
+                                                                                    }
+                                                                                    disabled={
+                                                                                        removeChecklistItem.isPending
+                                                                                    }
+                                                                                    aria-label="Remove checklist item"
+                                                                                    className="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:text-rose-500 disabled:opacity-40"
+                                                                                >
+                                                                                    <X size={12} />
+                                                                                </button>
+                                                                            </li>
+                                                                        );
+                                                                    })}
+                                                                </ul>
+                                                            )}
+
+                                                            {roleDataRegistryAddress &&
+                                                                indexedRoles.length > 0 && (
+                                                                    <div className="mt-3 space-y-2 rounded-xl border border-dashed border-slate-300 dark:border-white/[0.08] p-3">
+                                                                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                                                            Add checklist item
+                                                                        </p>
+                                                                        <select
+                                                                            value={
+                                                                                newChecklistRoleId
+                                                                            }
+                                                                            onChange={(e) =>
+                                                                                setNewChecklistRoleId(
+                                                                                    e.target.value,
+                                                                                )
+                                                                            }
+                                                                            className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.02] px-2 py-1.5 text-[12px]"
+                                                                        >
+                                                                            <option value="">
+                                                                                Select role…
+                                                                            </option>
+                                                                            {indexedRoles.map(
+                                                                                (r) => (
+                                                                                    <option
+                                                                                        key={r.roleId.toString()}
+                                                                                        value={r.roleId.toString()}
+                                                                                    >
+                                                                                        {r.name}
+                                                                                    </option>
+                                                                                ),
+                                                                            )}
+                                                                        </select>
+                                                                        <div className="flex gap-2">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={
+                                                                                    newChecklistLabel
+                                                                                }
+                                                                                onChange={(e) =>
+                                                                                    setNewChecklistLabel(
+                                                                                        e.target
+                                                                                            .value,
+                                                                                    )
+                                                                                }
+                                                                                placeholder="Item label (e.g. review inbox)"
+                                                                                className="flex-1 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.02] px-2 py-1.5 text-[12px]"
+                                                                            />
+                                                                            <button
+                                                                                type="button"
+                                                                                disabled={
+                                                                                    !newChecklistLabel.trim() ||
+                                                                                    !newChecklistRoleId ||
+                                                                                    addChecklistItem.isPending
+                                                                                }
+                                                                                onClick={() => {
+                                                                                    addChecklistItem.mutate(
+                                                                                        {
+                                                                                            roleId: BigInt(
+                                                                                                newChecklistRoleId,
+                                                                                            ),
+                                                                                            label: newChecklistLabel.trim(),
+                                                                                        },
+                                                                                        {
+                                                                                            onSuccess:
+                                                                                                () => {
+                                                                                                    setNewChecklistLabel(
+                                                                                                        "",
+                                                                                                    );
+                                                                                                },
+                                                                                        },
+                                                                                    );
+                                                                                }}
+                                                                                className="inline-flex items-center justify-center rounded-lg bg-[#3481FF] px-3 text-[12px] font-semibold text-white disabled:opacity-40"
+                                                                            >
+                                                                                Add
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Metrics review: render metrics grouped by role */}
+                                                    {activePhase === "Metrics review" && (
+                                                        <div className="mt-4 space-y-3">
+                                                            {!roleDataRegistryAddress ? (
+                                                                <p className="text-[12px] text-slate-500">
+                                                                    Metrics storage isn't deployed
+                                                                    yet for this org.
+                                                                </p>
+                                                            ) : metrics.length === 0 ? (
+                                                                <p className="text-[12px] text-slate-500">
+                                                                    No metrics yet. Add role-level
+                                                                    indicators below to track them
+                                                                    every huddle.
+                                                                </p>
+                                                            ) : (
+                                                                <ul className="space-y-2">
+                                                                    {metrics.map((m) => (
+                                                                        <li
+                                                                            key={m.id}
+                                                                            className="flex items-start gap-3 rounded-xl border border-slate-200 dark:border-white/[0.06] bg-white/[0.03] px-3 py-2"
+                                                                        >
+                                                                            <div className="min-w-0 flex-1">
+                                                                                <p className="text-[13px] text-slate-800 dark:text-slate-200">
+                                                                                    {m.label}
+                                                                                </p>
+                                                                                <p className="mt-0.5 text-[10px] text-slate-500">
+                                                                                    {roleNameById.get(
+                                                                                        m.roleId.toString(),
+                                                                                    ) ??
+                                                                                        `Role #${m.roleId}`}
+                                                                                </p>
+                                                                            </div>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() =>
+                                                                                    removeMetric.mutate(
+                                                                                        {
+                                                                                            metricId:
+                                                                                                BigInt(
+                                                                                                    m.metricId,
+                                                                                                ),
+                                                                                            roleId: BigInt(
+                                                                                                m.roleId,
+                                                                                            ),
+                                                                                        },
+                                                                                    )
+                                                                                }
+                                                                                disabled={
+                                                                                    removeMetric.isPending
+                                                                                }
+                                                                                aria-label="Remove metric"
+                                                                                className="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:text-rose-500 disabled:opacity-40"
+                                                                            >
+                                                                                <X size={12} />
+                                                                            </button>
+                                                                        </li>
+                                                                    ))}
+                                                                </ul>
+                                                            )}
+
+                                                            {roleDataRegistryAddress &&
+                                                                indexedRoles.length > 0 && (
+                                                                    <div className="mt-3 space-y-2 rounded-xl border border-dashed border-slate-300 dark:border-white/[0.08] p-3">
+                                                                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                                                            Add metric
+                                                                        </p>
+                                                                        <select
+                                                                            value={newMetricRoleId}
+                                                                            onChange={(e) =>
+                                                                                setNewMetricRoleId(
+                                                                                    e.target.value,
+                                                                                )
+                                                                            }
+                                                                            className="w-full rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.02] px-2 py-1.5 text-[12px]"
+                                                                        >
+                                                                            <option value="">
+                                                                                Select role…
+                                                                            </option>
+                                                                            {indexedRoles.map(
+                                                                                (r) => (
+                                                                                    <option
+                                                                                        key={r.roleId.toString()}
+                                                                                        value={r.roleId.toString()}
+                                                                                    >
+                                                                                        {r.name}
+                                                                                    </option>
+                                                                                ),
+                                                                            )}
+                                                                        </select>
+                                                                        <div className="flex gap-2">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={
+                                                                                    newMetricLabel
+                                                                                }
+                                                                                onChange={(e) =>
+                                                                                    setNewMetricLabel(
+                                                                                        e.target
+                                                                                            .value,
+                                                                                    )
+                                                                                }
+                                                                                placeholder="Metric label (e.g. weekly active users)"
+                                                                                className="flex-1 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.02] px-2 py-1.5 text-[12px]"
+                                                                            />
+                                                                            <button
+                                                                                type="button"
+                                                                                disabled={
+                                                                                    !newMetricLabel.trim() ||
+                                                                                    !newMetricRoleId ||
+                                                                                    addMetric.isPending
+                                                                                }
+                                                                                onClick={() => {
+                                                                                    addMetric.mutate(
+                                                                                        {
+                                                                                            roleId: BigInt(
+                                                                                                newMetricRoleId,
+                                                                                            ),
+                                                                                            label: newMetricLabel.trim(),
+                                                                                        },
+                                                                                        {
+                                                                                            onSuccess:
+                                                                                                () => {
+                                                                                                    setNewMetricLabel(
+                                                                                                        "",
+                                                                                                    );
+                                                                                                },
+                                                                                        },
+                                                                                    );
+                                                                                }}
+                                                                                className="inline-flex items-center justify-center rounded-lg bg-[#3481FF] px-3 text-[12px] font-semibold text-white disabled:opacity-40"
+                                                                            >
+                                                                                Add
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                         </div>
                                                     )}
 

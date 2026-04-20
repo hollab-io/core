@@ -70,12 +70,21 @@ const { items: votes } = await agent.voting.listByCircle(votingAddress, "1");
 ## Managing Organizations
 
 ```ts
-// Create a new org (deploys governance token + registers ENS subname)
-const { orgId } = await agent.org.create("My DAO", "MDAO");
+// Create a new org (clones OrganizationInstance + RoleRegistry, deploys
+// governance token, registers ENS subname). Returns both the orgId and the
+// per-org OrganizationInstance address — the one-stop target for membership
+// writes, join requests, admin ops, and agent identity links.
+const { orgId, instance } = await agent.org.create("mydao", "Our purpose", {
+    tokenName: "My DAO Token",
+    tokenSymbol: "MDAO",
+});
 
-// Add / remove members
-await agent.org.addMember(orgId, "0xAlice...");
-await agent.org.removeMember(orgId, "0xBob...");
+// Add / remove members — call on the OrganizationInstance clone.
+await agent.org.addMember(instance, "0xAlice...");
+await agent.org.removeMember(instance, "0xBob...");
+
+// If you only have the orgId, resolve the instance from the factory directory:
+const instance = await agent.org.resolveInstance(orgId);
 ```
 
 ## Running Meetings

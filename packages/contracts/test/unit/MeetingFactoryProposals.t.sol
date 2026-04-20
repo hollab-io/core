@@ -7,8 +7,8 @@ import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationF
 import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
 import {IRoleRegistry, RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
-import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {Test} from 'forge-std/Test.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 contract StubENSRegistrarForProposals is IENSSubdomainRegistrar {
@@ -94,7 +94,12 @@ contract UnitMeetingFactoryProposals is Test {
   function _createCuratorProposal() internal returns (uint256) {
     vm.prank(_deployer);
     return _meetingFactory.createProposal(
-      _orgId, _anchorCircleId, _anchorRoleId, TENSION, HolacracyTypes.ChangeType.CreateRole, _encodeCreateRole('Curator')
+      _orgId,
+      _anchorCircleId,
+      _anchorRoleId,
+      TENSION,
+      HolacracyTypes.ChangeType.CreateRole,
+      _encodeCreateRole('Curator')
     );
   }
 
@@ -360,9 +365,7 @@ contract UnitMeetingFactoryProposals is Test {
     _org.addMember(ghost);
 
     vm.prank(ghost);
-    vm.expectRevert(
-      abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotRoleLead.selector, _anchorRoleId, ghost)
-    );
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotRoleLead.selector, _anchorRoleId, ghost));
     _meetingFactory.createProposal(
       _orgId, _anchorCircleId, _anchorRoleId, TENSION, HolacracyTypes.ChangeType.CreateRole, _encodeCreateRole('Ghost')
     );
@@ -376,9 +379,7 @@ contract UnitMeetingFactoryProposals is Test {
     uint256 proposalId = _createCuratorProposal();
 
     vm.prank(ghost);
-    vm.expectRevert(
-      abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotRoleLead.selector, _anchorRoleId, ghost)
-    );
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotRoleLead.selector, _anchorRoleId, ghost));
     _meetingFactory.raiseObjection(proposalId, _anchorRoleId, CONCERN);
   }
 
@@ -417,7 +418,12 @@ contract UnitMeetingFactoryProposals is Test {
     vm.prank(_stranger);
     vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotOrgMember.selector, _orgId, _stranger));
     _meetingFactory.createProposal(
-      _orgId, _anchorCircleId, _anchorRoleId, TENSION, HolacracyTypes.ChangeType.CreateRole, _encodeCreateRole('Curator')
+      _orgId,
+      _anchorCircleId,
+      _anchorRoleId,
+      TENSION,
+      HolacracyTypes.ChangeType.CreateRole,
+      _encodeCreateRole('Curator')
     );
   }
 
@@ -981,9 +987,7 @@ contract UnitMeetingFactoryProposals is Test {
     uint256 pid = _meetingFactory.createProposal(
       _orgId, _anchorCircleId, _anchorRoleId, TENSION, HolacracyTypes.ChangeType.CreateRoleWithRefs, data
     );
-    vm.expectRevert(
-      abi.encodeWithSelector(IMeetingFactory.MeetingFactory_TooManyContentRefs.selector, cap + 1, cap)
-    );
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_TooManyContentRefs.selector, cap + 1, cap));
     vm.prank(_deployer);
     _meetingFactory.adoptProposal(pid);
   }
@@ -1006,9 +1010,7 @@ contract UnitMeetingFactoryProposals is Test {
     uint256 pid = _meetingFactory.createProposal(
       _orgId, _anchorCircleId, _anchorRoleId, TENSION, HolacracyTypes.ChangeType.CreatePolicyWithRefs, data
     );
-    vm.expectRevert(
-      abi.encodeWithSelector(IMeetingFactory.MeetingFactory_TooManyContentRefs.selector, cap + 1, cap)
-    );
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_TooManyContentRefs.selector, cap + 1, cap));
     vm.prank(_deployer);
     _meetingFactory.adoptProposal(pid);
   }

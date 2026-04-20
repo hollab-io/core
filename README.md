@@ -92,12 +92,19 @@ Proposals support **ContentRefs** — on-chain hashes pointing to off-chain encr
 
 ## Architecture
 
-Each organization deployed through `OrganizationFactory` gets its own set of contracts:
+`OrganizationFactory` is a thin directory — it mints a per-org `OrganizationInstance` clone and indexes `(orgId, subname) → instance`. All per-org state lives on the instance:
 
 ```
-OrganizationFactory
+OrganizationFactory (singleton directory)
+  │   createOrganization → (orgId, instance)
+  ▼
+OrganizationInstance (ERC-1167 per-org, one-stop address)
   │
-  │  Holacracy framework (ERC-1167 clones)
+  │  Per-org state
+  ├── members, admins, join requests, agent identity links
+  ├── component wiring (meetingFactory, accessManager, token)
+  │
+  │  Holacracy framework (ERC-1167 clones, referenced by the instance)
   ├── CircleRegistry       — Circles, roles, memberships, elected positions
   ├── RoleRegistry         — Role definitions (name, purpose, domains, accountabilities)
   ├── GovernanceProcess    — Proposal lifecycle: createProposal → raiseObjection / resolveObjection → adopt / discard
@@ -108,7 +115,7 @@ OrganizationFactory
   ├── HolGovernor           — OZ Governor for token-holder votes
   ├── TimelockController    — Delay between vote approval and execution
   ├── CircleTreasury        — Per-circle spending with timelock
-  └── ENS Subname           — orgname.hollab.eth → governor address
+  └── ENS Subname           — orgname.hollab.eth → AccessManager address
 ```
 
 ### Holacracy Framework

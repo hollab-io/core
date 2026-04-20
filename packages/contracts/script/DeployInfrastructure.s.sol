@@ -6,6 +6,8 @@ import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
 import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
+import {RoleDataRegistry} from 'contracts/RoleDataRegistry.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {ENSSubdomainRegistrar} from 'ens/ENSSubdomainRegistrar.sol';
 import {Script, console} from 'forge-std/Script.sol';
@@ -57,8 +59,10 @@ contract DeployInfrastructure is Script {
   struct Infrastructure {
     address ensRegistrar;
     address roleRegistryImpl;
+    address orgInstanceImpl;
     address meetingImpl;
     address actionVotingImpl;
+    address roleDataRegistryImpl;
     address meetingFactory;
     address orgFactory;
   }
@@ -106,6 +110,13 @@ contract DeployInfrastructure is Script {
       infra.roleRegistryImpl = address(new RoleRegistry());
     }
 
+    if (_hasCode(prior.orgInstanceImpl)) {
+      console.log('Reusing OrganizationInstance impl at', prior.orgInstanceImpl);
+      infra.orgInstanceImpl = prior.orgInstanceImpl;
+    } else {
+      infra.orgInstanceImpl = address(new OrganizationInstance());
+    }
+
     if (_hasCode(prior.meetingImpl)) {
       console.log('Reusing MeetingFactory impl at', prior.meetingImpl);
       infra.meetingImpl = prior.meetingImpl;
@@ -120,12 +131,20 @@ contract DeployInfrastructure is Script {
       infra.actionVotingImpl = address(new ActionVoting());
     }
 
+    if (_hasCode(prior.roleDataRegistryImpl)) {
+      console.log('Reusing RoleDataRegistry impl at', prior.roleDataRegistryImpl);
+      infra.roleDataRegistryImpl = prior.roleDataRegistryImpl;
+    } else {
+      infra.roleDataRegistryImpl = address(new RoleDataRegistry());
+    }
+
     // ── 3. MeetingComponentsFactory ─────────────────────────────────────────
     if (_hasCode(prior.meetingFactory)) {
       console.log('Reusing MeetingComponentsFactory at', prior.meetingFactory);
       infra.meetingFactory = prior.meetingFactory;
     } else {
-      infra.meetingFactory = address(new MeetingComponentsFactory(infra.meetingImpl, infra.actionVotingImpl));
+      infra.meetingFactory =
+        address(new MeetingComponentsFactory(infra.meetingImpl, infra.actionVotingImpl, infra.roleDataRegistryImpl));
     }
 
     // ── 4. OrganizationFactory ──────────────────────────────────────────────
@@ -133,8 +152,9 @@ contract DeployInfrastructure is Script {
       console.log('Reusing OrganizationFactory at', prior.orgFactory);
       infra.orgFactory = prior.orgFactory;
     } else {
-      OrganizationFactory orgFactory =
-        new OrganizationFactory(infra.roleRegistryImpl, infra.ensRegistrar, infra.meetingFactory);
+      OrganizationFactory orgFactory = new OrganizationFactory(
+        infra.roleRegistryImpl, infra.orgInstanceImpl, infra.ensRegistrar, infra.meetingFactory
+      );
       infra.orgFactory = address(orgFactory);
 
       // Authorize fresh factory for ENS registration (only needed on first deploy)
@@ -159,8 +179,10 @@ contract DeployInfrastructure is Script {
     try vm.readFile(path) returns (string memory json) {
       prior.ensRegistrar = _tryReadAddress(json, '.ensRegistrar');
       prior.roleRegistryImpl = _tryReadAddress(json, '.roleRegistryImpl');
+      prior.orgInstanceImpl = _tryReadAddress(json, '.orgInstanceImpl');
       prior.meetingImpl = _tryReadAddress(json, '.meetingImpl');
       prior.actionVotingImpl = _tryReadAddress(json, '.actionVotingImpl');
+      prior.roleDataRegistryImpl = _tryReadAddress(json, '.roleDataRegistryImpl');
       prior.meetingFactory = _tryReadAddress(json, '.meetingFactory');
       prior.orgFactory = _tryReadAddress(json, '.orgFactory');
     } catch {
@@ -192,8 +214,10 @@ contract DeployInfrastructure is Script {
     string memory obj = 'infra';
     vm.serializeAddress(obj, 'ensRegistrar', _infra.ensRegistrar);
     vm.serializeAddress(obj, 'roleRegistryImpl', _infra.roleRegistryImpl);
+    vm.serializeAddress(obj, 'orgInstanceImpl', _infra.orgInstanceImpl);
     vm.serializeAddress(obj, 'meetingImpl', _infra.meetingImpl);
     vm.serializeAddress(obj, 'actionVotingImpl', _infra.actionVotingImpl);
+    vm.serializeAddress(obj, 'roleDataRegistryImpl', _infra.roleDataRegistryImpl);
     vm.serializeAddress(obj, 'meetingFactory', _infra.meetingFactory);
     vm.serializeAddress(obj, 'orgFactory', _infra.orgFactory);
     string memory json = vm.serializeUint(obj, 'chainId', _chainId);
@@ -212,6 +236,7 @@ contract DeployInfrastructure is Script {
     console.log('');
     console.log('--- Implementations (clone sources) ---');
     console.log('RoleRegistry:           ', _infra.roleRegistryImpl);
+    console.log('OrganizationInstance:   ', _infra.orgInstanceImpl);
     console.log('MeetingFactory:         ', _infra.meetingImpl);
     console.log('ActionVoting:           ', _infra.actionVotingImpl);
     console.log('');

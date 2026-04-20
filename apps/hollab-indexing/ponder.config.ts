@@ -7,6 +7,8 @@ import { createConfig } from "ponder";
 
 import { ActionVotingAbi } from "./abis/ActionVotingAbi";
 import { MeetingFactoryAbi } from "./abis/MeetingFactoryAbi";
+import { OrganizationInstanceAbi } from "./abis/OrganizationInstanceAbi";
+import { RoleDataRegistryAbi } from "./abis/RoleDataRegistryAbi";
 
 const ZERO = "0x0000000000000000000000000000000000000001" as `0x${string}`;
 const addr = (key: string) => (process.env[key] || ZERO) as `0x${string}`;
@@ -31,9 +33,9 @@ const rpcUrls: string[] = process.env.PONDER_RPC_URL
       ? ["http://127.0.0.1:8545"]
       : [];
 
-const orgComponentsDeployedEvent = organizationFactoryAbi.find(
+const organizationCreatedEvent = organizationFactoryAbi.find(
     (e): e is (typeof organizationFactoryAbi)[number] & { type: "event" } =>
-        e.type === "event" && (e as { name?: string }).name === "OrgComponentsDeployed",
+        e.type === "event" && (e as { name?: string }).name === "OrganizationCreated",
 )!;
 
 const meetingComponentsDeployedEvent = meetingComponentsFactoryAbi.find(
@@ -49,7 +51,7 @@ export default createConfig({
         },
     },
     contracts: {
-        // ── Fixed factory contracts ───────────────────────────────────────────────
+        // ── Fixed factory contract ────────────────────────────────────────────────
         OrganizationFactory: {
             chain: "chain",
             abi: organizationFactoryAbi,
@@ -57,13 +59,25 @@ export default createConfig({
             startBlock,
         },
 
-        // ── Per-org clones: auto-discovered from OrgComponentsDeployed ────────────
+        // ── Per-org OrganizationInstance clones: auto-discovered from OrganizationCreated ─
+        OrganizationInstance: {
+            chain: "chain",
+            abi: OrganizationInstanceAbi,
+            address: {
+                address: orgFactoryAddr,
+                event: organizationCreatedEvent,
+                parameter: "_instance",
+            },
+            startBlock,
+        },
+
+        // ── Per-org RoleRegistry clones: auto-discovered from OrganizationCreated ─
         RoleRegistry: {
             chain: "chain",
             abi: roleRegistryAbi,
             address: {
                 address: orgFactoryAddr,
-                event: orgComponentsDeployedEvent,
+                event: organizationCreatedEvent,
                 parameter: "_roleRegistry",
             },
             startBlock,
@@ -97,6 +111,18 @@ export default createConfig({
                 address: meetingFactoryAddr,
                 event: meetingComponentsDeployedEvent,
                 parameter: "_actionVoting",
+            },
+            startBlock: startBlockFor(meetingFactoryAddr),
+        },
+
+        // ── Per-org RoleDataRegistry clones: auto-discovered from MeetingComponentsDeployed ─
+        RoleDataRegistry: {
+            chain: "chain",
+            abi: RoleDataRegistryAbi,
+            address: {
+                address: meetingFactoryAddr,
+                event: meetingComponentsDeployedEvent,
+                parameter: "_roleDataRegistry",
             },
             startBlock: startBlockFor(meetingFactoryAddr),
         },

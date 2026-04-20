@@ -15,6 +15,7 @@ interface IMeetingComponentsFactory {
   struct Deployment {
     address meetingFactory;
     address actionVoting;
+    address roleDataRegistry;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -22,7 +23,9 @@ interface IMeetingComponentsFactory {
   //////////////////////////////////////////////////////////////*/
 
   /// @notice Emitted once per org when meeting components are deployed.
-  event MeetingComponentsDeployed(uint256 indexed _orgId, address indexed _meetingFactory, address _actionVoting);
+  event MeetingComponentsDeployed(
+    uint256 indexed _orgId, address indexed _meetingFactory, address _actionVoting, address _roleDataRegistry
+  );
 
   /*///////////////////////////////////////////////////////////////
                             ERRORS
@@ -59,4 +62,5 @@ interface IMeetingComponentsFactory {
 
   function meetingFactoryImplementation() external view returns (address);
   function actionVotingImplementation() external view returns (address);
+  function roleDataRegistryImplementation() external view returns (address);
 }

@@ -4,20 +4,23 @@ pragma solidity 0.8.28;
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
 import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingFactory} from 'contracts/MeetingFactory.sol';
-import {RoleRegistry} from 'contracts/RoleRegistry.sol';
+import {RoleDataRegistry} from 'contracts/RoleDataRegistry.sol';
 import {IMeetingComponentsFactory} from 'interfaces/IMeetingComponentsFactory.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 
 /**
  * @title MeetingComponentsFactory
  * @notice Deploys per-org MeetingFactory and ActionVoting clones in a single transaction.
  *
  * @dev Each deploy() call:
- *      1. Clones both implementation contracts via ERC-1167.
- *      2. Initializes them with the org's existing contracts.
- *      3. Wires MeetingFactory as the governance process on RoleRegistry.
- *      4. Emits MeetingComponentsDeployed so off-chain indexers can auto-discover clones.
+ *      1. Resolves the OrganizationInstance via factory.getOrganizationBySubname(subname)
+ *      2. Asserts the caller is an admin on the instance (not on the factory)
+ *      3. Clones both implementation contracts via ERC-1167
+ *      4. Initializes them with the org's existing contracts
+ *      5. Calls instance.setMeetingFactory(clone) and instance.setRoleRegistryGovernanceProcess(clone)
+ *         — the instance is the sole authority over its RoleRegistry after createOrganization
+ *      6. Emits MeetingComponentsDeployed for indexer auto-discovery
  */
 contract MeetingComponentsFactory is IMeetingComponentsFactory {
   /*///////////////////////////////////////////////////////////////
@@ -30,19 +33,24 @@ contract MeetingComponentsFactory is IMeetingComponentsFactory {
   /// @notice ActionVoting implementation used for cloning
   address public immutable actionVotingImplementation;
 
+  /// @notice RoleDataRegistry implementation used for cloning
+  address public immutable roleDataRegistryImplementation;
+
   /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
   constructor(
     address _meetingFactoryImpl,
-    address _actionVotingImpl
+    address _actionVotingImpl,
+    address _roleDataRegistryImpl
   ) {
-    if (_meetingFactoryImpl == address(0) || _actionVotingImpl == address(0)) {
+    if (_meetingFactoryImpl == address(0) || _actionVotingImpl == address(0) || _roleDataRegistryImpl == address(0)) {
       revert MeetingComponentsFactory_ZeroAddress();
     }
     meetingFactoryImplementation = _meetingFactoryImpl;
     actionVotingImplementation = _actionVotingImpl;
+    roleDataRegistryImplementation = _roleDataRegistryImpl;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -54,40 +62,41 @@ contract MeetingComponentsFactory is IMeetingComponentsFactory {
     string calldata _subname,
     address _orgFactory
   ) external returns (Deployment memory deployment) {
-    // ── 0. Resolve org addresses ────────────────────────────────────────────────
-    // Looking up by subname (instead of a predicted orgId) makes this safe to batch
-    // with createOrganization via EIP-5792: the subname is known at call-encoding
-    // time, so there is no race against other orgs being created between the
-    // client-side prediction and the batch landing on-chain.
-    IOrganizationFactory _factory = IOrganizationFactory(_orgFactory);
-    HolacracyTypes.Organization memory _org = _factory.getOrganizationBySubname(_subname);
-    if (_org.id == 0) revert MeetingComponentsFactory_OrgNotFound(_subname);
-    uint256 _orgId = _org.id;
-    address _roleRegistry = _org.roleRegistry;
-    address _govToken = _org.token;
+    // ── 0. Resolve org instance ─────────────────────────────────────────────
+    address _instance = IOrganizationFactory(_orgFactory).getOrganizationBySubname(_subname);
+    if (_instance == address(0)) revert MeetingComponentsFactory_OrgNotFound(_subname);
+    IOrganizationInstance _org = IOrganizationInstance(_instance);
 
-    // ── 0b. Authorize caller ───────────────────────────────────────────────────
-    if (!_factory.isOrgAdmin(_orgId, msg.sender)) revert MeetingComponentsFactory_Unauthorized();
+    uint256 _orgId = _org.id();
+    address _roleRegistry = _org.roleRegistry();
+    address _govToken = _org.token();
 
-    // ── 1. Clone ────────────────────────────────────────────────────────────────
+    // ── 0b. Authorize caller (admin of the instance) ────────────────────────
+    if (!_org.isAdmin(msg.sender)) revert MeetingComponentsFactory_Unauthorized();
+
+    // ── 1. Clone ────────────────────────────────────────────────────────────
     MeetingFactory meetingFactory = MeetingFactory(Clones.clone(meetingFactoryImplementation));
     ActionVoting actionVoting = ActionVoting(Clones.clone(actionVotingImplementation));
+    RoleDataRegistry roleDataRegistry = RoleDataRegistry(Clones.clone(roleDataRegistryImplementation));
 
-    // ── 2. Initialize ────────────────────────────────────────────────────────────
-    meetingFactory.initialize(_orgId, _orgFactory, _roleRegistry);
-    actionVoting.initialize(_orgId, _orgFactory, address(meetingFactory), _govToken);
+    // ── 2. Initialize ───────────────────────────────────────────────────────
+    meetingFactory.initialize(_orgId, _instance, _roleRegistry);
+    actionVoting.initialize(_orgId, _instance, address(meetingFactory), _govToken);
+    roleDataRegistry.initialize(_orgId, _instance, _roleRegistry);
 
-    // ── 3. Wire governance process ───────────────────────────────────────────────
-    // MeetingFactory becomes the only address that can modify roles on this
-    // org's RoleRegistry — enforcing Holacracy's governance-only structure changes.
-    // Routes through OrgFactory which is the only address the RoleRegistry trusts.
+    // ── 3. Wire onto the instance (instance is the authority, not the factory) ──
+    _org.setMeetingFactory(address(meetingFactory));
     if (_roleRegistry != address(0)) {
-      _factory.setRoleRegistryGovernanceProcess(_orgId, address(meetingFactory));
+      _org.setRoleRegistryGovernanceProcess(address(meetingFactory));
     }
 
-    // ── 4. Emit for indexer auto-discovery ───────────────────────────────────────
-    deployment = Deployment({meetingFactory: address(meetingFactory), actionVoting: address(actionVoting)});
+    // ── 4. Emit for indexer auto-discovery ──────────────────────────────────
+    deployment = Deployment({
+      meetingFactory: address(meetingFactory),
+      actionVoting: address(actionVoting),
+      roleDataRegistry: address(roleDataRegistry)
+    });
 
-    emit MeetingComponentsDeployed(_orgId, address(meetingFactory), address(actionVoting));
+    emit MeetingComponentsDeployed(_orgId, address(meetingFactory), address(actionVoting), address(roleDataRegistry));
   }
 }

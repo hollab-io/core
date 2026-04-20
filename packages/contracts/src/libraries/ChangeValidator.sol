@@ -51,20 +51,31 @@ library ChangeValidator {
     }
   }
 
-  function _checkTargetCircle(uint256 _proposalCircleId, uint256 _targetCircleId) private pure {
+  function _checkTargetCircle(
+    uint256 _proposalCircleId,
+    uint256 _targetCircleId
+  ) private pure {
     if (_targetCircleId != _proposalCircleId) {
       revert MeetingFactory_ChangeCircleMismatch(_proposalCircleId, _targetCircleId);
     }
   }
 
-  function _checkRoleCircle(uint256 _proposalCircleId, uint256 _roleId, IRoleRegistry _roleRegistry) private view {
+  function _checkRoleCircle(
+    uint256 _proposalCircleId,
+    uint256 _roleId,
+    IRoleRegistry _roleRegistry
+  ) private view {
     uint256 roleCircleId = _roleRegistry.getRoleCircleId(_roleId);
     if (roleCircleId != _proposalCircleId) {
       revert MeetingFactory_ChangeCircleMismatch(_proposalCircleId, roleCircleId);
     }
   }
 
-  function _checkPolicyCircle(uint256 _proposalCircleId, uint256 _policyId, IRoleRegistry _roleRegistry) private view {
+  function _checkPolicyCircle(
+    uint256 _proposalCircleId,
+    uint256 _policyId,
+    IRoleRegistry _roleRegistry
+  ) private view {
     uint256 policyCircleId = _roleRegistry.getPolicyCircleId(_policyId);
     if (policyCircleId != _proposalCircleId) {
       revert MeetingFactory_ChangeCircleMismatch(_proposalCircleId, policyCircleId);

@@ -1,7 +1,12 @@
 import { motion } from "framer-motion";
-import { CheckSquare, KanbanSquare, Target, TrendingUp } from "lucide-react";
+import { CheckSquare, KanbanSquare, Plus, Target, TrendingUp } from "lucide-react";
+import { useState } from "react";
 
 import type { MeetingOutput, TacticalMeeting } from "../hooks/useTacticalMeetingsFromIndexer";
+import { quarterFromDate, useOrgOkrs } from "../hooks/useOrgOkrs";
+import { useMetricsByContract } from "../hooks/useRoleData";
+import { useRolesFromIndexer } from "../hooks/useRolesFromIndexer";
+import OkrProposalComposer from "./OkrProposalComposer";
 
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -13,13 +18,39 @@ function truncateAddress(addr: string): string {
 type Props = {
     outputs: MeetingOutput[];
     meetings: TacticalMeeting[];
+    orgId?: string;
+    roleRegistryAddress?: `0x${string}`;
+    roleDataRegistryAddress?: `0x${string}`;
+    meetingFactoryAddress?: `0x${string}`;
 };
 
-export default function ActionItemsView({ outputs, meetings }: Props) {
+export default function ActionItemsView({
+    outputs,
+    meetings,
+    orgId,
+    roleRegistryAddress,
+    roleDataRegistryAddress,
+    meetingFactoryAddress,
+}: Props) {
+    const [isOkrComposerOpen, setIsOkrComposerOpen] = useState(false);
+    const canProposeOkrs = Boolean(orgId && roleRegistryAddress && meetingFactoryAddress);
     const nextActions = outputs.filter((o) => o.outputType === 0);
     const projects = outputs.filter((o) => o.outputType === 1);
 
     const meetingMap = new Map(meetings.map((m) => [m.meetingId, m]));
+
+    const { data: metrics = [] } = useMetricsByContract(roleDataRegistryAddress);
+    const { roles: indexedRoles } = useRolesFromIndexer(orgId ?? null);
+    const roleNameById = new Map(indexedRoles.map((r) => [r.roleId.toString(), r.name]));
+
+    const currentQuarter = quarterFromDate(new Date());
+    const { data: okrsByRole = [] } = useOrgOkrs({
+        roleRegistryAddress,
+        orgId: orgId ? BigInt(orgId) : undefined,
+        circleId: undefined,
+        quarter: currentQuarter,
+    });
+    const totalOkrCount = okrsByRole.reduce((sum, r) => sum + r.objectives.length, 0);
 
     return (
         <div className="min-h-[calc(100dvh-60px)] pb-32 pt-8">
@@ -167,16 +198,78 @@ export default function ActionItemsView({ outputs, meetings }: Props) {
                         transition={{ duration: 0.6, delay: 0.14, ease: EXPO }}
                         className="rounded-[1.5rem] border border-white/[0.06] bg-white/[0.03] p-5"
                     >
-                        <div className="mb-4 flex items-center gap-2">
-                            <Target size={14} className="text-slate-500" strokeWidth={1.75} />
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                OKRs
-                            </p>
+                        <div className="mb-4 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <Target size={14} className="text-slate-500" strokeWidth={1.75} />
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                                    OKRs · {currentQuarter}
+                                </p>
+                                {totalOkrCount > 0 && (
+                                    <span className="ml-1 rounded-full bg-slate-100 dark:bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                                        {totalOkrCount}
+                                    </span>
+                                )}
+                            </div>
+                            {canProposeOkrs && (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsOkrComposerOpen(true)}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-[#3481FF]/20 bg-[#3481FF]/[0.08] px-2.5 py-1 text-[11px] font-semibold text-[#3481FF] hover:bg-[#3481FF]/[0.14]"
+                                >
+                                    <Plus size={12} />
+                                    Propose
+                                </button>
+                            )}
                         </div>
-                        <EmptyState
-                            icon={Target}
-                            text="OKR tracking is coming. Define objectives and link key results to roles."
-                        />
+                        {totalOkrCount === 0 ? (
+                            <EmptyState
+                                icon={Target}
+                                text="No OKRs adopted yet this quarter. Propose them through governance — OKRs commit your circle's direction."
+                            />
+                        ) : (
+                            <div className="space-y-3">
+                                {okrsByRole.map((entry) => (
+                                    <div key={entry.roleId.toString()} className="space-y-2">
+                                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                            {roleNameById.get(entry.roleId.toString()) ??
+                                                `Role #${entry.roleId}`}
+                                        </p>
+                                        <ul className="space-y-2">
+                                            {entry.objectives.map((obj) => (
+                                                <li
+                                                    key={obj.id}
+                                                    className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5"
+                                                >
+                                                    <p className="text-[13px] font-medium text-slate-800 dark:text-slate-200">
+                                                        {obj.title}
+                                                    </p>
+                                                    {obj.description && (
+                                                        <p className="mt-1 text-[11px] text-slate-500">
+                                                            {obj.description}
+                                                        </p>
+                                                    )}
+                                                    {obj.keyResults.length > 0 && (
+                                                        <ul className="mt-2 space-y-1">
+                                                            {obj.keyResults.map((kr) => (
+                                                                <li
+                                                                    key={kr.id}
+                                                                    className="text-[11px] text-slate-500"
+                                                                >
+                                                                    <span className="mr-1 text-slate-600">
+                                                                        KR
+                                                                    </span>
+                                                                    {kr.label}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </motion.div>
 
                     {/* Metrics */}
@@ -191,14 +284,48 @@ export default function ActionItemsView({ outputs, meetings }: Props) {
                             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                                 Metrics
                             </p>
+                            {metrics.length > 0 && (
+                                <span className="ml-1 rounded-full bg-slate-100 dark:bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+                                    {metrics.length}
+                                </span>
+                            )}
                         </div>
-                        <EmptyState
-                            icon={TrendingUp}
-                            text="Metrics reporting is coming. Track role-based indicators across teams."
-                        />
+                        {metrics.length === 0 ? (
+                            <EmptyState
+                                icon={TrendingUp}
+                                text="No metrics yet. Role leads can add recurring metrics during the tactical huddle."
+                            />
+                        ) : (
+                            <ul className="space-y-2">
+                                {metrics.map((m) => (
+                                    <li
+                                        key={m.id}
+                                        className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5"
+                                    >
+                                        <p className="text-[13px] text-slate-800 dark:text-slate-200">
+                                            {m.label}
+                                        </p>
+                                        <p className="mt-0.5 text-[10px] text-slate-500">
+                                            {roleNameById.get(m.roleId.toString()) ??
+                                                `Role #${m.roleId}`}
+                                        </p>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </motion.div>
                 </div>
             </div>
+
+            {canProposeOkrs && orgId && roleRegistryAddress && meetingFactoryAddress && (
+                <OkrProposalComposer
+                    isOpen={isOkrComposerOpen}
+                    onClose={() => setIsOkrComposerOpen(false)}
+                    orgId={orgId}
+                    roleRegistryAddress={roleRegistryAddress}
+                    meetingFactoryAddress={meetingFactoryAddress}
+                />
+            )}
         </div>
     );
 }

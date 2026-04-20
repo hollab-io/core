@@ -46,7 +46,10 @@ library HolacracyTypes {
     AmendRoleWithRefs,
     CreatePolicyWithRefs,
     AmendPolicyWithRefs,
-    ExpandRoleToCircle
+    ExpandRoleToCircle,
+    FacilitatorElection,
+    SecretaryElection,
+    CreateCircle
   }
 
   /// @notice Elected role type within a circle

@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
 import {AccessManager} from '@openzeppelin/contracts/access/manager/AccessManager.sol';
+import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
+import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
+import {RoleRegistry} from 'contracts/RoleRegistry.sol';
+import {GovToken} from 'contracts/governance/GovToken.sol';
+import {GovTokenDeployer} from 'contracts/governance/GovTokenDeployer.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {IERC8004} from 'interfaces/IERC8004.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
 import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {IRoleRegistry} from 'interfaces/IRoleRegistry.sol';
-import {GovToken} from 'contracts/governance/GovToken.sol';
-import {GovTokenDeployer} from 'contracts/governance/GovTokenDeployer.sol';
-import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
-import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
@@ -109,8 +109,9 @@ contract OrganizationFactory is IOrganizationFactory {
 
     // ── Clone + initialize OrganizationInstance ─────────────────────────────
     _instance = Clones.clone(organizationInstanceImplementation);
-    IOrganizationInstance(_instance).initialize(
-      IOrganizationInstance.InitParams({
+    IOrganizationInstance(_instance)
+      .initialize(
+        IOrganizationInstance.InitParams({
         id: _orgId,
         subname: _subname,
         purpose: _purpose,
@@ -121,7 +122,7 @@ contract OrganizationFactory is IOrganizationFactory {
         anchorCircleId: _anchorCircleId,
         meetingComponentsFactory: meetingComponentsFactory
       })
-    );
+      );
 
     // ── Hand factory authority on RoleRegistry to the instance ────────────
     // From this point forward, only the instance can wire the governance

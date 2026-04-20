@@ -5,8 +5,8 @@ import {Initializable} from '@openzeppelin/contracts/proxy/utils/Initializable.s
 import {IMeetingFactory} from 'interfaces/IMeetingFactory.sol';
 import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {IRoleRegistry} from 'interfaces/IRoleRegistry.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 import {ChangeValidator} from 'libraries/ChangeValidator.sol';
+import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
  * @title MeetingFactory
@@ -158,7 +158,9 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     ChangeValidator.validate(_proposalCircleId, _changeType, _data, roleRegistry);
   }
 
-  function _handleCreateRole(bytes memory _data) internal returns (uint256) {
+  function _handleCreateRole(
+    bytes memory _data
+  ) internal returns (uint256) {
     (
       uint256 circleId,
       string memory name,
@@ -169,7 +171,9 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     return roleRegistry.createRole(circleId, name, purpose, domains, accountabilities);
   }
 
-  function _handleAmendRole(bytes memory _data) internal returns (uint256) {
+  function _handleAmendRole(
+    bytes memory _data
+  ) internal returns (uint256) {
     (
       uint256 roleId,
       string memory name,
@@ -181,13 +185,17 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     return roleId;
   }
 
-  function _handleRemoveRole(bytes memory _data) internal returns (uint256) {
+  function _handleRemoveRole(
+    bytes memory _data
+  ) internal returns (uint256) {
     uint256 roleId = abi.decode(_data, (uint256));
     roleRegistry.removeRole(roleId);
     return roleId;
   }
 
-  function _handleElection(bytes memory _data) internal returns (uint256) {
+  function _handleElection(
+    bytes memory _data
+  ) internal returns (uint256) {
     (uint256 roleId, address newLead, address previousLead) = abi.decode(_data, (uint256, address, address));
     if (previousLead != address(0)) {
       roleRegistry.unassignRoleLead(roleId, previousLead);
@@ -196,7 +204,9 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     return roleId;
   }
 
-  function _handleCreateRoleWithRefs(bytes memory _data) internal returns (uint256) {
+  function _handleCreateRoleWithRefs(
+    bytes memory _data
+  ) internal returns (uint256) {
     (
       uint256 circleId,
       string memory name,
@@ -212,7 +222,9 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     return roleRegistry.createRoleWithRefs(circleId, name, purpose, domains, accountabilities, fieldNames, refs);
   }
 
-  function _handleAmendRoleWithRefs(bytes memory _data) internal returns (uint256) {
+  function _handleAmendRoleWithRefs(
+    bytes memory _data
+  ) internal returns (uint256) {
     (
       uint256 roleId,
       string memory name,
@@ -229,36 +241,48 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     return roleId;
   }
 
-  function _handleExpandRoleToCircle(bytes memory _data) internal returns (uint256) {
+  function _handleExpandRoleToCircle(
+    bytes memory _data
+  ) internal returns (uint256) {
     uint256 roleId = abi.decode(_data, (uint256));
     roleRegistry.expandToCircle(roleId);
     return roleId;
   }
 
-  function _handleMoveRole(bytes memory _data) internal returns (uint256) {
+  function _handleMoveRole(
+    bytes memory _data
+  ) internal returns (uint256) {
     (uint256 roleId, uint256 toCircleId) = abi.decode(_data, (uint256, uint256));
     roleRegistry.moveRole(roleId, toCircleId);
     return roleId;
   }
 
-  function _handleCreatePolicy(bytes memory _data) internal returns (uint256) {
+  function _handleCreatePolicy(
+    bytes memory _data
+  ) internal returns (uint256) {
     (uint256 circleId, string memory name, string memory body) = abi.decode(_data, (uint256, string, string));
     return roleRegistry.createPolicy(circleId, name, body);
   }
 
-  function _handleAmendPolicy(bytes memory _data) internal returns (uint256) {
+  function _handleAmendPolicy(
+    bytes memory _data
+  ) internal returns (uint256) {
     (uint256 policyId, string memory name, string memory body) = abi.decode(_data, (uint256, string, string));
     roleRegistry.updatePolicy(policyId, name, body);
     return policyId;
   }
 
-  function _handleRemovePolicy(bytes memory _data) internal returns (uint256) {
+  function _handleRemovePolicy(
+    bytes memory _data
+  ) internal returns (uint256) {
     uint256 policyId = abi.decode(_data, (uint256));
     roleRegistry.removePolicy(policyId);
     return policyId;
   }
 
-  function _handleCreatePolicyWithRefs(bytes memory _data) internal returns (uint256) {
+  function _handleCreatePolicyWithRefs(
+    bytes memory _data
+  ) internal returns (uint256) {
     (
       uint256 circleId,
       string memory name,
@@ -272,7 +296,9 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     return roleRegistry.createPolicyWithRefs(circleId, name, body, fieldNames, refs);
   }
 
-  function _handleAmendPolicyWithRefs(bytes memory _data) internal returns (uint256) {
+  function _handleAmendPolicyWithRefs(
+    bytes memory _data
+  ) internal returns (uint256) {
     (
       uint256 policyId,
       string memory name,
@@ -287,7 +313,9 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     return policyId;
   }
 
-  function _handleCreateCircle(bytes memory _data) internal returns (uint256) {
+  function _handleCreateCircle(
+    bytes memory _data
+  ) internal returns (uint256) {
     (
       uint256 parentCircleId,
       string memory name,
@@ -299,7 +327,9 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     return roleRegistry.expandToCircle(newRoleId);
   }
 
-  function _handleFacilitatorElection(bytes memory _data) internal returns (uint256) {
+  function _handleFacilitatorElection(
+    bytes memory _data
+  ) internal returns (uint256) {
     (uint256 circleId, address newFacilitator, address previousFacilitator) =
       abi.decode(_data, (uint256, address, address));
     _circleFacilitators[circleId] = newFacilitator;
@@ -309,9 +339,10 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     return circleId;
   }
 
-  function _handleSecretaryElection(bytes memory _data) internal returns (uint256) {
-    (uint256 circleId, address newSecretary, address previousSecretary) =
-      abi.decode(_data, (uint256, address, address));
+  function _handleSecretaryElection(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (uint256 circleId, address newSecretary, address previousSecretary) = abi.decode(_data, (uint256, address, address));
     _circleSecretaries[circleId] = newSecretary;
     _secretaryElected[circleId] = true;
     emit CircleSecretarySet(circleId, newSecretary);

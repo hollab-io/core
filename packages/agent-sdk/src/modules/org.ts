@@ -1,11 +1,16 @@
 import type { IndexingClient } from "@hollab-io/indexing-client";
-import { organizationFactoryAbi } from "@hollab-io/contracts/actions";
+import { organizationFactoryAbi, organizationInstanceAbi } from "@hollab-io/contracts/actions";
+import { decodeEventLog } from "viem";
 
 import type { CreateOrgResult, HollabAgentConfig, TxResult } from "../types.js";
 
 /**
  * Organization management module.
- * Handles creating orgs, managing membership, and querying org state.
+ *
+ * Post-refactor: per-org state (members, admins, join requests, agent links)
+ * lives on an OrganizationInstance clone — the factory is a thin directory.
+ * Write helpers take the instance address directly; callers who only have an
+ * orgId can resolve it via `resolveInstance(orgId)`.
  */
 export class OrgModule {
     constructor(private config: HollabAgentConfig) {}
@@ -41,43 +46,82 @@ export class OrgModule {
 
         const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
 
+        // Parse OrganizationCreated(orgId, subname, creator, instance) off the receipt.
         let orgId = 0n;
+        let instance: `0x${string}` = "0x0000000000000000000000000000000000000000";
         for (const log of receipt.logs) {
-            if (log.topics.length >= 2 && log.topics[1]) {
-                orgId = BigInt(log.topics[1]);
-                break;
+            try {
+                const decoded = decodeEventLog({
+                    abi: organizationFactoryAbi,
+                    data: log.data,
+                    topics: log.topics as unknown as [`0x${string}`, ...`0x${string}`[]],
+                });
+                if (decoded.eventName === "OrganizationCreated") {
+                    const args = decoded.args as {
+                        _orgId: bigint;
+                        _instance: `0x${string}`;
+                    };
+                    orgId = args._orgId;
+                    instance = args._instance;
+                    break;
+                }
+            } catch {
+                // non-matching log — skip
             }
         }
 
-        return { txHash, orgId };
+        return { txHash, orgId, instance };
     }
 
-    /** Add a member to an organization. */
-    async addMember(orgId: bigint, member: `0x${string}`): Promise<TxResult> {
-        const { walletClient, publicClient, orgFactoryAddress } = this.config;
-
-        const txHash = await walletClient.writeContract({
+    /**
+     * Resolve an orgId to its OrganizationInstance clone address.
+     * Returns address(0) if the org doesn't exist.
+     */
+    async resolveInstance(orgId: bigint): Promise<`0x${string}`> {
+        const { publicClient, orgFactoryAddress } = this.config;
+        return (await publicClient.readContract({
             abi: organizationFactoryAbi,
             address: orgFactoryAddress,
-            functionName: "addOrgMember",
-            args: [orgId, member],
-        });
+            functionName: "getOrganization",
+            args: [orgId],
+        })) as `0x${string}`;
+    }
 
+    /** Add a member to an organization. Admin-only. */
+    async addMember(instance: `0x${string}`, member: `0x${string}`): Promise<TxResult> {
+        const { walletClient, publicClient } = this.config;
+        const txHash = await walletClient.writeContract({
+            abi: organizationInstanceAbi,
+            address: instance,
+            functionName: "addMember",
+            args: [member],
+        });
         await publicClient.waitForTransactionReceipt({ hash: txHash });
         return { txHash };
     }
 
-    /** Remove a member from an organization. */
-    async removeMember(orgId: bigint, member: `0x${string}`): Promise<TxResult> {
-        const { walletClient, publicClient, orgFactoryAddress } = this.config;
-
+    /** Remove a member from an organization. Admin-only. */
+    async removeMember(instance: `0x${string}`, member: `0x${string}`): Promise<TxResult> {
+        const { walletClient, publicClient } = this.config;
         const txHash = await walletClient.writeContract({
-            abi: organizationFactoryAbi,
-            address: orgFactoryAddress,
-            functionName: "removeOrgMember",
-            args: [orgId, member],
+            abi: organizationInstanceAbi,
+            address: instance,
+            functionName: "removeMember",
+            args: [member],
         });
+        await publicClient.waitForTransactionReceipt({ hash: txHash });
+        return { txHash };
+    }
 
+    /** Submit a join request from the connected wallet. */
+    async requestToJoin(instance: `0x${string}`, message: string): Promise<TxResult> {
+        const { walletClient, publicClient } = this.config;
+        const txHash = await walletClient.writeContract({
+            abi: organizationInstanceAbi,
+            address: instance,
+            functionName: "requestToJoin",
+            args: [message],
+        });
         await publicClient.waitForTransactionReceipt({ hash: txHash });
         return { txHash };
     }

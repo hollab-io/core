@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
-import {Initializable} from '@openzeppelin/contracts/proxy/utils/Initializable.sol';
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
-import {RoleDataRegistry} from 'contracts/RoleDataRegistry.sol';
+import {Initializable} from '@openzeppelin/contracts/proxy/utils/Initializable.sol';
 import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationFactory.sol';
 import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
+import {RoleDataRegistry} from 'contracts/RoleDataRegistry.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
+import {Test} from 'forge-std/Test.sol';
 import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {IRoleDataRegistry} from 'interfaces/IRoleDataRegistry.sol';
-import {Test} from 'forge-std/Test.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 contract StubENSForRoleData is IENSSubdomainRegistrar {
@@ -52,10 +52,7 @@ contract UnitRoleDataRegistry is Test {
 
   function setUp() external {
     _orgFactory = new OrganizationFactory(
-      address(new RoleRegistry()),
-      address(new OrganizationInstance()),
-      address(new StubENSForRoleData()),
-      address(0)
+      address(new RoleRegistry()), address(new OrganizationInstance()), address(new StubENSForRoleData()), address(0)
     );
 
     vm.prank(_deployer);
@@ -143,9 +140,7 @@ contract UnitRoleDataRegistry is Test {
     vm.prank(_lead);
     _roleDataRegistry.removeChecklistItem(_itemId);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(IRoleDataRegistry.RoleDataRegistry_ChecklistItemNotFound.selector, _itemId)
-    );
+    vm.expectRevert(abi.encodeWithSelector(IRoleDataRegistry.RoleDataRegistry_ChecklistItemNotFound.selector, _itemId));
     _roleDataRegistry.getChecklistItem(_itemId);
 
     uint256[] memory _ids = _roleDataRegistry.getChecklistItemsByRole(_workerRoleId);

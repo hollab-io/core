@@ -194,8 +194,7 @@ export default function MemberOnboarding({ org, onComplete }: Props) {
 
         try {
             await addOrgMembers({
-                orgFactoryAddress: chainConfig.orgFactoryAddress,
-                orgId: BigInt(org.id),
+                instanceAddress: org.instanceAddress as `0x${string}`,
                 memberAddresses: resolvedAddresses,
                 walletAddress: address as `0x${string}`,
             });

@@ -4,7 +4,7 @@
  * Lets an outside user look up a HolLab org by subname and submit a join request.
  * Shown inside OrganizationsHome for users who want to join (rather than create) an org.
  */
-import { organizationFactoryAbi } from "@hollab-io/viem-extension";
+import { organizationFactoryAbi, organizationInstanceAbi } from "@hollab-io/viem-extension";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Building2, Check, Loader2, Search, X } from "lucide-react";
@@ -19,6 +19,7 @@ type OrgPreview = {
     name: string;
     subname: string;
     creator: `0x${string}`;
+    instanceAddress: `0x${string}`;
 };
 
 type LookupState =
@@ -70,14 +71,32 @@ export default function JoinOrganizationPanel({ onClose, prefilled }: Props) {
         staleTime: 30_000,
         retry: false,
         queryFn: async () => {
-            const org = (await publicClient.readContract({
+            // Post-refactor the factory returns just an address; the instance
+            // owns the full metadata under summary().
+            const instanceAddress = (await publicClient.readContract({
                 address: chainConfig.orgFactoryAddress,
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 abi: organizationFactoryAbi as any,
                 functionName: "getOrganizationBySubname",
                 args: [trimmedDebounced],
-            })) as { id: bigint; name: string; subname: string; creator: `0x${string}` };
-            return org;
+            })) as `0x${string}`;
+
+            const ZERO = "0x0000000000000000000000000000000000000000";
+            if (instanceAddress.toLowerCase() === ZERO) {
+                return null;
+            }
+
+            const summary = (await publicClient.readContract({
+                address: instanceAddress,
+                abi: organizationInstanceAbi,
+                functionName: "summary",
+            })) as {
+                id: bigint;
+                name: string;
+                subname: string;
+                creator: `0x${string}`;
+            };
+            return { ...summary, instanceAddress };
         },
     });
 
@@ -93,7 +112,13 @@ export default function JoinOrganizationPanel({ onClose, prefilled }: Props) {
         if (!org || org.id === 0n) return { kind: "not-found" };
         return {
             kind: "found",
-            org: { id: org.id, name: org.name, subname: org.subname, creator: org.creator },
+            org: {
+                id: org.id,
+                name: org.name,
+                subname: org.subname,
+                creator: org.creator,
+                instanceAddress: org.instanceAddress,
+            },
         };
     }, [
         prefilled,
@@ -109,7 +134,7 @@ export default function JoinOrganizationPanel({ onClose, prefilled }: Props) {
         setSubmitState("pending");
         setSubmitError(null);
         try {
-            await requestToJoin({ orgId: lookupState.org.id, message });
+            await requestToJoin({ instanceAddress: lookupState.org.instanceAddress, message });
             setSubmitState("done");
         } catch (err) {
             setSubmitState("error");

@@ -1,26 +1,25 @@
-import { organizationFactoryAbi } from "@hollab-io/viem-extension";
+import { organizationInstanceAbi } from "@hollab-io/viem-extension";
 import { useAccount } from "wagmi";
 
 import { useSendTransaction } from "./useSendTransaction";
 
-/** Add members via OrganizationFactory.addOrgMember (org admin only). */
+/** Add members via OrganizationInstance.addMember (org admin only). */
 export function useOrgMemberActions() {
     const { address } = useAccount();
     const { send } = useSendTransaction();
 
     const addOrgMembers = async (params: {
-        orgFactoryAddress: `0x${string}`;
-        orgId: bigint;
+        instanceAddress: `0x${string}`;
         memberAddresses: `0x${string}`[];
         walletAddress: `0x${string}`;
     }): Promise<`0x${string}`> => {
         const account = (address ?? params.walletAddress) as `0x${string}`;
         const calls = params.memberAddresses.map((member) => ({
-            to: params.orgFactoryAddress,
+            to: params.instanceAddress,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            abi: organizationFactoryAbi as any,
-            functionName: "addOrgMember" as const,
-            args: [params.orgId, member] as const,
+            abi: organizationInstanceAbi as any,
+            functionName: "addMember" as const,
+            args: [member] as const,
         }));
         return send(calls, account);
     };

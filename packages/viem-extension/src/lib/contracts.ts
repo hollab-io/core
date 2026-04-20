@@ -12,6 +12,7 @@ import {
     meetingComponentsFactoryAbi,
     meetingFactoryAbi,
     organizationFactoryAbi,
+    organizationInstanceAbi,
     roleRegistryAbi,
 } from "@hollab-io/contracts/actions";
 import { simulateContract, writeContract } from "viem/actions";
@@ -23,6 +24,7 @@ export {
     meetingComponentsFactoryAbi,
     meetingFactoryAbi,
     organizationFactoryAbi,
+    organizationInstanceAbi,
     roleRegistryAbi,
 };
 
@@ -66,6 +68,7 @@ export function holLabContractActions() {
         govToken: makeContractActions(govTokenAbi)(client),
         meetingFactory: makeContractActions(meetingFactoryAbi)(client),
         organizationFactory: makeContractActions(organizationFactoryAbi)(client),
+        organizationInstance: makeContractActions(organizationInstanceAbi)(client),
         roleRegistry: makeContractActions(roleRegistryAbi)(client),
     });
 }

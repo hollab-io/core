@@ -45,6 +45,12 @@ function invalidateProposalQueries(
 export type RaiseObjectionParams = {
     meeting: Meeting;
     proposalId: bigint;
+    /**
+     * The role the objector is representing (§5.3 Representation Rule).
+     * Must be a role the caller leads in the proposal's circle, OR `0n` when
+     * the caller is the circle's elected Facilitator/Secretary.
+     */
+    objectorRoleId: bigint;
     /** Free-text concern, hashed client-side. Pass `concernHash` to use a precomputed ref. */
     concernText?: string;
     concernHash?: `0x${string}`;
@@ -65,7 +71,7 @@ export function useRaiseObjection() {
                         to: params.meeting.governanceMeetingAddress,
                         abi: meetingFactoryAbi,
                         functionName: "raiseObjection",
-                        args: [params.proposalId, concernHash],
+                        args: [params.proposalId, params.objectorRoleId, concernHash],
                     },
                 ],
                 address,
@@ -159,7 +165,7 @@ export function useAdoptProposal() {
     });
 }
 
-// ── Discard proposal (admin) ────────────────────────────────────────────────
+// ── Discard proposal (proposer or circle Facilitator, §5.3.4) ─────────────
 
 export type DiscardProposalParams = {
     meeting: Meeting;

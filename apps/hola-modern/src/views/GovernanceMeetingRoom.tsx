@@ -29,11 +29,15 @@ import type { GovernanceMeeting } from "../hooks/useGovernanceMeetingsFromIndexe
 import { DataVisibility, fieldNameHash } from "../hooks/useContentRef";
 import { useEncryptedStorage } from "../hooks/useEncryptedStorage";
 import {
+    encodeAmendPolicy,
     encodeAmendRole,
     encodeAmendRoleWithRefs,
+    encodeCreatePolicy,
     encodeCreateRole,
     encodeCreateRoleWithRefs,
     encodeExpandRoleToCircle,
+    encodeMoveRole,
+    encodeRemovePolicy,
     encodeRemoveRole,
     ChangeType as OnChainChangeType,
 } from "../hooks/useExecuteGovernance";
@@ -332,8 +336,38 @@ function buildGovernanceCalls(
         changeType = OnChainChangeType.ExpandRoleToCircle;
         circleId = BigInt(action.circleId || "0");
         encodedData = encodeExpandRoleToCircle(BigInt(action.existingTargetId));
+    } else if (action.changeType === "create-policy") {
+        changeType = OnChainChangeType.CreatePolicy;
+        circleId = BigInt(action.circleId || "0");
+        encodedData = encodeCreatePolicy({
+            circleId,
+            name: action.policyTitle ?? "",
+            body: action.policyBody ?? "",
+        });
+    } else if (action.changeType === "amend-policy" && action.existingTargetId) {
+        changeType = OnChainChangeType.AmendPolicy;
+        circleId = BigInt(action.circleId || "0");
+        encodedData = encodeAmendPolicy({
+            policyId: BigInt(action.existingTargetId),
+            name: action.policyTitle ?? "",
+            body: action.policyBody ?? "",
+        });
+    } else if (action.changeType === "remove-policy" && action.existingTargetId) {
+        changeType = OnChainChangeType.RemovePolicy;
+        circleId = BigInt(action.circleId || "0");
+        encodedData = encodeRemovePolicy(BigInt(action.existingTargetId));
+    } else if (
+        action.changeType === "move-role" &&
+        action.existingTargetId &&
+        action.destinationCircleId
+    ) {
+        changeType = OnChainChangeType.MoveRole;
+        circleId = BigInt(action.circleId || "0");
+        encodedData = encodeMoveRole({
+            roleId: BigInt(action.existingTargetId),
+            toCircleId: BigInt(action.destinationCircleId),
+        });
     } else {
-        // Policies and move-role not yet supported on-chain
         return [];
     }
 

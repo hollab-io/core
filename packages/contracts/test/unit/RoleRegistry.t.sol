@@ -388,7 +388,8 @@ contract UnitRoleRegistry is Test {
     vm.expectEmit(true, true, true, true, address(_roleRegistry));
     emit PolicyCreated(_expectedPolicyId, _circleId, 'No after-hours meetings');
 
-    uint256 _policyId = _roleRegistry.createPolicy(_circleId, 'No after-hours meetings', 'Meetings after 6pm require consent');
+    uint256 _policyId =
+      _roleRegistry.createPolicy(_circleId, 'No after-hours meetings', 'Meetings after 6pm require consent');
 
     assertEq(_policyId, _expectedPolicyId);
     assertEq(_roleRegistry.policyCount(), 1);

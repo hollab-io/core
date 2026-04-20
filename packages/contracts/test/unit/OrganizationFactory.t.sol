@@ -6,8 +6,8 @@ import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationF
 import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
 import {IRoleRegistry, RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
-import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {Test} from 'forge-std/Test.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /// @notice Mock ENS subdomain registrar that records calls without ENS logic
@@ -45,11 +45,7 @@ contract UnitOrganizationFactory is Test {
   address internal _creator2 = makeAddr('creator2');
 
   event OrganizationCreated(
-    uint256 indexed _orgId,
-    string _subname,
-    address indexed _creator,
-    address indexed _instance,
-    address _roleRegistry
+    uint256 indexed _orgId, string _subname, address indexed _creator, address indexed _instance, address _roleRegistry
   );
 
   function setUp() external {
@@ -250,8 +246,7 @@ contract UnitOrganizationFactory is Test {
 
   function test_GetOrganizationBySubname() external {
     vm.prank(_creator1);
-    (uint256 _orgId, address _instance) =
-      _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
+    (uint256 _orgId, address _instance) = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
 
     address _bySub = _factory.getOrganizationBySubname('myorg');
     assertEq(_bySub, _instance);

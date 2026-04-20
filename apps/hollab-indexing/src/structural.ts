@@ -145,3 +145,91 @@ ponder.on("RoleRegistry:RoleLeadUnassigned", async ({ event, context }) => {
     await updateRoleLeads(context, event.log.address, _roleId, event.block.timestamp);
     await refreshOrgData(context, event.log.address, event.block.timestamp);
 });
+
+ponder.on("RoleRegistry:RoleMoved", async ({ event, context }) => {
+    const { _roleId } = event.args;
+    await upsertRole(context, event.log.address, _roleId, event.block.timestamp);
+    await refreshOrgData(context, event.log.address, event.block.timestamp);
+});
+
+async function upsertPolicy(
+    context: Ctx,
+    registryAddress: `0x${string}`,
+    policyId: bigint,
+    timestamp: bigint,
+) {
+    const index = await context.db.find(schema.registryIndex, { registryAddress });
+    if (!index) return;
+
+    const policyStruct = await context.client.readContract({
+        abi: roleRegistryAbi,
+        address: registryAddress,
+        functionName: "getPolicy",
+        args: [policyId],
+    });
+
+    if (!policyStruct.exists) return;
+
+    const id = `${registryAddress.toLowerCase()}-${policyId}`;
+    const values = {
+        id,
+        policyId,
+        orgId: index.orgId,
+        registryAddress,
+        circleId: policyStruct.circleId,
+        name: policyStruct.name,
+        body: policyStruct.body,
+        updatedAt: timestamp,
+    };
+
+    const existing = await context.db.find(schema.policy, { id });
+    if (existing) {
+        await context.db.update(schema.policy, { id }).set(values);
+    } else {
+        await context.db.insert(schema.policy).values(values);
+    }
+}
+
+ponder.on("RoleRegistry:PolicyCreated", async ({ event, context }) => {
+    const { _policyId } = event.args;
+    await upsertPolicy(context, event.log.address, _policyId, event.block.timestamp);
+    await refreshOrgData(context, event.log.address, event.block.timestamp);
+});
+
+ponder.on("RoleRegistry:PolicyUpdated", async ({ event, context }) => {
+    const { _policyId } = event.args;
+    await upsertPolicy(context, event.log.address, _policyId, event.block.timestamp);
+    await refreshOrgData(context, event.log.address, event.block.timestamp);
+});
+
+ponder.on("RoleRegistry:PolicyRemoved", async ({ event, context }) => {
+    const { _policyId } = event.args;
+    const id = `${event.log.address.toLowerCase()}-${_policyId}`;
+    const existing = await context.db.find(schema.policy, { id });
+    if (existing) {
+        await context.db.delete(schema.policy, { id });
+    }
+    await refreshOrgData(context, event.log.address, event.block.timestamp);
+});
+
+ponder.on("RoleRegistry:ContentRefSet", async ({ event, context }) => {
+    const { _entityType, _entityId, _fieldName, _contentHash, _visibility } = event.args;
+    const id = `${event.log.address.toLowerCase()}-${_entityType}-${_entityId}-${_fieldName}`;
+    const values = {
+        id,
+        registryAddress: event.log.address,
+        entityType: _entityType,
+        entityId: _entityId,
+        fieldName: _fieldName,
+        contentHash: _contentHash,
+        visibility: _visibility,
+        updatedAt: event.block.timestamp,
+        txHash: event.transaction.hash,
+    };
+    const existing = await context.db.find(schema.contentRef, { id });
+    if (existing) {
+        await context.db.update(schema.contentRef, { id }).set(values);
+    } else {
+        await context.db.insert(schema.contentRef).values(values);
+    }
+});

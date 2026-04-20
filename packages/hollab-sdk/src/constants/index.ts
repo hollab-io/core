@@ -27,4 +27,5 @@ export const KEY_PREFIX = {
     CONFIG: ":config",
     MEMORY: ":memory",
     STATE: ":state",
+    OKR: ":okr:",
 } as const;

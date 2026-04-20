@@ -266,8 +266,14 @@ function ProposalActions({
 
     const handleRaise = () => {
         if (!address) return;
+        // §5.3 Representation Rule: objector must lead a role in the proposal's circle.
+        // For now we default to the proposer's role — if the caller co-leads it, the
+        // objection is accepted; if not, the contract reverts with NotRoleLead and the
+        // user is told to object from a role they actually hold. A role-selector UI
+        // will replace this default once per-user role-lead queries land.
+        const objectorRoleId = BigInt(proposal.proposerRoleId ?? "0");
         raise.mutate(
-            { meeting, proposalId: proposalIdBig, concernText },
+            { meeting, proposalId: proposalIdBig, objectorRoleId, concernText },
             {
                 onSuccess: () => {
                     setConcernText("");

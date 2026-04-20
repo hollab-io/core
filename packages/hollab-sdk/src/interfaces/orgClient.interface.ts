@@ -1,4 +1,11 @@
-import type { CircleMeta, OrgMeta, Proposal, RoleConfig, Tension } from "../types/org.types.js";
+import type {
+    CircleMeta,
+    OkrObjective,
+    OrgMeta,
+    Proposal,
+    RoleConfig,
+    Tension,
+} from "../types/org.types.js";
 
 /**
  * High-level interface for reading and writing org private data
@@ -19,6 +26,14 @@ export interface IOrgClient {
 
     getRoleConfig(circleId: bigint, roleId: bigint): Promise<RoleConfig | null>;
     setRoleConfig(circleId: bigint, roleId: bigint, config: RoleConfig): Promise<void>;
+
+    getOkrs(circleId: bigint, roleId: bigint, quarter: string): Promise<OkrObjective[]>;
+    setOkrs(
+        circleId: bigint,
+        roleId: bigint,
+        quarter: string,
+        objectives: OkrObjective[],
+    ): Promise<void>;
 
     shareCircleKey(
         circleId: bigint,
