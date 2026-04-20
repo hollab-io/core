@@ -22,12 +22,18 @@ contract UnitRoleRegistry is Test {
   event RoleRemoved(uint256 indexed _roleId, uint256 indexed _circleId);
   event RoleLeadAssigned(uint256 indexed _roleId, address indexed _lead);
   event RoleLeadUnassigned(uint256 indexed _roleId, address indexed _lead);
+  event PolicyCreated(uint256 indexed _policyId, uint256 indexed _circleId, string _name);
+  event PolicyUpdated(uint256 indexed _policyId);
+  event PolicyRemoved(uint256 indexed _policyId, uint256 indexed _circleId);
+  event RoleMoved(uint256 indexed _roleId, uint256 indexed _fromCircleId, uint256 indexed _toCircleId);
 
   function setUp() external {
     RoleRegistry _impl = new RoleRegistry();
     _roleRegistry = RoleRegistry(Clones.clone(address(_impl)));
     // Use address(this) as factory so this test contract can call setGovernanceProcess
     _roleRegistry.initialize(address(this));
+    // Seed the anchor circle so createRole can target circle 1 (the anchor).
+    _roleRegistry.initAnchorCircle(address(this), 'Anchor', 'Hold the organization purpose');
     _roleRegistry.setGovernanceProcess(_governanceProcess);
 
     _domains.push('Codebase');
@@ -66,19 +72,22 @@ contract UnitRoleRegistry is Test {
 
   function test_CreateRoleWhenValidParams() external whenCalledByGovernanceProcess {
     uint256 _circleId = 1;
+    // Anchor init already created role 1 inside circle 1, so the next id is 2.
+    uint256 _expectedRoleId = 2;
 
     // it emits RoleCreated
     vm.expectEmit(true, true, true, true, address(_roleRegistry));
-    emit RoleCreated(1, _circleId, _roleName);
+    emit RoleCreated(_expectedRoleId, _circleId, _roleName);
 
     uint256 _roleId = _roleRegistry.createRole(_circleId, _roleName, _rolePurpose, _domains, _accountabilities);
 
-    // it increments role count
-    assertEq(_roleRegistry.roleCount(), 1);
+    assertEq(_roleId, _expectedRoleId);
+    // it increments role count (anchor role + new role)
+    assertEq(_roleRegistry.roleCount(), 2);
 
     // it stores the role data
     HolacracyTypes.Role memory _role = _roleRegistry.getRole(_roleId);
-    assertEq(_role.id, 1);
+    assertEq(_role.id, _expectedRoleId);
     assertEq(_role.circleId, _circleId);
     assertEq(_role.name, _roleName);
     assertEq(_role.purpose, _rolePurpose);
@@ -94,10 +103,10 @@ contract UnitRoleRegistry is Test {
     assertEq(_storedAccs.length, 1);
     assertEq(_storedAccs[0], 'Write clean code');
 
-    // it adds to circle roles
+    // it adds to circle roles (anchor role already at index 0, new role at index 1)
     uint256[] memory _circleRoleIds = _roleRegistry.getCircleRoleIds(_circleId);
-    assertEq(_circleRoleIds.length, 1);
-    assertEq(_circleRoleIds[0], _roleId);
+    assertEq(_circleRoleIds.length, 2);
+    assertEq(_circleRoleIds[1], _roleId);
   }
 
   function test_CreateRoleWhenEmptyName() external whenCalledByGovernanceProcess {
@@ -233,9 +242,10 @@ contract UnitRoleRegistry is Test {
     // it removes role leads
     assertFalse(_roleRegistry.isRoleLead(_roleId, _lead));
 
-    // it removes from circle roles
+    // it removes from circle roles (the anchor role created in setUp remains)
     uint256[] memory _circleRoleIds = _roleRegistry.getCircleRoleIds(_circleId);
-    assertEq(_circleRoleIds.length, 0);
+    assertEq(_circleRoleIds.length, 1);
+    assertEq(_circleRoleIds[0], 1);
   }
 
   function test_RemoveRoleWhenDoesNotExist() external whenCalledByGovernanceProcess {
@@ -365,5 +375,144 @@ contract UnitRoleRegistry is Test {
   function test_IsRoleLeadWhenNotAssigned() external view {
     // it returns false for non-existent role
     assertFalse(_roleRegistry.isRoleLead(999, _stranger));
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                            POLICIES
+  //////////////////////////////////////////////////////////////*/
+
+  function test_CreatePolicyWhenValidParams() external whenCalledByGovernanceProcess {
+    uint256 _circleId = 1;
+    uint256 _expectedPolicyId = 1;
+
+    vm.expectEmit(true, true, true, true, address(_roleRegistry));
+    emit PolicyCreated(_expectedPolicyId, _circleId, 'No after-hours meetings');
+
+    uint256 _policyId = _roleRegistry.createPolicy(_circleId, 'No after-hours meetings', 'Meetings after 6pm require consent');
+
+    assertEq(_policyId, _expectedPolicyId);
+    assertEq(_roleRegistry.policyCount(), 1);
+
+    HolacracyTypes.Policy memory _policy = _roleRegistry.getPolicy(_policyId);
+    assertEq(_policy.id, _expectedPolicyId);
+    assertEq(_policy.circleId, _circleId);
+    assertEq(_policy.name, 'No after-hours meetings');
+    assertEq(_policy.body, 'Meetings after 6pm require consent');
+    assertTrue(_policy.exists);
+
+    uint256[] memory _ids = _roleRegistry.getCirclePolicyIds(_circleId);
+    assertEq(_ids.length, 1);
+    assertEq(_ids[0], _policyId);
+  }
+
+  function test_CreatePolicyWhenCalledByNonGovernanceProcess(
+    address _caller
+  ) external {
+    vm.assume(_caller != _governanceProcess);
+    vm.prank(_caller);
+    vm.expectRevert(IRoleRegistry.RoleRegistry_Unauthorized.selector);
+    _roleRegistry.createPolicy(1, 'Name', 'Body');
+  }
+
+  function test_CreatePolicyWhenEmptyName() external whenCalledByGovernanceProcess {
+    vm.expectRevert(IRoleRegistry.RoleRegistry_EmptyPolicyName.selector);
+    _roleRegistry.createPolicy(1, '', 'Body');
+  }
+
+  function test_CreatePolicyWhenCircleDoesNotExist() external whenCalledByGovernanceProcess {
+    vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_CircleNotFound.selector, 42));
+    _roleRegistry.createPolicy(42, 'Name', 'Body');
+  }
+
+  function test_UpdatePolicyWhenValid() external whenCalledByGovernanceProcess {
+    uint256 _policyId = _roleRegistry.createPolicy(1, 'Name', 'Body');
+
+    vm.expectEmit(true, true, true, true, address(_roleRegistry));
+    emit PolicyUpdated(_policyId);
+
+    _roleRegistry.updatePolicy(_policyId, 'NewName', 'NewBody');
+
+    HolacracyTypes.Policy memory _policy = _roleRegistry.getPolicy(_policyId);
+    assertEq(_policy.name, 'NewName');
+    assertEq(_policy.body, 'NewBody');
+  }
+
+  function test_UpdatePolicyWhenDoesNotExist() external whenCalledByGovernanceProcess {
+    vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_PolicyNotFound.selector, 999));
+    _roleRegistry.updatePolicy(999, 'N', 'B');
+  }
+
+  function test_RemovePolicyWhenExists() external whenCalledByGovernanceProcess {
+    uint256 _policyId = _roleRegistry.createPolicy(1, 'Name', 'Body');
+
+    vm.expectEmit(true, true, true, true, address(_roleRegistry));
+    emit PolicyRemoved(_policyId, 1);
+
+    _roleRegistry.removePolicy(_policyId);
+
+    vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_PolicyNotFound.selector, _policyId));
+    _roleRegistry.getPolicy(_policyId);
+
+    uint256[] memory _ids = _roleRegistry.getCirclePolicyIds(1);
+    assertEq(_ids.length, 0);
+  }
+
+  function test_RemovePolicyWhenDoesNotExist() external whenCalledByGovernanceProcess {
+    vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_PolicyNotFound.selector, 999));
+    _roleRegistry.removePolicy(999);
+  }
+
+  function test_GetPolicyCircleIdWhenDoesNotExist() external {
+    vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_PolicyNotFound.selector, 999));
+    _roleRegistry.getPolicyCircleId(999);
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                            MOVE ROLE
+  //////////////////////////////////////////////////////////////*/
+
+  function test_MoveRoleWhenValid() external whenCalledByGovernanceProcess {
+    // Create a role in the anchor circle (id 1) and a sub-circle to move it into.
+    uint256 _roleId = _roleRegistry.createRole(1, 'Mover', 'Move purposefully', _domains, _accountabilities);
+    uint256 _destCircleId = _roleRegistry.expandToCircle(_roleId);
+
+    // Create a leaf role inside the anchor circle, then move it into the sub-circle.
+    uint256 _leafRoleId = _roleRegistry.createRole(1, 'Leaf', 'Rooted', _domains, _accountabilities);
+
+    vm.expectEmit(true, true, true, true, address(_roleRegistry));
+    emit RoleMoved(_leafRoleId, 1, _destCircleId);
+
+    _roleRegistry.moveRole(_leafRoleId, _destCircleId);
+
+    assertEq(_roleRegistry.getRoleCircleId(_leafRoleId), _destCircleId);
+  }
+
+  function test_MoveRoleWhenSameCircle() external whenCalledByGovernanceProcess {
+    uint256 _leafRoleId = _roleRegistry.createRole(1, 'Leaf', 'Rooted', _domains, _accountabilities);
+    vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_SameCircle.selector, _leafRoleId, 1));
+    _roleRegistry.moveRole(_leafRoleId, 1);
+  }
+
+  function test_MoveRoleWhenRoleIsCircle() external whenCalledByGovernanceProcess {
+    uint256 _roleId = _roleRegistry.createRole(1, 'Expander', 'Expand', _domains, _accountabilities);
+    _roleRegistry.expandToCircle(_roleId);
+
+    vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_CannotMoveCircleRole.selector, _roleId));
+    _roleRegistry.moveRole(_roleId, 1);
+  }
+
+  function test_MoveRoleWhenDestCircleDoesNotExist() external whenCalledByGovernanceProcess {
+    uint256 _leafRoleId = _roleRegistry.createRole(1, 'Leaf', 'Rooted', _domains, _accountabilities);
+    vm.expectRevert(abi.encodeWithSelector(IRoleRegistry.RoleRegistry_CircleNotFound.selector, 99));
+    _roleRegistry.moveRole(_leafRoleId, 99);
+  }
+
+  function test_MoveRoleWhenCalledByNonGovernanceProcess(
+    address _caller
+  ) external {
+    vm.assume(_caller != _governanceProcess);
+    vm.prank(_caller);
+    vm.expectRevert(IRoleRegistry.RoleRegistry_Unauthorized.selector);
+    _roleRegistry.moveRole(1, 2);
   }
 }

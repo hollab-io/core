@@ -98,7 +98,8 @@ export const actionVotingAbi = [
     {
         type: "function",
         inputs: [
-            { name: "_orgFactory", internalType: "address", type: "address" },
+            { name: "_orgId", internalType: "uint256", type: "uint256" },
+            { name: "_orgInstance", internalType: "address", type: "address" },
             { name: "", internalType: "address", type: "address" },
             { name: "_govToken", internalType: "address", type: "address" },
         ],
@@ -109,8 +110,15 @@ export const actionVotingAbi = [
     {
         type: "function",
         inputs: [],
-        name: "orgFactory",
-        outputs: [{ name: "", internalType: "contract IOrganizationFactory", type: "address" }],
+        name: "org",
+        outputs: [{ name: "", internalType: "contract IOrganizationInstance", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "orgId",
+        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
         stateMutability: "view",
     },
     {
@@ -548,6 +556,15 @@ export const govTokenAbi = [
         type: "event",
         anonymous: false,
         inputs: [
+            { name: "previousMinter", internalType: "address", type: "address", indexed: true },
+            { name: "newMinter", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "MinterChanged",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
             { name: "from", internalType: "address", type: "address", indexed: true },
             { name: "to", internalType: "address", type: "address", indexed: true },
             { name: "value", internalType: "uint256", type: "uint256", indexed: false },
@@ -662,6 +679,7 @@ export const govTokenAbi = [
         inputs: [{ name: "expiry", internalType: "uint256", type: "uint256" }],
         name: "VotesExpiredSignature",
     },
+    { type: "error", inputs: [], name: "ZeroAddress" },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -697,6 +715,7 @@ export const meetingComponentsFactoryAbi = [
         inputs: [
             { name: "_meetingFactoryImpl", internalType: "address", type: "address" },
             { name: "_actionVotingImpl", internalType: "address", type: "address" },
+            { name: "_roleDataRegistryImpl", internalType: "address", type: "address" },
         ],
         stateMutability: "nonpayable",
     },
@@ -722,6 +741,7 @@ export const meetingComponentsFactoryAbi = [
                 components: [
                     { name: "meetingFactory", internalType: "address", type: "address" },
                     { name: "actionVoting", internalType: "address", type: "address" },
+                    { name: "roleDataRegistry", internalType: "address", type: "address" },
                 ],
             },
         ],
@@ -735,12 +755,20 @@ export const meetingComponentsFactoryAbi = [
         stateMutability: "view",
     },
     {
+        type: "function",
+        inputs: [],
+        name: "roleDataRegistryImplementation",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
         type: "event",
         anonymous: false,
         inputs: [
             { name: "_orgId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_meetingFactory", internalType: "address", type: "address", indexed: true },
             { name: "_actionVoting", internalType: "address", type: "address", indexed: false },
+            { name: "_roleDataRegistry", internalType: "address", type: "address", indexed: false },
         ],
         name: "MeetingComponentsDeployed",
     },
@@ -758,6 +786,7 @@ export const meetingComponentsFactoryAbi = [
         inputs: [{ name: "_subname", internalType: "string", type: "string" }],
         name: "MeetingComponentsFactory_OrgNotFound",
     },
+    { type: "error", inputs: [], name: "MeetingComponentsFactory_Unauthorized" },
     { type: "error", inputs: [], name: "MeetingComponentsFactory_ZeroAddress" },
 ] as const;
 
@@ -790,6 +819,13 @@ export const meetingFactoryAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
     {
         type: "function",
+        inputs: [],
+        name: "MAX_PROPOSAL_AGE",
+        outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
         inputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
         name: "adoptProposal",
         outputs: [{ name: "_resultId", internalType: "uint256", type: "uint256" }],
@@ -807,6 +843,13 @@ export const meetingFactoryAbi = [
         ],
         name: "createProposal",
         outputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
+        name: "discardExpiredProposal",
+        outputs: [],
         stateMutability: "nonpayable",
     },
     {
@@ -839,6 +882,7 @@ export const meetingFactoryAbi = [
                 components: [
                     { name: "id", internalType: "uint256", type: "uint256" },
                     { name: "proposalId", internalType: "uint256", type: "uint256" },
+                    { name: "objectorRoleId", internalType: "uint256", type: "uint256" },
                     { name: "objector", internalType: "address", type: "address" },
                     { name: "raisedAt", internalType: "uint64", type: "uint64" },
                     { name: "resolvedAt", internalType: "uint64", type: "uint64" },
@@ -890,7 +934,8 @@ export const meetingFactoryAbi = [
     {
         type: "function",
         inputs: [
-            { name: "_orgFactory", internalType: "address", type: "address" },
+            { name: "_orgId", internalType: "uint256", type: "uint256" },
+            { name: "_orgInstance", internalType: "address", type: "address" },
             { name: "_roleRegistry", internalType: "address", type: "address" },
         ],
         name: "initialize",
@@ -918,8 +963,15 @@ export const meetingFactoryAbi = [
     {
         type: "function",
         inputs: [],
-        name: "orgFactory",
-        outputs: [{ name: "", internalType: "contract IOrganizationFactory", type: "address" }],
+        name: "org",
+        outputs: [{ name: "", internalType: "contract IOrganizationInstance", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "orgId",
+        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
         stateMutability: "view",
     },
     {
@@ -933,6 +985,7 @@ export const meetingFactoryAbi = [
         type: "function",
         inputs: [
             { name: "_proposalId", internalType: "uint256", type: "uint256" },
+            { name: "_objectorRoleId", internalType: "uint256", type: "uint256" },
             { name: "_concernHash", internalType: "bytes32", type: "bytes32" },
         ],
         name: "raiseObjection",
@@ -970,12 +1023,72 @@ export const meetingFactoryAbi = [
     {
         type: "function",
         inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_facilitator", internalType: "address", type: "address" },
+        ],
+        name: "setCircleFacilitator",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_secretary", internalType: "address", type: "address" },
+        ],
+        name: "setCircleSecretary",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
             { name: "_orgId", internalType: "uint256", type: "uint256" },
             { name: "_kind", internalType: "enum IMeetingFactory.MeetingKind", type: "uint8" },
         ],
         name: "startMeeting",
         outputs: [{ name: "_meetingId", internalType: "uint256", type: "uint256" }],
         stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
+        name: "strikeProposal",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_facilitator", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "CircleFacilitatorSet",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_secretary", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "CircleSecretarySet",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_facilitator", internalType: "address", type: "address", indexed: true },
+            {
+                name: "_previousFacilitator",
+                internalType: "address",
+                type: "address",
+                indexed: false,
+            },
+        ],
+        name: "FacilitatorElected",
     },
     {
         type: "event",
@@ -1048,6 +1161,7 @@ export const meetingFactoryAbi = [
             { name: "_objectionId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_proposalId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_objector", internalType: "address", type: "address", indexed: true },
+            { name: "_objectorRoleId", internalType: "uint256", type: "uint256", indexed: false },
             { name: "_concernHash", internalType: "bytes32", type: "bytes32", indexed: false },
         ],
         name: "ObjectionRaised",
@@ -1098,8 +1212,46 @@ export const meetingFactoryAbi = [
         ],
         name: "ProposalDiscarded",
     },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_proposalId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_secretary", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "ProposalStruck",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_secretary", internalType: "address", type: "address", indexed: true },
+            {
+                name: "_previousSecretary",
+                internalType: "address",
+                type: "address",
+                indexed: false,
+            },
+        ],
+        name: "SecretaryElected",
+    },
     { type: "error", inputs: [], name: "MeetingFactory_AlreadyInitialized" },
+    {
+        type: "error",
+        inputs: [
+            { name: "_proposalCircleId", internalType: "uint256", type: "uint256" },
+            { name: "_targetCircleId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "MeetingFactory_ChangeCircleMismatch",
+    },
     { type: "error", inputs: [], name: "MeetingFactory_EmptyString" },
+    {
+        type: "error",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "MeetingFactory_FacilitatorAlreadyElected",
+    },
     {
         type: "error",
         inputs: [
@@ -1122,7 +1274,7 @@ export const meetingFactoryAbi = [
             { name: "_objectionId", internalType: "uint256", type: "uint256" },
             { name: "_caller", internalType: "address", type: "address" },
         ],
-        name: "MeetingFactory_NotObjectorOrAdmin",
+        name: "MeetingFactory_NotObjectorOrFacilitator",
     },
     {
         type: "error",
@@ -1142,13 +1294,76 @@ export const meetingFactoryAbi = [
     },
     {
         type: "error",
+        inputs: [
+            { name: "_proposalId", internalType: "uint256", type: "uint256" },
+            { name: "_caller", internalType: "address", type: "address" },
+        ],
+        name: "MeetingFactory_NotProposerOrFacilitator",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256" },
+            { name: "_caller", internalType: "address", type: "address" },
+        ],
+        name: "MeetingFactory_NotRoleLead",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_caller", internalType: "address", type: "address" },
+        ],
+        name: "MeetingFactory_NotSecretary",
+    },
+    {
+        type: "error",
         inputs: [{ name: "_objectionId", internalType: "uint256", type: "uint256" }],
         name: "MeetingFactory_ObjectionNotFound",
     },
     {
         type: "error",
+        inputs: [
+            { name: "_objectorRoleId", internalType: "uint256", type: "uint256" },
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "MeetingFactory_ObjectorRoleNotInCircle",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_expected", internalType: "uint256", type: "uint256" },
+            { name: "_provided", internalType: "uint256", type: "uint256" },
+        ],
+        name: "MeetingFactory_OrgIdMismatch",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
+        name: "MeetingFactory_ProposalExpired",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
+        name: "MeetingFactory_ProposalNotExpired",
+    },
+    {
+        type: "error",
         inputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
         name: "MeetingFactory_ProposalNotFound",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "MeetingFactory_SecretaryAlreadyElected",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_proposalId", internalType: "uint256", type: "uint256" },
+            { name: "_count", internalType: "uint256", type: "uint256" },
+        ],
+        name: "MeetingFactory_UnresolvedObjections",
     },
     { type: "error", inputs: [], name: "MeetingFactory_UnsupportedChangeType" },
 ] as const;
@@ -1167,7 +1382,9 @@ export const organizationFactoryAbi = [
         type: "constructor",
         inputs: [
             { name: "_roleRegistryImpl", internalType: "address", type: "address" },
+            { name: "_orgInstanceImpl", internalType: "address", type: "address" },
             { name: "_ensRegistrar", internalType: "address", type: "address" },
+            { name: "_meetingComponentsFactory", internalType: "address", type: "address" },
         ],
         stateMutability: "nonpayable",
     },
@@ -1188,36 +1405,6 @@ export const organizationFactoryAbi = [
     {
         type: "function",
         inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-            { name: "account", internalType: "address", type: "address" },
-        ],
-        name: "addOrgAdmin",
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-            { name: "account", internalType: "address", type: "address" },
-        ],
-        name: "addOrgMember",
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-            { name: "requester", internalType: "address", type: "address" },
-        ],
-        name: "approveJoinRequest",
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
             { name: "_subname", internalType: "string", type: "string" },
             { name: "_purpose", internalType: "string", type: "string" },
             {
@@ -1233,121 +1420,31 @@ export const organizationFactoryAbi = [
             },
         ],
         name: "createOrganization",
-        outputs: [{ name: "_orgId", internalType: "uint256", type: "uint256" }],
+        outputs: [
+            { name: "_orgId", internalType: "uint256", type: "uint256" },
+            { name: "_instance", internalType: "address", type: "address" },
+        ],
         stateMutability: "nonpayable",
     },
     {
         type: "function",
         inputs: [{ name: "_orgId", internalType: "uint256", type: "uint256" }],
         name: "getOrganization",
-        outputs: [
-            {
-                name: "_org",
-                internalType: "struct HolacracyTypes.Organization",
-                type: "tuple",
-                components: [
-                    { name: "id", internalType: "uint256", type: "uint256" },
-                    { name: "name", internalType: "string", type: "string" },
-                    { name: "subname", internalType: "string", type: "string" },
-                    { name: "creator", internalType: "address", type: "address" },
-                    { name: "roleRegistry", internalType: "address", type: "address" },
-                    { name: "circleRegistry", internalType: "address", type: "address" },
-                    { name: "governanceProcess", internalType: "address", type: "address" },
-                    { name: "meetingFactory", internalType: "address", type: "address" },
-                    { name: "accessManager", internalType: "address", type: "address" },
-                    { name: "anchorCircleId", internalType: "uint256", type: "uint256" },
-                    { name: "createdAt", internalType: "uint256", type: "uint256" },
-                    { name: "token", internalType: "address", type: "address" },
-                ],
-            },
-        ],
+        outputs: [{ name: "_instance", internalType: "address", type: "address" }],
         stateMutability: "view",
     },
     {
         type: "function",
         inputs: [{ name: "_subname", internalType: "string", type: "string" }],
         name: "getOrganizationBySubname",
-        outputs: [
-            {
-                name: "_org",
-                internalType: "struct HolacracyTypes.Organization",
-                type: "tuple",
-                components: [
-                    { name: "id", internalType: "uint256", type: "uint256" },
-                    { name: "name", internalType: "string", type: "string" },
-                    { name: "subname", internalType: "string", type: "string" },
-                    { name: "creator", internalType: "address", type: "address" },
-                    { name: "roleRegistry", internalType: "address", type: "address" },
-                    { name: "circleRegistry", internalType: "address", type: "address" },
-                    { name: "governanceProcess", internalType: "address", type: "address" },
-                    { name: "meetingFactory", internalType: "address", type: "address" },
-                    { name: "accessManager", internalType: "address", type: "address" },
-                    { name: "anchorCircleId", internalType: "uint256", type: "uint256" },
-                    { name: "createdAt", internalType: "uint256", type: "uint256" },
-                    { name: "token", internalType: "address", type: "address" },
-                ],
-            },
-        ],
+        outputs: [{ name: "_instance", internalType: "address", type: "address" }],
         stateMutability: "view",
     },
     {
         type: "function",
-        inputs: [
-            { name: "_offset", internalType: "uint256", type: "uint256" },
-            { name: "_limit", internalType: "uint256", type: "uint256" },
-        ],
-        name: "getOrganizations",
-        outputs: [
-            {
-                name: "_orgs",
-                internalType: "struct HolacracyTypes.Organization[]",
-                type: "tuple[]",
-                components: [
-                    { name: "id", internalType: "uint256", type: "uint256" },
-                    { name: "name", internalType: "string", type: "string" },
-                    { name: "subname", internalType: "string", type: "string" },
-                    { name: "creator", internalType: "address", type: "address" },
-                    { name: "roleRegistry", internalType: "address", type: "address" },
-                    { name: "circleRegistry", internalType: "address", type: "address" },
-                    { name: "governanceProcess", internalType: "address", type: "address" },
-                    { name: "meetingFactory", internalType: "address", type: "address" },
-                    { name: "accessManager", internalType: "address", type: "address" },
-                    { name: "anchorCircleId", internalType: "uint256", type: "uint256" },
-                    { name: "createdAt", internalType: "uint256", type: "uint256" },
-                    { name: "token", internalType: "address", type: "address" },
-                ],
-            },
-        ],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "requester", internalType: "address", type: "address" },
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-        ],
-        name: "hasPendingRequest",
-        outputs: [{ name: "", internalType: "bool", type: "bool" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-            { name: "account", internalType: "address", type: "address" },
-        ],
-        name: "isOrgAdmin",
-        outputs: [{ name: "", internalType: "bool", type: "bool" }],
-        stateMutability: "view",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-            { name: "account", internalType: "address", type: "address" },
-        ],
-        name: "isOrgMember",
-        outputs: [{ name: "", internalType: "bool", type: "bool" }],
+        inputs: [],
+        name: "meetingComponentsFactory",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
         stateMutability: "view",
     },
     {
@@ -1359,43 +1456,10 @@ export const organizationFactoryAbi = [
     },
     {
         type: "function",
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-            { name: "requester", internalType: "address", type: "address" },
-        ],
-        name: "rejectJoinRequest",
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-            { name: "account", internalType: "address", type: "address" },
-        ],
-        name: "removeOrgAdmin",
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-            { name: "account", internalType: "address", type: "address" },
-        ],
-        name: "removeOrgMember",
-        outputs: [],
-        stateMutability: "nonpayable",
-    },
-    {
-        type: "function",
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-            { name: "message", internalType: "string", type: "string" },
-        ],
-        name: "requestToJoin",
-        outputs: [{ name: "requestId", internalType: "uint256", type: "uint256" }],
-        stateMutability: "nonpayable",
+        inputs: [],
+        name: "organizationInstanceImplementation",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
     },
     {
         type: "function",
@@ -1408,92 +1472,11 @@ export const organizationFactoryAbi = [
         type: "event",
         anonymous: false,
         inputs: [
-            { name: "requestId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "requester", internalType: "address", type: "address", indexed: true },
-            { name: "orgId", internalType: "uint256", type: "uint256", indexed: true },
-        ],
-        name: "JoinApproved",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "requestId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "requester", internalType: "address", type: "address", indexed: true },
-            { name: "orgId", internalType: "uint256", type: "uint256", indexed: true },
-        ],
-        name: "JoinRejected",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "requestId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "requester", internalType: "address", type: "address", indexed: true },
-            { name: "orgId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "message", internalType: "string", type: "string", indexed: false },
-        ],
-        name: "JoinRequested",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "account", internalType: "address", type: "address", indexed: true },
-        ],
-        name: "OrgAdminAdded",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "account", internalType: "address", type: "address", indexed: true },
-        ],
-        name: "OrgAdminRemoved",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "_orgId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "_circleRegistry", internalType: "address", type: "address", indexed: true },
-            { name: "_roleRegistry", internalType: "address", type: "address", indexed: true },
-            {
-                name: "_governanceProcess",
-                internalType: "address",
-                type: "address",
-                indexed: false,
-            },
-        ],
-        name: "OrgComponentsDeployed",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "account", internalType: "address", type: "address", indexed: true },
-        ],
-        name: "OrgMemberAdded",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
-            { name: "orgId", internalType: "uint256", type: "uint256", indexed: true },
-            { name: "account", internalType: "address", type: "address", indexed: true },
-        ],
-        name: "OrgMemberRemoved",
-    },
-    {
-        type: "event",
-        anonymous: false,
-        inputs: [
             { name: "_orgId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_subname", internalType: "string", type: "string", indexed: false },
             { name: "_creator", internalType: "address", type: "address", indexed: true },
+            { name: "_instance", internalType: "address", type: "address", indexed: true },
+            { name: "_roleRegistry", internalType: "address", type: "address", indexed: false },
         ],
         name: "OrganizationCreated",
     },
@@ -1506,39 +1489,11 @@ export const organizationFactoryAbi = [
         ],
         name: "InsufficientBalance",
     },
+    { type: "error", inputs: [], name: "OrganizationFactory_ArrayLengthMismatch" },
     {
         type: "error",
         inputs: [{ name: "_subname", internalType: "string", type: "string" }],
         name: "OrganizationFactory_InvalidSubname",
-    },
-    {
-        type: "error",
-        inputs: [
-            { name: "requester", internalType: "address", type: "address" },
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-        ],
-        name: "OrganizationFactory_JoinRequestAlreadyPending",
-    },
-    {
-        type: "error",
-        inputs: [
-            { name: "requester", internalType: "address", type: "address" },
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-        ],
-        name: "OrganizationFactory_JoinRequestNotFound",
-    },
-    {
-        type: "error",
-        inputs: [
-            { name: "caller", internalType: "address", type: "address" },
-            { name: "orgId", internalType: "uint256", type: "uint256" },
-        ],
-        name: "OrganizationFactory_JoinRequestUnauthorized",
-    },
-    {
-        type: "error",
-        inputs: [{ name: "orgId", internalType: "uint256", type: "uint256" }],
-        name: "OrganizationFactory_OrgNotFound",
     },
     {
         type: "error",
@@ -1574,11 +1529,553 @@ export const organizationFactoryConfig = {
 } as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// OrganizationInstance
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const organizationInstanceAbi = [
+    { type: "constructor", inputs: [], stateMutability: "nonpayable" },
+    {
+        type: "function",
+        inputs: [],
+        name: "accessManager",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "account", internalType: "address", type: "address" }],
+        name: "addAdmin",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "account", internalType: "address", type: "address" }],
+        name: "addMember",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "adminCount",
+        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "anchorCircleId",
+        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "requester", internalType: "address", type: "address" }],
+        name: "approveJoinRequest",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "createdAt",
+        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "creator",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "creator_",
+        outputs: [{ name: "", internalType: "string", type: "string" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "account", internalType: "address", type: "address" }],
+        name: "getAgentIdentity",
+        outputs: [
+            { name: "agentRegistry", internalType: "address", type: "address" },
+            { name: "agentId", internalType: "uint256", type: "uint256" },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "requester", internalType: "address", type: "address" }],
+        name: "hasPendingRequest",
+        outputs: [{ name: "", internalType: "bool", type: "bool" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "id",
+        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            {
+                name: "params",
+                internalType: "struct IOrganizationInstance.InitParams",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "subname", internalType: "string", type: "string" },
+                    { name: "purpose", internalType: "string", type: "string" },
+                    { name: "creator", internalType: "address", type: "address" },
+                    { name: "roleRegistry", internalType: "address", type: "address" },
+                    { name: "accessManager", internalType: "address", type: "address" },
+                    { name: "token", internalType: "address", type: "address" },
+                    { name: "anchorCircleId", internalType: "uint256", type: "uint256" },
+                    { name: "meetingComponentsFactory", internalType: "address", type: "address" },
+                ],
+            },
+        ],
+        name: "initialize",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "account", internalType: "address", type: "address" }],
+        name: "isAdmin",
+        outputs: [{ name: "", internalType: "bool", type: "bool" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "account", internalType: "address", type: "address" }],
+        name: "isMember",
+        outputs: [{ name: "", internalType: "bool", type: "bool" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "agentRegistry", internalType: "address", type: "address" },
+            { name: "agentId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "linkAgentIdentity",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "meetingComponentsFactory",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "meetingFactory",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "requester", internalType: "address", type: "address" }],
+        name: "rejectJoinRequest",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "account", internalType: "address", type: "address" }],
+        name: "removeAdmin",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "account", internalType: "address", type: "address" }],
+        name: "removeMember",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "message", internalType: "string", type: "string" }],
+        name: "requestToJoin",
+        outputs: [{ name: "requestId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "roleRegistry",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_meetingFactory", internalType: "address", type: "address" }],
+        name: "setMeetingFactory",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "governanceProcess", internalType: "address", type: "address" }],
+        name: "setRoleRegistryGovernanceProcess",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "subname",
+        outputs: [{ name: "", internalType: "string", type: "string" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "summary",
+        outputs: [
+            {
+                name: "",
+                internalType: "struct HolacracyTypes.Organization",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "name", internalType: "string", type: "string" },
+                    { name: "subname", internalType: "string", type: "string" },
+                    { name: "creator", internalType: "address", type: "address" },
+                    { name: "roleRegistry", internalType: "address", type: "address" },
+                    { name: "circleRegistry", internalType: "address", type: "address" },
+                    { name: "governanceProcess", internalType: "address", type: "address" },
+                    { name: "meetingFactory", internalType: "address", type: "address" },
+                    { name: "accessManager", internalType: "address", type: "address" },
+                    { name: "anchorCircleId", internalType: "uint256", type: "uint256" },
+                    { name: "createdAt", internalType: "uint256", type: "uint256" },
+                    { name: "token", internalType: "address", type: "address" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "token",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [{ name: "account", internalType: "address", type: "address", indexed: true }],
+        name: "AdminAdded",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [{ name: "account", internalType: "address", type: "address", indexed: true }],
+        name: "AdminRemoved",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "account", internalType: "address", type: "address", indexed: true },
+            { name: "agentRegistry", internalType: "address", type: "address", indexed: true },
+            { name: "agentId", internalType: "uint256", type: "uint256", indexed: false },
+        ],
+        name: "AgentIdentityLinked",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "requestId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "requester", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "JoinApproved",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "requestId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "requester", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "JoinRejected",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "requestId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "requester", internalType: "address", type: "address", indexed: true },
+            { name: "message", internalType: "string", type: "string", indexed: false },
+        ],
+        name: "JoinRequested",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "meetingFactory", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "MeetingFactorySet",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [{ name: "account", internalType: "address", type: "address", indexed: true }],
+        name: "MemberAdded",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [{ name: "account", internalType: "address", type: "address", indexed: true }],
+        name: "MemberRemoved",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "agentId", internalType: "uint256", type: "uint256" },
+            { name: "caller", internalType: "address", type: "address" },
+        ],
+        name: "OrganizationInstance_AgentNotOwner",
+    },
+    { type: "error", inputs: [], name: "OrganizationInstance_AlreadyInitialized" },
+    {
+        type: "error",
+        inputs: [{ name: "requester", internalType: "address", type: "address" }],
+        name: "OrganizationInstance_JoinRequestAlreadyPending",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "requester", internalType: "address", type: "address" }],
+        name: "OrganizationInstance_JoinRequestNotFound",
+    },
+    { type: "error", inputs: [], name: "OrganizationInstance_LastAdmin" },
+    { type: "error", inputs: [], name: "OrganizationInstance_MeetingFactoryAlreadySet" },
+    { type: "error", inputs: [], name: "OrganizationInstance_Unauthorized" },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// RoleDataRegistry
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+export const roleDataRegistryAbi = [
+    { type: "constructor", inputs: [], stateMutability: "nonpayable" },
+    {
+        type: "function",
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256" },
+            { name: "_label", internalType: "string", type: "string" },
+        ],
+        name: "addChecklistItem",
+        outputs: [{ name: "_itemId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256" },
+            { name: "_label", internalType: "string", type: "string" },
+        ],
+        name: "addMetric",
+        outputs: [{ name: "_metricId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "checklistItemCount",
+        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_itemId", internalType: "uint256", type: "uint256" }],
+        name: "getChecklistItem",
+        outputs: [
+            {
+                name: "_item",
+                internalType: "struct HolacracyTypes.ChecklistItem",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "roleId", internalType: "uint256", type: "uint256" },
+                    { name: "label", internalType: "string", type: "string" },
+                    { name: "exists", internalType: "bool", type: "bool" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
+        name: "getChecklistItemsByRole",
+        outputs: [{ name: "_itemIds", internalType: "uint256[]", type: "uint256[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_metricId", internalType: "uint256", type: "uint256" }],
+        name: "getMetric",
+        outputs: [
+            {
+                name: "_metric",
+                internalType: "struct HolacracyTypes.Metric",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "roleId", internalType: "uint256", type: "uint256" },
+                    { name: "label", internalType: "string", type: "string" },
+                    { name: "exists", internalType: "bool", type: "bool" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
+        name: "getMetricsByRole",
+        outputs: [{ name: "_metricIds", internalType: "uint256[]", type: "uint256[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_orgId", internalType: "uint256", type: "uint256" },
+            { name: "_orgInstance", internalType: "address", type: "address" },
+            { name: "_roleRegistry", internalType: "address", type: "address" },
+        ],
+        name: "initialize",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "metricCount",
+        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "org",
+        outputs: [{ name: "", internalType: "contract IOrganizationInstance", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "orgId",
+        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_itemId", internalType: "uint256", type: "uint256" }],
+        name: "removeChecklistItem",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_metricId", internalType: "uint256", type: "uint256" }],
+        name: "removeMetric",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "roleRegistry",
+        outputs: [{ name: "", internalType: "contract IRoleRegistry", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_itemId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_label", internalType: "string", type: "string", indexed: false },
+        ],
+        name: "ChecklistItemAdded",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_itemId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
+        ],
+        name: "ChecklistItemRemoved",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_metricId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_label", internalType: "string", type: "string", indexed: false },
+        ],
+        name: "MetricAdded",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_metricId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
+        ],
+        name: "MetricRemoved",
+    },
+    { type: "error", inputs: [], name: "RoleDataRegistry_AlreadyInitialized" },
+    {
+        type: "error",
+        inputs: [{ name: "_itemId", internalType: "uint256", type: "uint256" }],
+        name: "RoleDataRegistry_ChecklistItemNotFound",
+    },
+    { type: "error", inputs: [], name: "RoleDataRegistry_EmptyLabel" },
+    {
+        type: "error",
+        inputs: [{ name: "_metricId", internalType: "uint256", type: "uint256" }],
+        name: "RoleDataRegistry_MetricNotFound",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
+        name: "RoleDataRegistry_RoleNotFound",
+    },
+    { type: "error", inputs: [], name: "RoleDataRegistry_Unauthorized" },
+] as const;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // RoleRegistry
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 export const roleRegistryAbi = [
     { type: "constructor", inputs: [], stateMutability: "nonpayable" },
+    {
+        type: "function",
+        inputs: [],
+        name: "anchorCircleId",
+        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
     {
         type: "function",
         inputs: [
@@ -1587,6 +2084,49 @@ export const roleRegistryAbi = [
         ],
         name: "assignRoleLead",
         outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "circleCount",
+        outputs: [{ name: "_count", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_name", internalType: "string", type: "string" },
+            { name: "_body", internalType: "string", type: "string" },
+        ],
+        name: "createPolicy",
+        outputs: [{ name: "_policyId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_name", internalType: "string", type: "string" },
+            { name: "_body", internalType: "string", type: "string" },
+            { name: "_fieldNames", internalType: "bytes32[]", type: "bytes32[]" },
+            {
+                name: "_refs",
+                internalType: "struct HolacracyTypes.ContentRef[]",
+                type: "tuple[]",
+                components: [
+                    { name: "contentHash", internalType: "bytes32", type: "bytes32" },
+                    {
+                        name: "visibility",
+                        internalType: "enum HolacracyTypes.DataVisibility",
+                        type: "uint8",
+                    },
+                ],
+            },
+        ],
+        name: "createPolicyWithRefs",
+        outputs: [{ name: "_policyId", internalType: "uint256", type: "uint256" }],
         stateMutability: "nonpayable",
     },
     {
@@ -1633,14 +2173,101 @@ export const roleRegistryAbi = [
         type: "function",
         inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
         name: "expandToCircle",
-        outputs: [],
+        outputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
         stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "factory",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "getCircle",
+        outputs: [
+            {
+                name: "_circle",
+                internalType: "struct HolacracyTypes.Circle",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "parentCircleId", internalType: "uint256", type: "uint256" },
+                    { name: "roleId", internalType: "uint256", type: "uint256" },
+                    { name: "name", internalType: "string", type: "string" },
+                    { name: "purpose", internalType: "string", type: "string" },
+                    { name: "isAnchor", internalType: "bool", type: "bool" },
+                    { name: "exists", internalType: "bool", type: "bool" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "getCirclePolicyIds",
+        outputs: [{ name: "_policyIds", internalType: "uint256[]", type: "uint256[]" }],
+        stateMutability: "view",
     },
     {
         type: "function",
         inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
         name: "getCircleRoleIds",
         outputs: [{ name: "_roleIds", internalType: "uint256[]", type: "uint256[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_policyId", internalType: "uint256", type: "uint256" }],
+        name: "getPolicy",
+        outputs: [
+            {
+                name: "_policy",
+                internalType: "struct HolacracyTypes.Policy",
+                type: "tuple",
+                components: [
+                    { name: "id", internalType: "uint256", type: "uint256" },
+                    { name: "circleId", internalType: "uint256", type: "uint256" },
+                    { name: "name", internalType: "string", type: "string" },
+                    { name: "body", internalType: "string", type: "string" },
+                    { name: "exists", internalType: "bool", type: "bool" },
+                ],
+            },
+        ],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_policyId", internalType: "uint256", type: "uint256" }],
+        name: "getPolicyCircleId",
+        outputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_policyId", internalType: "uint256", type: "uint256" },
+            { name: "_fieldName", internalType: "bytes32", type: "bytes32" },
+        ],
+        name: "getPolicyContentRef",
+        outputs: [
+            {
+                name: "_ref",
+                internalType: "struct HolacracyTypes.ContentRef",
+                type: "tuple",
+                components: [
+                    { name: "contentHash", internalType: "bytes32", type: "bytes32" },
+                    {
+                        name: "visibility",
+                        internalType: "enum HolacracyTypes.DataVisibility",
+                        type: "uint8",
+                    },
+                ],
+            },
+        ],
         stateMutability: "view",
     },
     {
@@ -1671,6 +2298,13 @@ export const roleRegistryAbi = [
         inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
         name: "getRoleAccountabilities",
         outputs: [{ name: "_accountabilities", internalType: "string[]", type: "string[]" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
+        name: "getRoleCircleId",
+        outputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
         stateMutability: "view",
     },
     {
@@ -1720,7 +2354,21 @@ export const roleRegistryAbi = [
     },
     {
         type: "function",
-        inputs: [],
+        inputs: [
+            { name: "_creator", internalType: "address", type: "address" },
+            { name: "_name", internalType: "string", type: "string" },
+            { name: "_purpose", internalType: "string", type: "string" },
+        ],
+        name: "initAnchorCircle",
+        outputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_roleId", internalType: "uint256", type: "uint256" },
+        ],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_factory", internalType: "address", type: "address" }],
         name: "initialize",
         outputs: [],
         stateMutability: "nonpayable",
@@ -1734,6 +2382,30 @@ export const roleRegistryAbi = [
         name: "isRoleLead",
         outputs: [{ name: "_isLead", internalType: "bool", type: "bool" }],
         stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256" },
+            { name: "_toCircleId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "moveRole",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "policyCount",
+        outputs: [{ name: "_count", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_policyId", internalType: "uint256", type: "uint256" }],
+        name: "removePolicy",
+        outputs: [],
+        stateMutability: "nonpayable",
     },
     {
         type: "function",
@@ -1758,11 +2430,54 @@ export const roleRegistryAbi = [
     },
     {
         type: "function",
+        inputs: [{ name: "_newFactory", internalType: "address", type: "address" }],
+        name: "transferFactory",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
         inputs: [
             { name: "_roleId", internalType: "uint256", type: "uint256" },
             { name: "_lead", internalType: "address", type: "address" },
         ],
         name: "unassignRoleLead",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_policyId", internalType: "uint256", type: "uint256" },
+            { name: "_name", internalType: "string", type: "string" },
+            { name: "_body", internalType: "string", type: "string" },
+        ],
+        name: "updatePolicy",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [
+            { name: "_policyId", internalType: "uint256", type: "uint256" },
+            { name: "_name", internalType: "string", type: "string" },
+            { name: "_body", internalType: "string", type: "string" },
+            { name: "_fieldNames", internalType: "bytes32[]", type: "bytes32[]" },
+            {
+                name: "_refs",
+                internalType: "struct HolacracyTypes.ContentRef[]",
+                type: "tuple[]",
+                components: [
+                    { name: "contentHash", internalType: "bytes32", type: "bytes32" },
+                    {
+                        name: "visibility",
+                        internalType: "enum HolacracyTypes.DataVisibility",
+                        type: "uint8",
+                    },
+                ],
+            },
+        ],
+        name: "updatePolicyWithRefs",
         outputs: [],
         stateMutability: "nonpayable",
     },
@@ -1810,6 +2525,26 @@ export const roleRegistryAbi = [
         type: "event",
         anonymous: false,
         inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_creator", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "AnchorCircleInitialized",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_parentCircleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
+        ],
+        name: "CircleCreated",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
             { name: "_entityType", internalType: "bytes32", type: "bytes32", indexed: true },
             { name: "_entityId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_fieldName", internalType: "bytes32", type: "bytes32", indexed: true },
@@ -1822,6 +2557,39 @@ export const roleRegistryAbi = [
             },
         ],
         name: "ContentRefSet",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_governanceProcess", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "GovernanceProcessSet",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_policyId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_name", internalType: "string", type: "string", indexed: false },
+        ],
+        name: "PolicyCreated",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_policyId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
+        ],
+        name: "PolicyRemoved",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [{ name: "_policyId", internalType: "uint256", type: "uint256", indexed: true }],
+        name: "PolicyUpdated",
     },
     {
         type: "event",
@@ -1862,6 +2630,16 @@ export const roleRegistryAbi = [
         anonymous: false,
         inputs: [
             { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_fromCircleId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_toCircleId", internalType: "uint256", type: "uint256", indexed: true },
+        ],
+        name: "RoleMoved",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
         ],
         name: "RoleRemoved",
@@ -1886,8 +2664,20 @@ export const roleRegistryAbi = [
         ],
         name: "RoleRegistry_AlreadyRoleLead",
     },
+    { type: "error", inputs: [], name: "RoleRegistry_AnchorAlreadyInitialized" },
     { type: "error", inputs: [], name: "RoleRegistry_ArrayLengthMismatch" },
+    {
+        type: "error",
+        inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
+        name: "RoleRegistry_CannotMoveCircleRole",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "RoleRegistry_CircleNotFound",
+    },
     { type: "error", inputs: [], name: "RoleRegistry_EmptyName" },
+    { type: "error", inputs: [], name: "RoleRegistry_EmptyPolicyName" },
     { type: "error", inputs: [], name: "RoleRegistry_InvalidRole" },
     {
         type: "error",
@@ -1899,8 +2689,21 @@ export const roleRegistryAbi = [
     },
     {
         type: "error",
+        inputs: [{ name: "_policyId", internalType: "uint256", type: "uint256" }],
+        name: "RoleRegistry_PolicyNotFound",
+    },
+    {
+        type: "error",
         inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],
         name: "RoleRegistry_RoleNotFound",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_roleId", internalType: "uint256", type: "uint256" },
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "RoleRegistry_SameCircle",
     },
     { type: "error", inputs: [], name: "RoleRegistry_Unauthorized" },
 ] as const;

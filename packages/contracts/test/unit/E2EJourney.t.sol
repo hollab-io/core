@@ -2,14 +2,18 @@
 pragma solidity 0.8.28;
 
 import {Test} from 'forge-std/Test.sol';
+import {Initializable} from '@openzeppelin/contracts/proxy/utils/Initializable.sol';
 
 import {ActionVoting, IActionVoting} from 'contracts/ActionVoting.sol';
 import {IMeetingComponentsFactory, MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
 import {IMeetingFactory, MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
+import {RoleDataRegistry} from 'contracts/RoleDataRegistry.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {GovToken} from 'contracts/governance/GovToken.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /// @notice Stub ENS registrar for testing
@@ -38,16 +42,19 @@ contract E2EJourney is Test {
   address internal _stranger = makeAddr('stranger');
 
   uint256 internal _orgId;
-  HolacracyTypes.Organization internal _org;
+  IOrganizationInstance internal _org;
 
   function setUp() external {
     StubENSRegistrar _ensReg = new StubENSRegistrar();
     RoleRegistry _rrImpl = new RoleRegistry();
+    OrganizationInstance _oiImpl = new OrganizationInstance();
     MeetingFactory _mfImpl = new MeetingFactory();
     ActionVoting _avImpl = new ActionVoting();
-    _mcFactory = new MeetingComponentsFactory(address(_mfImpl), address(_avImpl));
+    RoleDataRegistry _rdrImpl = new RoleDataRegistry();
+    _mcFactory = new MeetingComponentsFactory(address(_mfImpl), address(_avImpl), address(_rdrImpl));
 
-    _orgFactory = new OrganizationFactory(address(_rrImpl), address(_ensReg), address(_mcFactory));
+    _orgFactory =
+      new OrganizationFactory(address(_rrImpl), address(_oiImpl), address(_ensReg), address(_mcFactory));
   }
 
   function _tokenConfig() internal view returns (IOrganizationFactory.TokenConfig memory _cfg) {
@@ -63,13 +70,16 @@ contract E2EJourney is Test {
 
   function _createOrg() internal {
     vm.prank(_founder);
-    _orgId = _orgFactory.createOrganization('acme-dao', 'Build the future', _tokenConfig());
-    _org = _orgFactory.getOrganization(_orgId);
+    (uint256 _newOrgId, address _instance) =
+      _orgFactory.createOrganization('acme-dao', 'Build the future', _tokenConfig());
+    _orgId = _newOrgId;
+    _org = IOrganizationInstance(_instance);
   }
 
   function _deployMeetingComponents() internal {
+    string memory _subname = _org.subname();
     vm.prank(_founder);
-    IMeetingComponentsFactory.Deployment memory _dep = _mcFactory.deploy(_org.subname, address(_orgFactory));
+    IMeetingComponentsFactory.Deployment memory _dep = _mcFactory.deploy(_subname, address(_orgFactory));
     _mf = MeetingFactory(_dep.meetingFactory);
     _av = ActionVoting(_dep.actionVoting);
   }
@@ -79,17 +89,17 @@ contract E2EJourney is Test {
   function test_Journey_CreateOrgAndMembership() external {
     _createOrg();
 
-    assertTrue(_orgFactory.isOrgAdmin(_orgId, _founder));
-    assertTrue(_orgFactory.isOrgMember(_orgId, _founder));
-    assertFalse(_orgFactory.isOrgAdmin(_orgId, _stranger));
-    assertFalse(_orgFactory.isOrgMember(_orgId, _stranger));
+    assertTrue(_org.isAdmin(_founder));
+    assertTrue(_org.isMember(_founder));
+    assertFalse(_org.isAdmin(_stranger));
+    assertFalse(_org.isMember(_stranger));
 
-    assertEq(_org.subname, 'acme-dao');
-    assertEq(_org.creator, _founder);
-    assertTrue(_org.token != address(0));
-    assertTrue(_org.roleRegistry != address(0));
+    assertEq(_org.subname(), 'acme-dao');
+    assertEq(_org.creator(), _founder);
+    assertTrue(_org.token() != address(0));
+    assertTrue(_org.roleRegistry() != address(0));
 
-    GovToken _token = GovToken(_org.token);
+    GovToken _token = GovToken(_org.token());
     assertEq(_token.balanceOf(_founder), 1_000_000e18);
   }
 
@@ -100,45 +110,43 @@ contract E2EJourney is Test {
 
     vm.prank(_alice);
     vm.expectEmit(true, true, true, true);
-    emit IOrganizationFactory.JoinRequested(1, _alice, _orgId, 'I want to contribute');
-    uint256 _requestId = _orgFactory.requestToJoin(_orgId, 'I want to contribute');
+    emit IOrganizationInstance.JoinRequested(1, _alice, 'I want to contribute');
+    uint256 _requestId = _org.requestToJoin('I want to contribute');
     assertEq(_requestId, 1);
 
-    assertTrue(_orgFactory.hasPendingRequest(_alice, _orgId));
-    assertFalse(_orgFactory.isOrgMember(_orgId, _alice));
+    assertTrue(_org.hasPendingRequest(_alice));
+    assertFalse(_org.isMember(_alice));
 
     vm.prank(_founder);
-    _orgFactory.approveJoinRequest(_orgId, _alice);
+    _org.approveJoinRequest(_alice);
 
-    assertTrue(_orgFactory.isOrgMember(_orgId, _alice));
-    assertFalse(_orgFactory.hasPendingRequest(_alice, _orgId));
+    assertTrue(_org.isMember(_alice));
+    assertFalse(_org.hasPendingRequest(_alice));
   }
 
   function test_Journey_JoinRequestReject() external {
     _createOrg();
 
     vm.prank(_bob);
-    _orgFactory.requestToJoin(_orgId, 'Let me in');
+    _org.requestToJoin('Let me in');
 
     vm.prank(_founder);
-    _orgFactory.rejectJoinRequest(_orgId, _bob);
+    _org.rejectJoinRequest(_bob);
 
-    assertFalse(_orgFactory.isOrgMember(_orgId, _bob));
-    assertFalse(_orgFactory.hasPendingRequest(_bob, _orgId));
+    assertFalse(_org.isMember(_bob));
+    assertFalse(_org.hasPendingRequest(_bob));
   }
 
   function test_Journey_JoinRequestCannotDuplicate() external {
     _createOrg();
 
     vm.startPrank(_alice);
-    _orgFactory.requestToJoin(_orgId, 'First attempt');
+    _org.requestToJoin('First attempt');
 
     vm.expectRevert(
-      abi.encodeWithSelector(
-        IOrganizationFactory.OrganizationFactory_JoinRequestAlreadyPending.selector, _alice, _orgId
-      )
+      abi.encodeWithSelector(IOrganizationInstance.OrganizationInstance_JoinRequestAlreadyPending.selector, _alice)
     );
-    _orgFactory.requestToJoin(_orgId, 'Second attempt');
+    _org.requestToJoin('Second attempt');
     vm.stopPrank();
   }
 
@@ -146,33 +154,29 @@ contract E2EJourney is Test {
     _createOrg();
 
     vm.prank(_alice);
-    _orgFactory.requestToJoin(_orgId, 'First try');
+    _org.requestToJoin('First try');
     vm.prank(_founder);
-    _orgFactory.rejectJoinRequest(_orgId, _alice);
+    _org.rejectJoinRequest(_alice);
 
     vm.prank(_alice);
-    uint256 _newId = _orgFactory.requestToJoin(_orgId, 'Second try');
+    uint256 _newId = _org.requestToJoin('Second try');
     assertEq(_newId, 2);
-    assertTrue(_orgFactory.hasPendingRequest(_alice, _orgId));
+    assertTrue(_org.hasPendingRequest(_alice));
   }
 
   function test_Journey_OnlyAdminCanApproveOrReject() external {
     _createOrg();
 
     vm.prank(_alice);
-    _orgFactory.requestToJoin(_orgId, 'Hello');
+    _org.requestToJoin('Hello');
 
     vm.prank(_bob);
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_JoinRequestUnauthorized.selector, _bob, _orgId)
-    );
-    _orgFactory.approveJoinRequest(_orgId, _alice);
+    vm.expectRevert(IOrganizationInstance.OrganizationInstance_Unauthorized.selector);
+    _org.approveJoinRequest(_alice);
 
     vm.prank(_bob);
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_JoinRequestUnauthorized.selector, _bob, _orgId)
-    );
-    _orgFactory.rejectJoinRequest(_orgId, _alice);
+    vm.expectRevert(IOrganizationInstance.OrganizationInstance_Unauthorized.selector);
+    _org.rejectJoinRequest(_alice);
   }
 
   // ── Journey 3: Admin management ─────────────────────────────────────────
@@ -181,34 +185,34 @@ contract E2EJourney is Test {
     _createOrg();
 
     vm.startPrank(_founder);
-    _orgFactory.addOrgMember(_orgId, _alice);
-    _orgFactory.addOrgAdmin(_orgId, _alice);
+    _org.addMember(_alice);
+    _org.addAdmin(_alice);
     vm.stopPrank();
 
-    assertTrue(_orgFactory.isOrgAdmin(_orgId, _alice));
+    assertTrue(_org.isAdmin(_alice));
 
     vm.prank(_bob);
-    _orgFactory.requestToJoin(_orgId, 'Bob here');
+    _org.requestToJoin('Bob here');
     vm.prank(_alice);
-    _orgFactory.approveJoinRequest(_orgId, _bob);
-    assertTrue(_orgFactory.isOrgMember(_orgId, _bob));
+    _org.approveJoinRequest(_bob);
+    assertTrue(_org.isMember(_bob));
 
     vm.prank(_founder);
-    _orgFactory.removeOrgAdmin(_orgId, _alice);
-    assertFalse(_orgFactory.isOrgAdmin(_orgId, _alice));
-    assertTrue(_orgFactory.isOrgMember(_orgId, _alice));
+    _org.removeAdmin(_alice);
+    assertFalse(_org.isAdmin(_alice));
+    assertTrue(_org.isMember(_alice));
   }
 
   function test_Journey_RemoveMember() external {
     _createOrg();
 
     vm.prank(_founder);
-    _orgFactory.addOrgMember(_orgId, _alice);
-    assertTrue(_orgFactory.isOrgMember(_orgId, _alice));
+    _org.addMember(_alice);
+    assertTrue(_org.isMember(_alice));
 
     vm.prank(_founder);
-    _orgFactory.removeOrgMember(_orgId, _alice);
-    assertFalse(_orgFactory.isOrgMember(_orgId, _alice));
+    _org.removeMember(_alice);
+    assertFalse(_org.isMember(_alice));
   }
 
   // ── Journey 4: Meeting lifecycle ────────────────────────────────────────
@@ -218,7 +222,7 @@ contract E2EJourney is Test {
     _deployMeetingComponents();
 
     vm.prank(_founder);
-    _orgFactory.addOrgMember(_orgId, _alice);
+    _org.addMember(_alice);
 
     vm.prank(_founder);
     uint256 _meetingId = _mf.startMeeting(_orgId, IMeetingFactory.MeetingKind.Tactical);
@@ -253,11 +257,11 @@ contract E2EJourney is Test {
     _createOrg();
     _deployMeetingComponents();
 
-    GovToken _token = GovToken(_org.token);
+    GovToken _token = GovToken(_org.token());
     vm.startPrank(_founder);
-    _orgFactory.addOrgMember(_orgId, _alice);
-    _orgFactory.addOrgAdmin(_orgId, _alice);
-    _orgFactory.addOrgMember(_orgId, _bob);
+    _org.addMember(_alice);
+    _org.addAdmin(_alice);
+    _org.addMember(_bob);
     _token.transfer(_alice, 200_000e18);
     _token.transfer(_bob, 100_000e18);
     vm.stopPrank();
@@ -311,7 +315,7 @@ contract E2EJourney is Test {
     _createOrg();
     _deployMeetingComponents();
 
-    GovToken _token = GovToken(_org.token);
+    GovToken _token = GovToken(_org.token());
     vm.prank(_founder);
     _token.delegate(_founder);
     vm.roll(block.number + 1);
@@ -361,22 +365,22 @@ contract E2EJourney is Test {
     _createOrg();
     _deployMeetingComponents();
 
-    GovToken _token = GovToken(_org.token);
+    GovToken _token = GovToken(_org.token());
 
     vm.prank(_alice);
-    _orgFactory.requestToJoin(_orgId, 'Alice here, ready to build');
+    _org.requestToJoin('Alice here, ready to build');
     vm.prank(_bob);
-    _orgFactory.requestToJoin(_orgId, 'Bob reporting for duty');
+    _org.requestToJoin('Bob reporting for duty');
 
     vm.startPrank(_founder);
-    _orgFactory.approveJoinRequest(_orgId, _alice);
-    _orgFactory.approveJoinRequest(_orgId, _bob);
+    _org.approveJoinRequest(_alice);
+    _org.approveJoinRequest(_bob);
     _token.transfer(_alice, 100_000e18);
     _token.transfer(_bob, 50_000e18);
     vm.stopPrank();
 
     vm.prank(_founder);
-    _orgFactory.addOrgAdmin(_orgId, _alice);
+    _org.addAdmin(_alice);
 
     vm.prank(_founder);
     _token.delegate(_founder);
@@ -426,29 +430,31 @@ contract E2EJourney is Test {
   function test_Journey_MultiOrgIsolation() external {
     _createOrg();
     uint256 _org1Id = _orgId;
+    IOrganizationInstance _org1 = _org;
 
     vm.prank(_alice);
-    uint256 _org2Id = _orgFactory.createOrganization('beta-dao', 'Another DAO', _tokenConfig());
+    (uint256 _org2Id, address _org2Addr) =
+      _orgFactory.createOrganization('beta-dao', 'Another DAO', _tokenConfig());
+    IOrganizationInstance _org2 = IOrganizationInstance(_org2Addr);
 
-    assertTrue(_orgFactory.isOrgAdmin(_org1Id, _founder));
-    assertFalse(_orgFactory.isOrgAdmin(_org2Id, _founder));
-    assertFalse(_orgFactory.isOrgAdmin(_org1Id, _alice));
-    assertTrue(_orgFactory.isOrgAdmin(_org2Id, _alice));
+    assertTrue(_org1.isAdmin(_founder));
+    assertFalse(_org2.isAdmin(_founder));
+    assertFalse(_org1.isAdmin(_alice));
+    assertTrue(_org2.isAdmin(_alice));
 
     vm.prank(_bob);
-    _orgFactory.requestToJoin(_org2Id, 'Join org2');
+    _org2.requestToJoin('Join org2');
     vm.prank(_founder);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IOrganizationFactory.OrganizationFactory_JoinRequestUnauthorized.selector, _founder, _org2Id
-      )
-    );
-    _orgFactory.approveJoinRequest(_org2Id, _bob);
+    vm.expectRevert(IOrganizationInstance.OrganizationInstance_Unauthorized.selector);
+    _org2.approveJoinRequest(_bob);
 
     vm.prank(_alice);
-    _orgFactory.approveJoinRequest(_org2Id, _bob);
-    assertTrue(_orgFactory.isOrgMember(_org2Id, _bob));
-    assertFalse(_orgFactory.isOrgMember(_org1Id, _bob));
+    _org2.approveJoinRequest(_bob);
+    assertTrue(_org2.isMember(_bob));
+    assertFalse(_org1.isMember(_bob));
+
+    _org1Id; // silence unused warning (kept for test narrative clarity)
+    _org2Id;
   }
 
   // ── Journey 9: MeetingComponentsFactory ─────────────────────────────────
@@ -456,8 +462,9 @@ contract E2EJourney is Test {
   function test_Journey_MeetingComponentsFactoryDeploy() external {
     _createOrg();
 
+    string memory _subname = _org.subname();
     vm.prank(_founder);
-    IMeetingComponentsFactory.Deployment memory _dep = _mcFactory.deploy(_org.subname, address(_orgFactory));
+    IMeetingComponentsFactory.Deployment memory _dep = _mcFactory.deploy(_subname, address(_orgFactory));
 
     assertTrue(_dep.meetingFactory != address(0));
     assertTrue(_dep.actionVoting != address(0));
@@ -469,10 +476,13 @@ contract E2EJourney is Test {
     uint256 _meetingId = _mfClone.startMeeting(_orgId, IMeetingFactory.MeetingKind.Tactical);
     assertEq(_meetingId, 1);
 
-    vm.expectRevert(IMeetingFactory.MeetingFactory_AlreadyInitialized.selector);
-    _mfClone.initialize(_orgId, address(_orgFactory), address(0));
+    address _instance = address(_org);
+    address _tokenAddr = _org.token();
 
-    vm.expectRevert(IActionVoting.ActionVoting_AlreadyInitialized.selector);
-    _avClone.initialize(_orgId, address(_orgFactory), address(0), _org.token);
+    vm.expectRevert(Initializable.InvalidInitialization.selector);
+    _mfClone.initialize(_orgId, _instance, address(0));
+
+    vm.expectRevert(Initializable.InvalidInitialization.selector);
+    _avClone.initialize(_orgId, _instance, address(0), _tokenAddr);
   }
 }

@@ -2,12 +2,15 @@
 pragma solidity 0.8.28;
 
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
+import {Initializable} from '@openzeppelin/contracts/proxy/utils/Initializable.sol';
 import {ActionVoting, IActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {GovToken} from 'contracts/governance/GovToken.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {Test} from 'forge-std/Test.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
@@ -20,6 +23,7 @@ contract StubENSRegistrarForActionVoting is IENSSubdomainRegistrar {
 
 contract UnitActionVoting is Test {
   OrganizationFactory internal _orgFactory;
+  IOrganizationInstance internal _org;
   MeetingFactory internal _meetingFactory;
   ActionVoting internal _actionVoting;
   GovToken internal _govToken;
@@ -43,21 +47,28 @@ contract UnitActionVoting is Test {
   }
 
   function setUp() external {
-    _orgFactory =
-      new OrganizationFactory(address(new RoleRegistry()), address(new StubENSRegistrarForActionVoting()), address(0));
+    _orgFactory = new OrganizationFactory(
+      address(new RoleRegistry()),
+      address(new OrganizationInstance()),
+      address(new StubENSRegistrarForActionVoting()),
+      address(0)
+    );
     _meetingFactory = MeetingFactory(Clones.clone(address(new MeetingFactory())));
     _actionVoting = ActionVoting(Clones.clone(address(new ActionVoting())));
     _govToken = new GovToken('HolLab Gov', 'GOV', address(this));
 
     vm.prank(_deployer);
-    _orgId = _orgFactory.createOrganization('action-org', 'Build holacracy tools', _defaultTokenConfig());
+    (uint256 _newOrgId, address _instance) =
+      _orgFactory.createOrganization('action-org', 'Build holacracy tools', _defaultTokenConfig());
+    _orgId = _newOrgId;
+    _org = IOrganizationInstance(_instance);
 
     vm.startPrank(_deployer);
-    _orgFactory.addOrgAdmin(_orgId, _member1);
-    _orgFactory.addOrgMember(_orgId, _member1);
-    _orgFactory.addOrgMember(_orgId, _member2);
-    _meetingFactory.initialize(_orgId, address(_orgFactory), address(0));
-    _actionVoting.initialize(_orgId, address(_orgFactory), address(_meetingFactory), address(_govToken));
+    _org.addAdmin(_member1);
+    _org.addMember(_member1);
+    _org.addMember(_member2);
+    _meetingFactory.initialize(_orgId, _instance, address(0));
+    _actionVoting.initialize(_orgId, _instance, address(_meetingFactory), address(_govToken));
     vm.stopPrank();
 
     _govToken.mint(_member1, 100e18);
@@ -133,7 +144,7 @@ contract UnitActionVoting is Test {
   }
 
   function test_initializeRevertsIfAlreadyInitialized() external {
-    vm.expectRevert(IActionVoting.ActionVoting_AlreadyInitialized.selector);
-    _actionVoting.initialize(_orgId, address(_orgFactory), address(_meetingFactory), address(_govToken));
+    vm.expectRevert(Initializable.InvalidInitialization.selector);
+    _actionVoting.initialize(_orgId, address(_org), address(_meetingFactory), address(_govToken));
   }
 }
