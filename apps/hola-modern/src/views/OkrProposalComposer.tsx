@@ -13,7 +13,7 @@ import { Plus, Target, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 
-import { showToast } from "../components/ToastHost";
+import { showToast } from "../components/toastBus";
 import { useOkrObjectives } from "../hooks/useOkrObjectives";
 import { quarterFromDate } from "../hooks/useOrgOkrs";
 import { useRolesFromIndexer } from "../hooks/useRolesFromIndexer";

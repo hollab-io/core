@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { useDeferredValue, useMemo, useRef, useState } from "react";
 
-import { showToast } from "../components/ToastHost";
+import { showToast } from "../components/toastBus";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 type MeetingRecord = {

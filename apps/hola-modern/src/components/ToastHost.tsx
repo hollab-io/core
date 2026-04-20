@@ -1,21 +1,7 @@
 import { useEffect, useState } from "react";
 
-type Toast = {
-    id: number;
-    message: string;
-};
-
-type Listener = (toast: Toast) => void;
-
-const listeners = new Set<Listener>();
-let nextId = 1;
-
-export function showToast(message: string): void {
-    const toast: Toast = { id: nextId++, message };
-    for (const listener of listeners) {
-        listener(toast);
-    }
-}
+import type { Toast } from "./toastBus";
+import { subscribeToast } from "./toastBus";
 
 const TOAST_DURATION_MS = 2600;
 
@@ -23,16 +9,12 @@ export default function ToastHost() {
     const [toasts, setToasts] = useState<Toast[]>([]);
 
     useEffect(() => {
-        const listener: Listener = (toast) => {
+        return subscribeToast((toast) => {
             setToasts((current) => [...current, toast]);
             window.setTimeout(() => {
                 setToasts((current) => current.filter((entry) => entry.id !== toast.id));
             }, TOAST_DURATION_MS);
-        };
-        listeners.add(listener);
-        return () => {
-            listeners.delete(listener);
-        };
+        });
     }, []);
 
     if (toasts.length === 0) {

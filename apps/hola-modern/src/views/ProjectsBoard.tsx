@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { MoreHorizontal, Plus, X } from "lucide-react";
 import { useState } from "react";
 
-import { showToast } from "../components/ToastHost";
+import { showToast } from "../components/toastBus";
 import { getProjectAccentToken } from "../config/workspace";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
