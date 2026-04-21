@@ -359,7 +359,9 @@ contract UnitMeetingFactoryProposals is Test {
                     REPRESENTATION RULE (§5.3)
   //////////////////////////////////////////////////////////////*/
 
-  function test_CreateProposal_RevertsIfProposerIsNotRoleLead() external {
+  /// @dev §5.3 divergence — the `_proposerRoleId != 0` branch still verifies the
+  ///      caller leads the claimed role, so role attribution can't be forged.
+  function test_CreateProposal_ImposterClaim_Reverts() external {
     address ghost = makeAddr('ghost');
     vm.prank(_deployer);
     _org.addMember(ghost);
@@ -368,6 +370,32 @@ contract UnitMeetingFactoryProposals is Test {
     vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotRoleLead.selector, _anchorRoleId, ghost));
     _meetingFactory.createProposal(
       _orgId, _anchorCircleId, _anchorRoleId, TENSION, HolacracyTypes.ChangeType.CreateRole, _encodeCreateRole('Ghost')
+    );
+  }
+
+  /// @dev §5.3 divergence — with _proposerRoleId == 0 the caller proposes as an org
+  ///      member; no role claim, no role-lead check. Objection path is the guardrail.
+  function test_CreateProposal_AsMember_WithZeroRoleId_Succeeds() external {
+    address ghost = makeAddr('ghost');
+    vm.prank(_deployer);
+    _org.addMember(ghost);
+
+    vm.prank(ghost);
+    uint256 proposalId = _meetingFactory.createProposal(
+      _orgId, _anchorCircleId, 0, TENSION, HolacracyTypes.ChangeType.CreateRole, _encodeCreateRole('Ghost')
+    );
+    IMeetingFactory.ProposalRecord memory p = _meetingFactory.getProposal(proposalId);
+    assertEq(p.proposer, ghost);
+    assertEq(p.proposerRoleId, 0);
+    assertEq(uint8(p.status), uint8(HolacracyTypes.ProposalStatus.Draft));
+  }
+
+  /// @dev Membership check must still fire even when no role is claimed.
+  function test_CreateProposal_NonMember_WithZeroRoleId_StillReverts() external {
+    vm.prank(_stranger);
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotOrgMember.selector, _orgId, _stranger));
+    _meetingFactory.createProposal(
+      _orgId, _anchorCircleId, 0, TENSION, HolacracyTypes.ChangeType.CreateRole, _encodeCreateRole('Stranger')
     );
   }
 
@@ -605,7 +633,7 @@ contract UnitMeetingFactoryProposals is Test {
   function test_AdoptExpiredProposal_Reverts() external {
     uint256 proposalId = _createCuratorProposal();
 
-    vm.warp(block.timestamp + 14 days + 1);
+    vm.warp(block.timestamp + _meetingFactory.proposalMaxAge() + 1);
 
     vm.prank(_deployer);
     vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_ProposalExpired.selector, proposalId));
@@ -615,7 +643,7 @@ contract UnitMeetingFactoryProposals is Test {
   function test_AdoptProposalJustBeforeExpiry_Succeeds() external {
     uint256 proposalId = _createCuratorProposal();
 
-    vm.warp(block.timestamp + 14 days);
+    vm.warp(block.timestamp + _meetingFactory.proposalMaxAge());
 
     vm.prank(_deployer);
     _meetingFactory.adoptProposal(proposalId);
@@ -627,7 +655,7 @@ contract UnitMeetingFactoryProposals is Test {
   function test_DiscardExpiredProposal_Permissionless() external {
     uint256 proposalId = _createCuratorProposal();
 
-    vm.warp(block.timestamp + 14 days + 1);
+    vm.warp(block.timestamp + _meetingFactory.proposalMaxAge() + 1);
 
     vm.prank(_stranger);
     _meetingFactory.discardExpiredProposal(proposalId);
@@ -650,7 +678,7 @@ contract UnitMeetingFactoryProposals is Test {
     vm.prank(_deployer);
     _meetingFactory.adoptProposal(proposalId);
 
-    vm.warp(block.timestamp + 14 days + 1);
+    vm.warp(block.timestamp + _meetingFactory.proposalMaxAge() + 1);
 
     vm.prank(_stranger);
     vm.expectRevert(
@@ -659,6 +687,84 @@ contract UnitMeetingFactoryProposals is Test {
       )
     );
     _meetingFactory.discardExpiredProposal(proposalId);
+  }
+
+  /*//////////////////////////////////////////////////////////////
+                     PROPOSAL MAX AGE (per-org config)
+  //////////////////////////////////////////////////////////////*/
+
+  function test_ProposalMaxAge_DefaultIs7Days() external view {
+    assertEq(_meetingFactory.proposalMaxAge(), 7 days);
+  }
+
+  function test_SetProposalMaxAge_ByAdmin_UpdatesBehavior() external {
+    vm.prank(_deployer);
+    _meetingFactory.setProposalMaxAge(1 hours);
+    assertEq(_meetingFactory.proposalMaxAge(), 1 hours);
+
+    uint256 proposalId = _createCuratorProposal();
+    vm.warp(block.timestamp + 1 hours + 1);
+
+    vm.prank(_deployer);
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_ProposalExpired.selector, proposalId));
+    _meetingFactory.adoptProposal(proposalId);
+  }
+
+  function test_SetProposalMaxAge_RevertsNonAdmin() external {
+    vm.prank(_member);
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotOrgAdmin.selector, _orgId, _member));
+    _meetingFactory.setProposalMaxAge(1 hours);
+  }
+
+  function test_SetProposalMaxAge_BelowMin_Reverts() external {
+    uint64 min = _meetingFactory.MIN_PROPOSAL_MAX_AGE();
+    uint64 max = _meetingFactory.MAX_PROPOSAL_MAX_AGE();
+    vm.prank(_deployer);
+    vm.expectRevert(
+      abi.encodeWithSelector(IMeetingFactory.MeetingFactory_InvalidProposalMaxAge.selector, min - 1, min, max)
+    );
+    _meetingFactory.setProposalMaxAge(min - 1);
+  }
+
+  function test_SetProposalMaxAge_AboveMax_Reverts() external {
+    uint64 min = _meetingFactory.MIN_PROPOSAL_MAX_AGE();
+    uint64 max = _meetingFactory.MAX_PROPOSAL_MAX_AGE();
+    vm.prank(_deployer);
+    vm.expectRevert(
+      abi.encodeWithSelector(IMeetingFactory.MeetingFactory_InvalidProposalMaxAge.selector, max + 1, min, max)
+    );
+    _meetingFactory.setProposalMaxAge(max + 1);
+  }
+
+  function test_SetProposalMaxAge_EmitsEvent() external {
+    uint64 oldAge = _meetingFactory.proposalMaxAge();
+    uint64 newAge = 2 days;
+
+    vm.prank(_deployer);
+    vm.expectEmit(true, true, true, true);
+    emit IMeetingFactory.ProposalMaxAgeUpdated(oldAge, newAge, _deployer);
+    _meetingFactory.setProposalMaxAge(newAge);
+  }
+
+  function test_ProposalMaxAge_AppliesToDiscardExpiredProposal() external {
+    vm.prank(_deployer);
+    _meetingFactory.setProposalMaxAge(2 hours);
+
+    uint256 proposalId = _createCuratorProposal();
+
+    // Not yet expired under the new window — stranger cannot discard.
+    vm.warp(block.timestamp + 1 hours);
+    vm.prank(_stranger);
+    vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_ProposalNotExpired.selector, proposalId));
+    _meetingFactory.discardExpiredProposal(proposalId);
+
+    // After the window, discard is permissionless.
+    vm.warp(block.timestamp + 2 hours);
+    vm.prank(_stranger);
+    _meetingFactory.discardExpiredProposal(proposalId);
+
+    IMeetingFactory.ProposalRecord memory p = _meetingFactory.getProposal(proposalId);
+    assertEq(uint8(p.status), uint8(HolacracyTypes.ProposalStatus.Discarded));
   }
 
   /*//////////////////////////////////////////////////////////////

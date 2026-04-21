@@ -135,6 +135,9 @@ interface IMeetingFactory {
   /// @notice Emitted when the Secretary strikes a Draft proposal as invalid (§4.2.2).
   event ProposalStruck(uint256 indexed _proposalId, uint256 indexed _circleId, address indexed _secretary);
 
+  /// @notice Emitted when an org admin updates the proposal age window.
+  event ProposalMaxAgeUpdated(uint64 _oldAge, uint64 _newAge, address indexed _by);
+
   /*///////////////////////////////////////////////////////////////
                             ERRORS
   //////////////////////////////////////////////////////////////*/
@@ -179,6 +182,9 @@ interface IMeetingFactory {
   /// @dev    Adoption is permissionless — capping the ref array at decode time prevents a
   ///         malicious proposer from crafting a huge-ref proposal that DoS's whoever adopts it.
   error MeetingFactory_TooManyContentRefs(uint256 _length, uint256 _max);
+
+  /// @notice Thrown by setProposalMaxAge when the requested age is outside [MIN, MAX].
+  error MeetingFactory_InvalidProposalMaxAge(uint64 _provided, uint64 _min, uint64 _max);
 
   /*///////////////////////////////////////////////////////////////
                             LOGIC
@@ -304,6 +310,14 @@ interface IMeetingFactory {
     uint256 _proposalId
   ) external;
 
+  /// @notice Update the per-org proposal age window. Org admin only.
+  /// @dev    Must be within [MIN_PROPOSAL_MAX_AGE, MAX_PROPOSAL_MAX_AGE].
+  ///         See specs/99-agent-native-divergence.md for rationale.
+  /// @param _newAge The new proposal max age, in seconds
+  function setProposalMaxAge(
+    uint64 _newAge
+  ) external;
+
   /*///////////////////////////////////////////////////////////////
                             VIEWS
   //////////////////////////////////////////////////////////////*/
@@ -318,4 +332,7 @@ interface IMeetingFactory {
 
   function proposalCount() external view returns (uint256 _count);
   function objectionCount() external view returns (uint256 _count);
+
+  /// @notice Current proposal age window for this org (seconds). See setProposalMaxAge.
+  function proposalMaxAge() external view returns (uint64);
 }

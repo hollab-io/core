@@ -191,6 +191,12 @@ export const actionVotingAbi = [
     {
         type: "event",
         anonymous: false,
+        inputs: [{ name: "version", internalType: "uint64", type: "uint64", indexed: false }],
+        name: "Initialized",
+    },
+    {
+        type: "event",
+        anonymous: false,
         inputs: [
             { name: "_voteId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_voter", internalType: "address", type: "address", indexed: true },
@@ -268,6 +274,8 @@ export const actionVotingAbi = [
     },
     { type: "error", inputs: [], name: "ActionVoting_ZeroAddress" },
     { type: "error", inputs: [], name: "ActionVoting_ZeroAmount" },
+    { type: "error", inputs: [], name: "InvalidInitialization" },
+    { type: "error", inputs: [], name: "NotInitializing" },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -280,7 +288,7 @@ export const govTokenAbi = [
         inputs: [
             { name: "_name", internalType: "string", type: "string" },
             { name: "_symbol", internalType: "string", type: "string" },
-            { name: "_minter", internalType: "address", type: "address" },
+            { name: "_owner", internalType: "address", type: "address" },
         ],
         stateMutability: "nonpayable",
     },
@@ -466,6 +474,13 @@ export const govTokenAbi = [
     },
     {
         type: "function",
+        inputs: [],
+        name: "owner",
+        outputs: [{ name: "", internalType: "address", type: "address" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
         inputs: [
             { name: "owner", internalType: "address", type: "address" },
             { name: "spender", internalType: "address", type: "address" },
@@ -476,6 +491,13 @@ export const govTokenAbi = [
             { name: "s", internalType: "bytes32", type: "bytes32" },
         ],
         name: "permit",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "renounceOwnership",
         outputs: [],
         stateMutability: "nonpayable",
     },
@@ -522,6 +544,13 @@ export const govTokenAbi = [
         stateMutability: "nonpayable",
     },
     {
+        type: "function",
+        inputs: [{ name: "newOwner", internalType: "address", type: "address" }],
+        name: "transferOwnership",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
         type: "event",
         anonymous: false,
         inputs: [
@@ -556,10 +585,10 @@ export const govTokenAbi = [
         type: "event",
         anonymous: false,
         inputs: [
-            { name: "previousMinter", internalType: "address", type: "address", indexed: true },
-            { name: "newMinter", internalType: "address", type: "address", indexed: true },
+            { name: "previousOwner", internalType: "address", type: "address", indexed: true },
+            { name: "newOwner", internalType: "address", type: "address", indexed: true },
         ],
-        name: "MinterChanged",
+        name: "OwnershipTransferred",
     },
     {
         type: "event",
@@ -661,6 +690,16 @@ export const govTokenAbi = [
     },
     { type: "error", inputs: [], name: "InvalidShortString" },
     { type: "error", inputs: [], name: "NotMinter" },
+    {
+        type: "error",
+        inputs: [{ name: "owner", internalType: "address", type: "address" }],
+        name: "OwnableInvalidOwner",
+    },
+    {
+        type: "error",
+        inputs: [{ name: "account", internalType: "address", type: "address" }],
+        name: "OwnableUnauthorizedAccount",
+    },
     {
         type: "error",
         inputs: [
@@ -797,7 +836,7 @@ export const meetingComponentsFactoryAbi = [
  */
 export const meetingComponentsFactoryAddress = {
     1: "0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25",
-    31337: "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+    31337: "0x0165878A594ca255338adfa4d48449f69242Eb8F",
     11155111: "0xAd8223B6e9da5Cf0b4aE03d325CC385Fd1f6a825",
 } as const;
 
@@ -820,7 +859,28 @@ export const meetingFactoryAbi = [
     {
         type: "function",
         inputs: [],
-        name: "MAX_PROPOSAL_AGE",
+        name: "DEFAULT_PROPOSAL_MAX_AGE",
+        outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "MAX_CONTENT_REFS",
+        outputs: [{ name: "", internalType: "uint256", type: "uint256" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "MAX_PROPOSAL_MAX_AGE",
+        outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [],
+        name: "MIN_PROPOSAL_MAX_AGE",
         outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
         stateMutability: "view",
     },
@@ -983,6 +1043,13 @@ export const meetingFactoryAbi = [
     },
     {
         type: "function",
+        inputs: [],
+        name: "proposalMaxAge",
+        outputs: [{ name: "", internalType: "uint64", type: "uint64" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
         inputs: [
             { name: "_proposalId", internalType: "uint256", type: "uint256" },
             { name: "_objectorRoleId", internalType: "uint256", type: "uint256" },
@@ -1042,6 +1109,13 @@ export const meetingFactoryAbi = [
     },
     {
         type: "function",
+        inputs: [{ name: "_newAge", internalType: "uint64", type: "uint64" }],
+        name: "setProposalMaxAge",
+        outputs: [],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
         inputs: [
             { name: "_orgId", internalType: "uint256", type: "uint256" },
             { name: "_kind", internalType: "enum IMeetingFactory.MeetingKind", type: "uint8" },
@@ -1089,6 +1163,12 @@ export const meetingFactoryAbi = [
             },
         ],
         name: "FacilitatorElected",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [{ name: "version", internalType: "uint64", type: "uint64", indexed: false }],
+        name: "Initialized",
     },
     {
         type: "event",
@@ -1216,6 +1296,16 @@ export const meetingFactoryAbi = [
         type: "event",
         anonymous: false,
         inputs: [
+            { name: "_oldAge", internalType: "uint64", type: "uint64", indexed: false },
+            { name: "_newAge", internalType: "uint64", type: "uint64", indexed: false },
+            { name: "_by", internalType: "address", type: "address", indexed: true },
+        ],
+        name: "ProposalMaxAgeUpdated",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
             { name: "_proposalId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_secretary", internalType: "address", type: "address", indexed: true },
@@ -1237,12 +1327,21 @@ export const meetingFactoryAbi = [
         ],
         name: "SecretaryElected",
     },
+    { type: "error", inputs: [], name: "InvalidInitialization" },
     { type: "error", inputs: [], name: "MeetingFactory_AlreadyInitialized" },
     {
         type: "error",
         inputs: [
             { name: "_proposalCircleId", internalType: "uint256", type: "uint256" },
             { name: "_targetCircleId", internalType: "uint256", type: "uint256" },
+        ],
+        name: "MeetingFactory_ChangeCircleMismatch",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "proposalCircle", internalType: "uint256", type: "uint256" },
+            { name: "targetCircle", internalType: "uint256", type: "uint256" },
         ],
         name: "MeetingFactory_ChangeCircleMismatch",
     },
@@ -1259,6 +1358,15 @@ export const meetingFactoryAbi = [
             { name: "_status", internalType: "enum HolacracyTypes.ObjectionStatus", type: "uint8" },
         ],
         name: "MeetingFactory_InvalidObjectionStatus",
+    },
+    {
+        type: "error",
+        inputs: [
+            { name: "_provided", internalType: "uint64", type: "uint64" },
+            { name: "_min", internalType: "uint64", type: "uint64" },
+            { name: "_max", internalType: "uint64", type: "uint64" },
+        ],
+        name: "MeetingFactory_InvalidProposalMaxAge",
     },
     {
         type: "error",
@@ -1360,12 +1468,21 @@ export const meetingFactoryAbi = [
     {
         type: "error",
         inputs: [
+            { name: "_length", internalType: "uint256", type: "uint256" },
+            { name: "_max", internalType: "uint256", type: "uint256" },
+        ],
+        name: "MeetingFactory_TooManyContentRefs",
+    },
+    {
+        type: "error",
+        inputs: [
             { name: "_proposalId", internalType: "uint256", type: "uint256" },
             { name: "_count", internalType: "uint256", type: "uint256" },
         ],
         name: "MeetingFactory_UnresolvedObjections",
     },
     { type: "error", inputs: [], name: "MeetingFactory_UnsupportedChangeType" },
+    { type: "error", inputs: [], name: "NotInitializing" },
 ] as const;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1514,7 +1631,7 @@ export const organizationFactoryAbi = [
  */
 export const organizationFactoryAddress = {
     1: "0xC0252342923238CF5509cfBd2fa46A45ADeDc921",
-    31337: "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+    31337: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
     11155111: "0xEdB4Da78b5C759a651a72F8E4cEF07E606FfF051",
 } as const;
 
@@ -1798,6 +1915,12 @@ export const organizationInstanceAbi = [
     {
         type: "event",
         anonymous: false,
+        inputs: [{ name: "version", internalType: "uint64", type: "uint64", indexed: false }],
+        name: "Initialized",
+    },
+    {
+        type: "event",
+        anonymous: false,
         inputs: [
             { name: "requestId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "requester", internalType: "address", type: "address", indexed: true },
@@ -1843,6 +1966,8 @@ export const organizationInstanceAbi = [
         inputs: [{ name: "account", internalType: "address", type: "address", indexed: true }],
         name: "MemberRemoved",
     },
+    { type: "error", inputs: [], name: "InvalidInitialization" },
+    { type: "error", inputs: [], name: "NotInitializing" },
     {
         type: "error",
         inputs: [
@@ -2027,6 +2152,12 @@ export const roleDataRegistryAbi = [
     {
         type: "event",
         anonymous: false,
+        inputs: [{ name: "version", internalType: "uint64", type: "uint64", indexed: false }],
+        name: "Initialized",
+    },
+    {
+        type: "event",
+        anonymous: false,
         inputs: [
             { name: "_metricId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_roleId", internalType: "uint256", type: "uint256", indexed: true },
@@ -2043,6 +2174,8 @@ export const roleDataRegistryAbi = [
         ],
         name: "MetricRemoved",
     },
+    { type: "error", inputs: [], name: "InvalidInitialization" },
+    { type: "error", inputs: [], name: "NotInitializing" },
     { type: "error", inputs: [], name: "RoleDataRegistry_AlreadyInitialized" },
     {
         type: "error",
@@ -2569,6 +2702,12 @@ export const roleRegistryAbi = [
     {
         type: "event",
         anonymous: false,
+        inputs: [{ name: "version", internalType: "uint64", type: "uint64", indexed: false }],
+        name: "Initialized",
+    },
+    {
+        type: "event",
+        anonymous: false,
         inputs: [
             { name: "_policyId", internalType: "uint256", type: "uint256", indexed: true },
             { name: "_circleId", internalType: "uint256", type: "uint256", indexed: true },
@@ -2650,6 +2789,8 @@ export const roleRegistryAbi = [
         inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256", indexed: true }],
         name: "RoleUpdated",
     },
+    { type: "error", inputs: [], name: "InvalidInitialization" },
+    { type: "error", inputs: [], name: "NotInitializing" },
     {
         type: "error",
         inputs: [{ name: "_roleId", internalType: "uint256", type: "uint256" }],

@@ -57,8 +57,19 @@ contract MeetingFactory is Initializable, IMeetingFactory {
   ///         Once true, the admin bootstrap setter is locked for that circle.
   mapping(uint256 => bool) internal _secretaryElected;
 
-  /// @notice Maximum age of a proposal before it expires (14 days)
-  uint64 public constant MAX_PROPOSAL_AGE = 14 days;
+  /// @notice Per-org maximum age of a proposal before it expires. Settable by org admin
+  ///         within [MIN_PROPOSAL_MAX_AGE, MAX_PROPOSAL_MAX_AGE]. Defaults to
+  ///         DEFAULT_PROPOSAL_MAX_AGE at initialize time.
+  ///         See specs/99-agent-native-divergence.md — the Holacracy v5.0 text assumes
+  ///         a human-meeting cadence that doesn't fit continuous agent operation.
+  uint64 internal _proposalMaxAge;
+
+  /// @notice Default proposal age window for newly initialized orgs.
+  uint64 public constant DEFAULT_PROPOSAL_MAX_AGE = 7 days;
+  /// @notice Minimum admin-configurable proposal age. Guards against accidental zero.
+  uint64 public constant MIN_PROPOSAL_MAX_AGE = 1 hours;
+  /// @notice Maximum admin-configurable proposal age.
+  uint64 public constant MAX_PROPOSAL_MAX_AGE = 30 days;
 
   /// @notice Maximum number of ContentRef entries accepted by any *WithRefs change type.
   ///         Bounds adoption gas so a malicious proposer can't brick adoption by stuffing
@@ -77,6 +88,27 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     orgId = _orgId;
     org = IOrganizationInstance(_orgInstance);
     roleRegistry = IRoleRegistry(_roleRegistry);
+    _proposalMaxAge = DEFAULT_PROPOSAL_MAX_AGE;
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function proposalMaxAge() external view returns (uint64) {
+    return _proposalMaxAge;
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function setProposalMaxAge(
+    uint64 _newAge
+  ) external {
+    if (!org.isAdmin(msg.sender)) {
+      revert MeetingFactory_NotOrgAdmin(orgId, msg.sender);
+    }
+    if (_newAge < MIN_PROPOSAL_MAX_AGE || _newAge > MAX_PROPOSAL_MAX_AGE) {
+      revert MeetingFactory_InvalidProposalMaxAge(_newAge, MIN_PROPOSAL_MAX_AGE, MAX_PROPOSAL_MAX_AGE);
+    }
+    uint64 _oldAge = _proposalMaxAge;
+    _proposalMaxAge = _newAge;
+    emit ProposalMaxAgeUpdated(_oldAge, _newAge, msg.sender);
   }
 
   function _validateOrgId(
@@ -392,10 +424,12 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     if (!org.isMember(msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
     }
-    // §5.3 Representation Rule: the proposer must be a role lead of the role they claim to
-    // represent. Anchor-circle bootstrap is handled by OrganizationFactory seeding the
-    // creator as the Anchor Role's lead at org creation.
-    if (!roleRegistry.isRoleLead(_proposerRoleId, msg.sender)) {
+    // §5.3 divergence (see specs/99-agent-native-divergence.md):
+    //   _proposerRoleId == 0  → proposing as an org member; no role claim is made.
+    //   _proposerRoleId != 0  → claim is still verified, so attribution can't be forged.
+    // The objection path remains strictly gated by circle role-leads (raiseObjection),
+    // which is the real guardrail on adoption.
+    if (_proposerRoleId != 0 && !roleRegistry.isRoleLead(_proposerRoleId, msg.sender)) {
       revert MeetingFactory_NotRoleLead(_proposerRoleId, msg.sender);
     }
 
@@ -426,7 +460,7 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     if (p.status != HolacracyTypes.ProposalStatus.Draft) {
       revert MeetingFactory_InvalidProposalStatus(_proposalId, p.status);
     }
-    if (uint64(block.timestamp) > p.submittedAt + MAX_PROPOSAL_AGE) {
+    if (uint64(block.timestamp) > p.submittedAt + _proposalMaxAge) {
       revert MeetingFactory_ProposalExpired(_proposalId);
     }
     if (_openObjectionCount[_proposalId] > 0) {
@@ -592,7 +626,7 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     if (p.status != HolacracyTypes.ProposalStatus.Draft) {
       revert MeetingFactory_InvalidProposalStatus(_proposalId, p.status);
     }
-    if (uint64(block.timestamp) <= p.submittedAt + MAX_PROPOSAL_AGE) {
+    if (uint64(block.timestamp) <= p.submittedAt + _proposalMaxAge) {
       revert MeetingFactory_ProposalNotExpired(_proposalId);
     }
 
