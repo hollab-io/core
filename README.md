@@ -161,7 +161,7 @@ HolLab inverts this: start with structured roles and deliberation (Holacracy), a
 
 ## Specifications
 
-The `specs/` directory contains the specification suite derived from the [Holacracy Constitution v5.0](https://www.holacracy.org/constitution/5-0/):
+The `specs/` directory is a faithful transcription of the [Holacracy Constitution v5.0](https://www.holacracy.org/constitution/5-0/) into an implementation-oriented spec suite. This project is **Holacracy-shaped, not Holacracy-strict** — four deliberate departures adapt the model for continuous, async, human-and-agent operation. See [99 — Agent-native divergence](./specs/99-agent-native-divergence.md) for the canonical list of what we changed and why.
 
 | Spec                                                                      | Title                                                    |
 | ------------------------------------------------------------------------- | -------------------------------------------------------- |
@@ -173,6 +173,7 @@ The `specs/` directory contains the specification suite derived from the [Holacr
 | [05 — Governance Process](./specs/05-governance-process.md)               | Proposals, Objections, Elections, Process Breakdown      |
 | [06 — Glossary](./specs/06-glossary.md)                                   | All defined terms and enum types                         |
 | [07 — Private Data & AI Agents](./specs/07-private-data-and-ai-agents.md) | Private Data Layer & AI Agent Integration                |
+| [99 — Agent-native divergence](./specs/99-agent-native-divergence.md)     | Where this implementation departs from v5.0, and why     |
 
 ## Development
 
@@ -228,7 +229,7 @@ See the repository root [LICENSE](./LICENSE) file.
 
 ### Holacracy Constitution
 
-The specification documents in `specs/` are derived from the **Holacracy Constitution v5.0** by HolacracyOne, LLC.
+The structural model (roles, circles, domains, accountabilities, policies), governance process (proposals, objections, consent-based adoption), and auditability (on-chain commitments with event-sourced history) are derived from the **Holacracy Constitution v5.0** by HolacracyOne, LLC. Four deliberate departures adapt it for continuous, async, human-and-agent operation — see [`specs/99-agent-native-divergence.md`](./specs/99-agent-native-divergence.md) for the full list.
 
 -   **License:** [Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/)
 -   **Original source:** [holacracy.org/constitution](https://www.holacracy.org/constitution/5-0/) and [GitHub](https://github.com/holacracyone/Holacracy-Constitution)
@@ -238,4 +239,4 @@ Under CC BY-SA 4.0, you are free to share and adapt the material for any purpose
 
 ### Trademark Notice
 
-**Holacracy** is a registered trademark of HolacracyOne, LLC. This project references Holacracy for attribution purposes as required by the CC BY-SA 4.0 license. If the governance rules implemented here diverge from the official Constitution, the resulting system should not be marketed or represented as "Holacracy" without explicit permission from HolacracyOne, LLC.
+This project is derived from, but is **not**, Holacracy®. "Holacracy" is a registered trademark of HolacracyOne, LLC. This implementation deliberately diverges from the v5.0 Constitution (see [`specs/99-agent-native-divergence.md`](./specs/99-agent-native-divergence.md)) and must not be marketed or represented as Holacracy. The Constitution text in `specs/` is used under the CC BY-SA 4.0 license; the divergence document indicates the changes as that license requires.
