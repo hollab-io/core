@@ -116,6 +116,7 @@ export function useTacticalMeetingsFromIndexer(orgId: string | null) {
         tacticalMeetingAddress: mf,
         governanceMeetingAddress: mf,
         actionVotingAddress: components?.actionVoting as `0x${string}` | undefined,
+        roleDataRegistryAddress: components?.roleDataRegistry as `0x${string}` | undefined,
         meetings,
         outputs,
         loading,

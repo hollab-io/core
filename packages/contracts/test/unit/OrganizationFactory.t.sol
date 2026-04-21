@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
+import {Initializable} from '@openzeppelin/contracts/proxy/utils/Initializable.sol';
 import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
 import {IRoleRegistry, RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {Test} from 'forge-std/Test.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /// @notice Mock ENS subdomain registrar that records calls without ENS logic
@@ -41,14 +44,15 @@ contract UnitOrganizationFactory is Test {
   address internal _creator1 = makeAddr('creator1');
   address internal _creator2 = makeAddr('creator2');
 
-  event OrganizationCreated(uint256 indexed _orgId, string _subname, address indexed _creator);
+  event OrganizationCreated(
+    uint256 indexed _orgId, string _subname, address indexed _creator, address indexed _instance, address _roleRegistry
+  );
 
   function setUp() external {
     _mockRegistrar = new MockENSSubdomainRegistrar();
-
     address roleRegistryImpl = address(new RoleRegistry());
-
-    _factory = new OrganizationFactory(roleRegistryImpl, address(_mockRegistrar), address(0));
+    address orgInstanceImpl = address(new OrganizationInstance());
+    _factory = new OrganizationFactory(roleRegistryImpl, orgInstanceImpl, address(_mockRegistrar), address(0));
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -73,70 +77,69 @@ contract UnitOrganizationFactory is Test {
   function test_CreateOrganizationWhenValid() external {
     vm.prank(_creator1);
 
-    // it emits OrganizationCreated
-    vm.expectEmit(true, true, true, true, address(_factory));
-    emit OrganizationCreated(1, 'myorg', _creator1);
+    (uint256 _orgId, address _instance) =
+      _factory.createOrganization('myorg', 'Build great things', _defaultTokenConfig());
 
-    uint256 _orgId = _factory.createOrganization('myorg', 'Build great things', _defaultTokenConfig());
-
-    // it increments organization count
     assertEq(_factory.organizationCount(), 1);
     assertEq(_orgId, 1);
+    assertTrue(_instance != address(0));
+    assertEq(_factory.getOrganization(_orgId), _instance);
 
-    // it stores organization data
-    HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
-    assertEq(_org.id, 1);
-    assertEq(_org.name, 'myorg');
-    assertEq(_org.subname, 'myorg');
-    assertEq(_org.creator, _creator1);
-    assertGt(_org.createdAt, 0);
-    assertTrue(_org.roleRegistry != address(0));
-    assertEq(_org.circleRegistry, address(0));
-    assertEq(_org.governanceProcess, address(0));
-    assertEq(_org.anchorCircleId, 0);
-    assertTrue(_org.token != address(0));
+    IOrganizationInstance _org = IOrganizationInstance(_instance);
+    assertEq(_org.id(), 1);
+    assertEq(_org.subname(), 'myorg');
+    assertEq(_org.creator(), _creator1);
+    assertGt(_org.createdAt(), 0);
+    assertTrue(_org.roleRegistry() != address(0));
+    assertEq(_org.meetingFactory(), address(0));
+    // Anchor circle is auto-created at org init (§1.3.3)
+    assertEq(_org.anchorCircleId(), 1);
+    assertTrue(_org.token() != address(0));
+    // Creator is seeded as first admin + member
+    assertTrue(_org.isAdmin(_creator1));
+    assertTrue(_org.isMember(_creator1));
+    assertEq(_org.adminCount(), 1);
   }
 
   function test_CreateOrganizationClonesAreIsolated() external {
     IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.prank(_creator1);
-    uint256 _orgId1 = _factory.createOrganization('orgone', 'Purpose one', _cfg);
+    (, address _inst1) = _factory.createOrganization('orgone', 'Purpose one', _cfg);
 
     vm.prank(_creator2);
-    uint256 _orgId2 = _factory.createOrganization('orgtwo', 'Purpose two', _cfg);
+    (, address _inst2) = _factory.createOrganization('orgtwo', 'Purpose two', _cfg);
 
-    HolacracyTypes.Organization memory _org1 = _factory.getOrganization(_orgId1);
-    HolacracyTypes.Organization memory _org2 = _factory.getOrganization(_orgId2);
+    IOrganizationInstance _org1 = IOrganizationInstance(_inst1);
+    IOrganizationInstance _org2 = IOrganizationInstance(_inst2);
 
-    // it deploys separate contract instances
-    assertTrue(_org1.roleRegistry != _org2.roleRegistry);
-    assertEq(_org1.circleRegistry, address(0));
-    assertEq(_org2.circleRegistry, address(0));
-    assertEq(_org1.governanceProcess, address(0));
-    assertEq(_org2.governanceProcess, address(0));
-    assertTrue(_org1.token != _org2.token);
-
-    // anchor circles are removed in org-scoped architecture
-    assertEq(_org1.anchorCircleId, 0);
-    assertEq(_org2.anchorCircleId, 0);
+    assertTrue(_org1.roleRegistry() != _org2.roleRegistry());
+    assertTrue(_org1.token() != _org2.token());
+    // Each org has its own anchor circle; both happen to be id 1 in their respective clones
+    assertEq(_org1.anchorCircleId(), 1);
+    assertEq(_org2.anchorCircleId(), 1);
   }
 
   function test_CreateOrganizationAnchorCircle() external {
     vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Build great things', _defaultTokenConfig());
+    (, address _instance) = _factory.createOrganization('myorg', 'Build great things', _defaultTokenConfig());
 
-    HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
-    // anchor circles are removed in org-scoped architecture
-    assertEq(_org.circleRegistry, address(0));
-    assertEq(_org.anchorCircleId, 0);
+    IOrganizationInstance _org = IOrganizationInstance(_instance);
+    assertEq(_org.anchorCircleId(), 1);
+
+    RoleRegistry _rr = RoleRegistry(_org.roleRegistry());
+    assertEq(_rr.anchorCircleId(), 1);
+    HolacracyTypes.Circle memory _anchor = _rr.getCircle(1);
+    assertTrue(_anchor.isAnchor);
+    assertEq(_anchor.parentCircleId, 0);
+    assertEq(_anchor.roleId, 1);
+    assertTrue(_rr.isRoleLead(1, _creator1));
   }
 
   function test_CreateOrganizationRegistersENSSubname() external {
     vm.prank(_creator1);
     _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
 
-    // it calls registerSubnode with the correct label
     assertEq(_mockRegistrar.callCount(), 1);
     MockENSSubdomainRegistrar.SubnodeCall memory _call = _mockRegistrar.getCall(0);
     assertEq(_call.label, keccak256(bytes('myorg')));
@@ -144,12 +147,8 @@ contract UnitOrganizationFactory is Test {
 
   function test_CreateOrganizationDeploysToken() external {
     vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
-
-    HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
-
-    // it deploys a governance token
-    assertTrue(_org.token != address(0));
+    (, address _instance) = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
+    assertTrue(IOrganizationInstance(_instance).token() != address(0));
   }
 
   function test_CreateOrganizationMultipleOrgs() external {
@@ -161,17 +160,9 @@ contract UnitOrganizationFactory is Test {
     vm.prank(_creator2);
     _factory.createOrganization('beta', 'Beta org', _cfg);
 
-    // it tracks correct count
     assertEq(_factory.organizationCount(), 2);
-
-    // it stores both organizations
-    HolacracyTypes.Organization memory _org1 = _factory.getOrganization(1);
-    HolacracyTypes.Organization memory _org2 = _factory.getOrganization(2);
-
-    assertEq(_org1.subname, 'alpha');
-    assertEq(_org1.creator, _creator1);
-    assertEq(_org2.subname, 'beta');
-    assertEq(_org2.creator, _creator2);
+    assertEq(IOrganizationInstance(_factory.getOrganization(1)).subname(), 'alpha');
+    assertEq(IOrganizationInstance(_factory.getOrganization(2)).subname(), 'beta');
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -182,19 +173,14 @@ contract UnitOrganizationFactory is Test {
     IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.startPrank(_creator1);
-
-    // it reverts with 2 chars
     vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_SubnameTooShort.selector, 'ab'));
     _factory.createOrganization('ab', 'Purpose', _cfg);
 
-    // it reverts with 1 char
     vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_SubnameTooShort.selector, 'a'));
     _factory.createOrganization('a', 'Purpose', _cfg);
 
-    // it reverts with empty string
     vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_SubnameTooShort.selector, ''));
     _factory.createOrganization('', 'Purpose', _cfg);
-
     vm.stopPrank();
   }
 
@@ -202,23 +188,17 @@ contract UnitOrganizationFactory is Test {
     IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.startPrank(_creator1);
-
-    // it reverts with uppercase
     vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'MyOrg'));
     _factory.createOrganization('MyOrg', 'Purpose', _cfg);
 
-    // it reverts with spaces
     vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my org'));
     _factory.createOrganization('my org', 'Purpose', _cfg);
 
-    // it reverts with underscores
     vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my_org'));
     _factory.createOrganization('my_org', 'Purpose', _cfg);
 
-    // it reverts with dots
     vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'my.org'));
     _factory.createOrganization('my.org', 'Purpose', _cfg);
-
     vm.stopPrank();
   }
 
@@ -226,15 +206,11 @@ contract UnitOrganizationFactory is Test {
     IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.startPrank(_creator1);
-
-    // it reverts with leading hyphen
     vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, '-myorg'));
     _factory.createOrganization('-myorg', 'Purpose', _cfg);
 
-    // it reverts with trailing hyphen
     vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_InvalidSubname.selector, 'myorg-'));
     _factory.createOrganization('myorg-', 'Purpose', _cfg);
-
     vm.stopPrank();
   }
 
@@ -245,7 +221,6 @@ contract UnitOrganizationFactory is Test {
     _factory.createOrganization('taken', 'Purpose', _cfg);
 
     vm.prank(_creator2);
-    // it reverts
     vm.expectRevert(
       abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_SubnameAlreadyTaken.selector, 'taken')
     );
@@ -256,79 +231,39 @@ contract UnitOrganizationFactory is Test {
     IOrganizationFactory.TokenConfig memory _cfg = _defaultTokenConfig();
 
     vm.startPrank(_creator1);
-
-    // it allows lowercase letters
     _factory.createOrganization('abc', 'Purpose', _cfg);
-
-    // it allows digits
     _factory.createOrganization('org123', 'Purpose', _cfg);
-
-    // it allows hyphens in the middle
     _factory.createOrganization('my-org', 'Purpose', _cfg);
-
-    // it allows mixed alphanumeric with hyphens
     _factory.createOrganization('org-42-test', 'Purpose', _cfg);
-
     vm.stopPrank();
 
     assertEq(_factory.organizationCount(), 4);
   }
 
   /*///////////////////////////////////////////////////////////////
-                    VIEW FUNCTIONS
+                    DIRECTORY (READ-ONLY)
   //////////////////////////////////////////////////////////////*/
 
   function test_GetOrganizationBySubname() external {
     vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
+    (uint256 _orgId, address _instance) = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
 
-    // it returns the correct organization
-    HolacracyTypes.Organization memory _org = _factory.getOrganizationBySubname('myorg');
-    assertEq(_org.id, _orgId);
-    assertEq(_org.subname, 'myorg');
-    assertEq(_org.creator, _creator1);
+    address _bySub = _factory.getOrganizationBySubname('myorg');
+    assertEq(_bySub, _instance);
+    assertEq(IOrganizationInstance(_bySub).id(), _orgId);
   }
 
   function test_GetOrganizationBySubnameWhenNotFound() external view {
-    // it returns empty organization (id == 0)
-    HolacracyTypes.Organization memory _org = _factory.getOrganizationBySubname('nonexistent');
-    assertEq(_org.id, 0);
+    assertEq(_factory.getOrganizationBySubname('nonexistent'), address(0));
   }
 
   function test_GetOrganizationWhenNotFound() external view {
-    // it returns empty organization (id == 0)
-    HolacracyTypes.Organization memory _org = _factory.getOrganization(999);
-    assertEq(_org.id, 0);
-  }
-
-  function test_GetOrganizationsPaginated() external {
-    vm.startPrank(_creator1);
-    _factory.createOrganization('orgone', 'One', _defaultTokenConfig());
-    _factory.createOrganization('orgtwo', 'Two', _defaultTokenConfig());
-    _factory.createOrganization('orgthree', 'Three', _defaultTokenConfig());
-    vm.stopPrank();
-
-    HolacracyTypes.Organization[] memory _page = _factory.getOrganizations(0, 2);
-    assertEq(_page.length, 2);
-    assertEq(_page[0].id, 1);
-    assertEq(_page[1].id, 2);
-
-    HolacracyTypes.Organization[] memory _tail = _factory.getOrganizations(2, 5);
-    assertEq(_tail.length, 1);
-    assertEq(_tail[0].id, 3);
-  }
-
-  function test_GetOrganizationsWhenOffsetOutOfBounds() external {
-    vm.prank(_creator1);
-    _factory.createOrganization('myorg', 'Build my DAO', _defaultTokenConfig());
-
-    HolacracyTypes.Organization[] memory _page = _factory.getOrganizations(5, 10);
-    assertEq(_page.length, 0);
+    assertEq(_factory.getOrganization(999), address(0));
   }
 
   function test_ImplementationAddresses() external view {
-    // it returns non-zero implementation addresses
     assertTrue(_factory.roleRegistryImplementation() != address(0));
+    assertTrue(_factory.organizationInstanceImplementation() != address(0));
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -337,61 +272,15 @@ contract UnitOrganizationFactory is Test {
 
   function test_CloneInitializationGuard() external {
     vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
-    HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
+    (, address _instance) = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
+    RoleRegistry _rr = RoleRegistry(IOrganizationInstance(_instance).roleRegistry());
 
-    // it prevents re-initialization of RoleRegistry clone
-    vm.expectRevert(IRoleRegistry.RoleRegistry_AlreadyInitialized.selector);
-    RoleRegistry(_org.roleRegistry).initialize(address(_factory));
-
-    // governance process is disabled in simplified architecture
-    assertEq(_org.governanceProcess, address(0));
+    vm.expectRevert(Initializable.InvalidInitialization.selector);
+    _rr.initialize(address(_factory));
   }
 
   /*///////////////////////////////////////////////////////////////
-                    GOVERNANCE PROCESS REMOVAL
-  //////////////////////////////////////////////////////////////*/
-
-  function test_GovernanceProcessDisabled() external {
-    vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
-    HolacracyTypes.Organization memory _org = _factory.getOrganization(_orgId);
-
-    // governance process is intentionally not deployed or linked
-    assertEq(_org.governanceProcess, address(0));
-    assertEq(_org.circleRegistry, address(0));
-  }
-
-  /*///////////////////////////////////////////////////////////////
-                    LAST-ADMIN PROTECTION (M-2)
-  //////////////////////////////////////////////////////////////*/
-
-  function test_RemoveLastAdmin_Reverts() external {
-    vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
-
-    // Creator is the only admin — cannot remove themselves
-    vm.prank(_creator1);
-    vm.expectRevert(abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_LastAdmin.selector, _orgId));
-    _factory.removeOrgAdmin(_orgId, _creator1);
-  }
-
-  function test_RemoveAdminWhenMultiple_Succeeds() external {
-    vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('myorg', 'Purpose', _defaultTokenConfig());
-
-    vm.startPrank(_creator1);
-    _factory.addOrgAdmin(_orgId, _creator2);
-    // Now there are 2 admins — can remove one
-    _factory.removeOrgAdmin(_orgId, _creator2);
-    vm.stopPrank();
-
-    assertFalse(_factory.isOrgAdmin(_orgId, _creator2));
-    assertTrue(_factory.isOrgAdmin(_orgId, _creator1));
-  }
-
-  /*///////////////////////////////////////////////////////////////
-                    ARRAY LENGTH MISMATCH (M-3)
+                    ARRAY LENGTH MISMATCH
   //////////////////////////////////////////////////////////////*/
 
   function test_CreateOrganization_ArrayLengthMismatch_Reverts() external {
@@ -408,72 +297,5 @@ contract UnitOrganizationFactory is Test {
     vm.prank(_creator1);
     vm.expectRevert(IOrganizationFactory.OrganizationFactory_ArrayLengthMismatch.selector);
     _factory.createOrganization('badorg', 'Purpose', cfg);
-  }
-
-  /*///////////////////////////////////////////////////////////////
-                    ERC-8004 AGENT IDENTITY
-  //////////////////////////////////////////////////////////////*/
-
-  function test_LinkAgentIdentity_EmitsEvent() external {
-    vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('agentorg', 'Purpose', _defaultTokenConfig());
-
-    // Deploy a mock ERC-8004 registry that says _creator1 owns agentId 42
-    MockERC8004 registry = new MockERC8004();
-    registry.setOwner(42, _creator1);
-
-    vm.prank(_creator1);
-    vm.expectEmit(true, true, true, true);
-    emit IOrganizationFactory.AgentIdentityLinked(_orgId, _creator1, address(registry), 42);
-    _factory.linkAgentIdentity(_orgId, address(registry), 42);
-  }
-
-  function test_LinkAgentIdentity_RevertsIfNotOwner() external {
-    vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('agentorg2', 'Purpose', _defaultTokenConfig());
-
-    MockERC8004 registry = new MockERC8004();
-    registry.setOwner(42, _creator2); // creator2 owns it, not creator1
-
-    vm.prank(_creator1);
-    vm.expectRevert(
-      abi.encodeWithSelector(IOrganizationFactory.OrganizationFactory_AgentNotOwner.selector, 42, _creator1)
-    );
-    _factory.linkAgentIdentity(_orgId, address(registry), 42);
-  }
-
-  function test_LinkAgentIdentity_RevertsIfNotMember() external {
-    vm.prank(_creator1);
-    uint256 _orgId = _factory.createOrganization('agentorg3', 'Purpose', _defaultTokenConfig());
-
-    MockERC8004 registry = new MockERC8004();
-    registry.setOwner(42, _creator2);
-
-    // creator2 is not a member of this org
-    vm.prank(_creator2);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        IOrganizationFactory.OrganizationFactory_JoinRequestUnauthorized.selector, _creator2, _orgId
-      )
-    );
-    _factory.linkAgentIdentity(_orgId, address(registry), 42);
-  }
-}
-
-/// @notice Minimal mock for ERC-8004 Identity Registry
-contract MockERC8004 {
-  mapping(uint256 => address) internal _owners;
-
-  function setOwner(
-    uint256 tokenId,
-    address owner
-  ) external {
-    _owners[tokenId] = owner;
-  }
-
-  function ownerOf(
-    uint256 tokenId
-  ) external view returns (address) {
-    return _owners[tokenId];
   }
 }

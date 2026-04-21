@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
+import {Initializable} from '@openzeppelin/contracts/proxy/utils/Initializable.sol';
 import {IMeetingFactory} from 'interfaces/IMeetingFactory.sol';
-import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {IRoleRegistry} from 'interfaces/IRoleRegistry.sol';
+import {ChangeValidator} from 'libraries/ChangeValidator.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
@@ -23,14 +25,13 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
  *         when each step happened. See specs/05-governance-process.md
  *         "On-chain Commitments Surface".
  */
-contract MeetingFactory is IMeetingFactory {
+contract MeetingFactory is Initializable, IMeetingFactory {
   uint256 public orgId;
-  IOrganizationFactory public orgFactory;
+  IOrganizationInstance public org;
   IRoleRegistry public roleRegistry;
 
   uint256 internal _meetingCounter;
   uint256 internal _itemCounter;
-  bool internal _initialized;
 
   // ── Proposal lifecycle storage ────────────────────────────────────────────
   // Append-only; safe in clones because each clone gets a fresh storage layout
@@ -45,27 +46,69 @@ contract MeetingFactory is IMeetingFactory {
   /// @notice Circle ID => elected facilitator address (§5.1.2)
   mapping(uint256 => address) internal _circleFacilitators;
 
-  /// @notice Maximum age of a proposal before it expires (14 days)
-  uint64 public constant MAX_PROPOSAL_AGE = 14 days;
+  /// @notice Circle ID => elected secretary address (§5.1.2, §4.2)
+  mapping(uint256 => address) internal _circleSecretaries;
 
-  modifier initializer() {
-    if (_initialized) revert MeetingFactory_AlreadyInitialized();
-    _initialized = true;
-    _;
-  }
+  /// @notice Circle ID => whether a FacilitatorElection has been adopted.
+  ///         Once true, the admin bootstrap setter is locked for that circle.
+  mapping(uint256 => bool) internal _facilitatorElected;
+
+  /// @notice Circle ID => whether a SecretaryElection has been adopted.
+  ///         Once true, the admin bootstrap setter is locked for that circle.
+  mapping(uint256 => bool) internal _secretaryElected;
+
+  /// @notice Per-org maximum age of a proposal before it expires. Settable by org admin
+  ///         within [MIN_PROPOSAL_MAX_AGE, MAX_PROPOSAL_MAX_AGE]. Defaults to
+  ///         DEFAULT_PROPOSAL_MAX_AGE at initialize time.
+  ///         See specs/99-agent-native-divergence.md — the Holacracy v5.0 text assumes
+  ///         a human-meeting cadence that doesn't fit continuous agent operation.
+  uint64 internal _proposalMaxAge;
+
+  /// @notice Default proposal age window for newly initialized orgs.
+  uint64 public constant DEFAULT_PROPOSAL_MAX_AGE = 7 days;
+  /// @notice Minimum admin-configurable proposal age. Guards against accidental zero.
+  uint64 public constant MIN_PROPOSAL_MAX_AGE = 1 hours;
+  /// @notice Maximum admin-configurable proposal age.
+  uint64 public constant MAX_PROPOSAL_MAX_AGE = 30 days;
+
+  /// @notice Maximum number of ContentRef entries accepted by any *WithRefs change type.
+  ///         Bounds adoption gas so a malicious proposer can't brick adoption by stuffing
+  ///         unbounded arrays into changeData (adoption is permissionless).
+  uint256 public constant MAX_CONTENT_REFS = 32;
 
   constructor() {
-    _initialized = true;
+    _disableInitializers();
   }
 
   function initialize(
     uint256 _orgId,
-    address _orgFactory,
+    address _orgInstance,
     address _roleRegistry
   ) external initializer {
     orgId = _orgId;
-    orgFactory = IOrganizationFactory(_orgFactory);
+    org = IOrganizationInstance(_orgInstance);
     roleRegistry = IRoleRegistry(_roleRegistry);
+    _proposalMaxAge = DEFAULT_PROPOSAL_MAX_AGE;
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function proposalMaxAge() external view returns (uint64) {
+    return _proposalMaxAge;
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function setProposalMaxAge(
+    uint64 _newAge
+  ) external {
+    if (!org.isAdmin(msg.sender)) {
+      revert MeetingFactory_NotOrgAdmin(orgId, msg.sender);
+    }
+    if (_newAge < MIN_PROPOSAL_MAX_AGE || _newAge > MAX_PROPOSAL_MAX_AGE) {
+      revert MeetingFactory_InvalidProposalMaxAge(_newAge, MIN_PROPOSAL_MAX_AGE, MAX_PROPOSAL_MAX_AGE);
+    }
+    uint64 _oldAge = _proposalMaxAge;
+    _proposalMaxAge = _newAge;
+    emit ProposalMaxAgeUpdated(_oldAge, _newAge, msg.sender);
   }
 
   function _validateOrgId(
@@ -83,7 +126,7 @@ contract MeetingFactory is IMeetingFactory {
     MeetingKind _kind
   ) external returns (uint256 _meetingId) {
     _validateOrgId(_orgId);
-    if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
+    if (!org.isMember(msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
     }
 
@@ -97,7 +140,7 @@ contract MeetingFactory is IMeetingFactory {
     MeetingKind _kind
   ) external {
     _validateOrgId(_orgId);
-    if (!orgFactory.isOrgAdmin(_orgId, msg.sender)) {
+    if (!org.isAdmin(msg.sender)) {
       revert MeetingFactory_NotOrgAdmin(_orgId, msg.sender);
     }
     emit MeetingEnded(_meetingId, _orgId, _kind, msg.sender, block.timestamp);
@@ -112,7 +155,7 @@ contract MeetingFactory is IMeetingFactory {
     uint256 _roleId
   ) external returns (uint256 _itemId) {
     _validateOrgId(_orgId);
-    if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
+    if (!org.isMember(msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
     }
     if (bytes(_description).length == 0) revert MeetingFactory_EmptyString();
@@ -127,7 +170,7 @@ contract MeetingFactory is IMeetingFactory {
     uint256 _proposalId
   ) external returns (uint256 _itemId) {
     _validateOrgId(_orgId);
-    if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
+    if (!org.isMember(msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
     }
 
@@ -139,81 +182,229 @@ contract MeetingFactory is IMeetingFactory {
                     GOVERNANCE EXECUTION
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Internal change applicator invoked by adoptProposal to apply a
-  ///         stored proposal's change payload to the RoleRegistry.
-  ///
-  /// Encoding for each change type:
-  ///   CreateRole:         abi.encode(circleId, name, purpose, domains[], accountabilities[])
-  ///   AmendRole:          abi.encode(roleId, name, purpose, domains[], accountabilities[])
-  ///   RemoveRole:         abi.encode(roleId)
-  ///   Election:           abi.encode(roleId, lead)
-  ///   CreateRoleWithRefs: abi.encode(circleId, name, purpose, domains[], accountabilities[], fieldNames[], refs[])
-  ///   AmendRoleWithRefs:  abi.encode(roleId, name, purpose, domains[], accountabilities[], fieldNames[], refs[])
-  ///   ExpandRoleToCircle: abi.encode(roleId)
+  function _validateChange(
+    uint256 _proposalCircleId,
+    HolacracyTypes.ChangeType _changeType,
+    bytes memory _data
+  ) internal view {
+    ChangeValidator.validate(_proposalCircleId, _changeType, _data, roleRegistry);
+  }
+
+  function _handleCreateRole(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (
+      uint256 circleId,
+      string memory name,
+      string memory purpose,
+      string[] memory domains,
+      string[] memory accountabilities
+    ) = abi.decode(_data, (uint256, string, string, string[], string[]));
+    return roleRegistry.createRole(circleId, name, purpose, domains, accountabilities);
+  }
+
+  function _handleAmendRole(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (
+      uint256 roleId,
+      string memory name,
+      string memory purpose,
+      string[] memory domains,
+      string[] memory accountabilities
+    ) = abi.decode(_data, (uint256, string, string, string[], string[]));
+    roleRegistry.updateRole(roleId, name, purpose, domains, accountabilities);
+    return roleId;
+  }
+
+  function _handleRemoveRole(
+    bytes memory _data
+  ) internal returns (uint256) {
+    uint256 roleId = abi.decode(_data, (uint256));
+    roleRegistry.removeRole(roleId);
+    return roleId;
+  }
+
+  function _handleElection(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (uint256 roleId, address newLead, address previousLead) = abi.decode(_data, (uint256, address, address));
+    if (previousLead != address(0)) {
+      roleRegistry.unassignRoleLead(roleId, previousLead);
+    }
+    roleRegistry.assignRoleLead(roleId, newLead);
+    return roleId;
+  }
+
+  function _handleCreateRoleWithRefs(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (
+      uint256 circleId,
+      string memory name,
+      string memory purpose,
+      string[] memory domains,
+      string[] memory accountabilities,
+      bytes32[] memory fieldNames,
+      HolacracyTypes.ContentRef[] memory refs
+    ) = abi.decode(_data, (uint256, string, string, string[], string[], bytes32[], HolacracyTypes.ContentRef[]));
+    if (fieldNames.length > MAX_CONTENT_REFS) {
+      revert MeetingFactory_TooManyContentRefs(fieldNames.length, MAX_CONTENT_REFS);
+    }
+    return roleRegistry.createRoleWithRefs(circleId, name, purpose, domains, accountabilities, fieldNames, refs);
+  }
+
+  function _handleAmendRoleWithRefs(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (
+      uint256 roleId,
+      string memory name,
+      string memory purpose,
+      string[] memory domains,
+      string[] memory accountabilities,
+      bytes32[] memory fieldNames,
+      HolacracyTypes.ContentRef[] memory refs
+    ) = abi.decode(_data, (uint256, string, string, string[], string[], bytes32[], HolacracyTypes.ContentRef[]));
+    if (fieldNames.length > MAX_CONTENT_REFS) {
+      revert MeetingFactory_TooManyContentRefs(fieldNames.length, MAX_CONTENT_REFS);
+    }
+    roleRegistry.updateRoleWithRefs(roleId, name, purpose, domains, accountabilities, fieldNames, refs);
+    return roleId;
+  }
+
+  function _handleExpandRoleToCircle(
+    bytes memory _data
+  ) internal returns (uint256) {
+    uint256 roleId = abi.decode(_data, (uint256));
+    roleRegistry.expandToCircle(roleId);
+    return roleId;
+  }
+
+  function _handleMoveRole(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (uint256 roleId, uint256 toCircleId) = abi.decode(_data, (uint256, uint256));
+    roleRegistry.moveRole(roleId, toCircleId);
+    return roleId;
+  }
+
+  function _handleCreatePolicy(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (uint256 circleId, string memory name, string memory body) = abi.decode(_data, (uint256, string, string));
+    return roleRegistry.createPolicy(circleId, name, body);
+  }
+
+  function _handleAmendPolicy(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (uint256 policyId, string memory name, string memory body) = abi.decode(_data, (uint256, string, string));
+    roleRegistry.updatePolicy(policyId, name, body);
+    return policyId;
+  }
+
+  function _handleRemovePolicy(
+    bytes memory _data
+  ) internal returns (uint256) {
+    uint256 policyId = abi.decode(_data, (uint256));
+    roleRegistry.removePolicy(policyId);
+    return policyId;
+  }
+
+  function _handleCreatePolicyWithRefs(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (
+      uint256 circleId,
+      string memory name,
+      string memory body,
+      bytes32[] memory fieldNames,
+      HolacracyTypes.ContentRef[] memory refs
+    ) = abi.decode(_data, (uint256, string, string, bytes32[], HolacracyTypes.ContentRef[]));
+    if (fieldNames.length > MAX_CONTENT_REFS) {
+      revert MeetingFactory_TooManyContentRefs(fieldNames.length, MAX_CONTENT_REFS);
+    }
+    return roleRegistry.createPolicyWithRefs(circleId, name, body, fieldNames, refs);
+  }
+
+  function _handleAmendPolicyWithRefs(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (
+      uint256 policyId,
+      string memory name,
+      string memory body,
+      bytes32[] memory fieldNames,
+      HolacracyTypes.ContentRef[] memory refs
+    ) = abi.decode(_data, (uint256, string, string, bytes32[], HolacracyTypes.ContentRef[]));
+    if (fieldNames.length > MAX_CONTENT_REFS) {
+      revert MeetingFactory_TooManyContentRefs(fieldNames.length, MAX_CONTENT_REFS);
+    }
+    roleRegistry.updatePolicyWithRefs(policyId, name, body, fieldNames, refs);
+    return policyId;
+  }
+
+  function _handleCreateCircle(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (
+      uint256 parentCircleId,
+      string memory name,
+      string memory purpose,
+      string[] memory domains,
+      string[] memory accountabilities
+    ) = abi.decode(_data, (uint256, string, string, string[], string[]));
+    uint256 newRoleId = roleRegistry.createRole(parentCircleId, name, purpose, domains, accountabilities);
+    return roleRegistry.expandToCircle(newRoleId);
+  }
+
+  function _handleFacilitatorElection(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (uint256 circleId, address newFacilitator, address previousFacilitator) =
+      abi.decode(_data, (uint256, address, address));
+    _circleFacilitators[circleId] = newFacilitator;
+    _facilitatorElected[circleId] = true;
+    emit CircleFacilitatorSet(circleId, newFacilitator);
+    emit FacilitatorElected(circleId, newFacilitator, previousFacilitator);
+    return circleId;
+  }
+
+  function _handleSecretaryElection(
+    bytes memory _data
+  ) internal returns (uint256) {
+    (uint256 circleId, address newSecretary, address previousSecretary) = abi.decode(_data, (uint256, address, address));
+    _circleSecretaries[circleId] = newSecretary;
+    _secretaryElected[circleId] = true;
+    emit CircleSecretarySet(circleId, newSecretary);
+    emit SecretaryElected(circleId, newSecretary, previousSecretary);
+    return circleId;
+  }
+
+  /// @notice Route a change to its handler via direct dispatch (zero branching).
   function _applyChange(
     HolacracyTypes.ChangeType _changeType,
     bytes memory _data
   ) internal returns (uint256 _resultId) {
-    if (_changeType == HolacracyTypes.ChangeType.CreateRole) {
-      (
-        uint256 circleId,
-        string memory name,
-        string memory purpose,
-        string[] memory domains,
-        string[] memory accountabilities
-      ) = abi.decode(_data, (uint256, string, string, string[], string[]));
-      _resultId = roleRegistry.createRole(circleId, name, purpose, domains, accountabilities);
-    } else if (_changeType == HolacracyTypes.ChangeType.AmendRole) {
-      (
-        uint256 roleId,
-        string memory name,
-        string memory purpose,
-        string[] memory domains,
-        string[] memory accountabilities
-      ) = abi.decode(_data, (uint256, string, string, string[], string[]));
-      roleRegistry.updateRole(roleId, name, purpose, domains, accountabilities);
-      _resultId = roleId;
-    } else if (_changeType == HolacracyTypes.ChangeType.RemoveRole) {
-      uint256 roleId = abi.decode(_data, (uint256));
-      roleRegistry.removeRole(roleId);
-      _resultId = roleId;
-    } else if (_changeType == HolacracyTypes.ChangeType.Election) {
-      (uint256 roleId, address newLead, address previousLead) = abi.decode(_data, (uint256, address, address));
-      if (previousLead != address(0)) {
-        roleRegistry.unassignRoleLead(roleId, previousLead);
-      }
-      roleRegistry.assignRoleLead(roleId, newLead);
-      _resultId = roleId;
-    } else if (_changeType == HolacracyTypes.ChangeType.CreateRoleWithRefs) {
-      (
-        uint256 circleId,
-        string memory name,
-        string memory purpose,
-        string[] memory domains,
-        string[] memory accountabilities,
-        bytes32[] memory fieldNames,
-        HolacracyTypes.ContentRef[] memory refs
-      ) = abi.decode(_data, (uint256, string, string, string[], string[], bytes32[], HolacracyTypes.ContentRef[]));
-      _resultId = roleRegistry.createRoleWithRefs(circleId, name, purpose, domains, accountabilities, fieldNames, refs);
-    } else if (_changeType == HolacracyTypes.ChangeType.AmendRoleWithRefs) {
-      (
-        uint256 roleId,
-        string memory name,
-        string memory purpose,
-        string[] memory domains,
-        string[] memory accountabilities,
-        bytes32[] memory fieldNames,
-        HolacracyTypes.ContentRef[] memory refs
-      ) = abi.decode(_data, (uint256, string, string, string[], string[], bytes32[], HolacracyTypes.ContentRef[]));
-      roleRegistry.updateRoleWithRefs(roleId, name, purpose, domains, accountabilities, fieldNames, refs);
-      _resultId = roleId;
-    } else if (_changeType == HolacracyTypes.ChangeType.ExpandRoleToCircle) {
-      uint256 roleId = abi.decode(_data, (uint256));
-      roleRegistry.expandToCircle(roleId);
-      _resultId = roleId;
-    } else {
-      revert MeetingFactory_UnsupportedChangeType();
-    }
+    uint256 ct = uint256(_changeType);
+    if (ct == uint256(HolacracyTypes.ChangeType.CreateRole)) return _handleCreateRole(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.AmendRole)) return _handleAmendRole(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.RemoveRole)) return _handleRemoveRole(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.Election)) return _handleElection(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.CreateRoleWithRefs)) return _handleCreateRoleWithRefs(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.AmendRoleWithRefs)) return _handleAmendRoleWithRefs(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.ExpandRoleToCircle)) return _handleExpandRoleToCircle(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.MoveRole)) return _handleMoveRole(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.CreatePolicy)) return _handleCreatePolicy(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.AmendPolicy)) return _handleAmendPolicy(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.RemovePolicy)) return _handleRemovePolicy(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.CreatePolicyWithRefs)) return _handleCreatePolicyWithRefs(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.AmendPolicyWithRefs)) return _handleAmendPolicyWithRefs(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.CreateCircle)) return _handleCreateCircle(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.FacilitatorElection)) return _handleFacilitatorElection(_data);
+    if (ct == uint256(HolacracyTypes.ChangeType.SecretaryElection)) return _handleSecretaryElection(_data);
+    revert MeetingFactory_UnsupportedChangeType();
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -230,8 +421,16 @@ contract MeetingFactory is IMeetingFactory {
     bytes calldata _changeData
   ) external returns (uint256 _proposalId) {
     _validateOrgId(_orgId);
-    if (!orgFactory.isOrgMember(_orgId, msg.sender)) {
+    if (!org.isMember(msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
+    }
+    // §5.3 divergence (see specs/99-agent-native-divergence.md):
+    //   _proposerRoleId == 0  → proposing as an org member; no role claim is made.
+    //   _proposerRoleId != 0  → claim is still verified, so attribution can't be forged.
+    // The objection path remains strictly gated by circle role-leads (raiseObjection),
+    // which is the real guardrail on adoption.
+    if (_proposerRoleId != 0 && !roleRegistry.isRoleLead(_proposerRoleId, msg.sender)) {
+      revert MeetingFactory_NotRoleLead(_proposerRoleId, msg.sender);
     }
 
     _proposalId = ++_proposalCounter;
@@ -261,16 +460,16 @@ contract MeetingFactory is IMeetingFactory {
     if (p.status != HolacracyTypes.ProposalStatus.Draft) {
       revert MeetingFactory_InvalidProposalStatus(_proposalId, p.status);
     }
-    if (!orgFactory.isOrgAdmin(p.orgId, msg.sender)) {
-      revert MeetingFactory_NotOrgAdmin(p.orgId, msg.sender);
-    }
-    if (uint64(block.timestamp) > p.submittedAt + MAX_PROPOSAL_AGE) {
+    if (uint64(block.timestamp) > p.submittedAt + _proposalMaxAge) {
       revert MeetingFactory_ProposalExpired(_proposalId);
     }
     if (_openObjectionCount[_proposalId] > 0) {
       revert MeetingFactory_UnresolvedObjections(_proposalId, _openObjectionCount[_proposalId]);
     }
+    // §5.3 — adoption is permissionless once consent is reached (zero open objections).
+    // Anyone can ring the bell; authority flowed from the absence of objections.
 
+    _validateChange(p.circleId, p.changeType, p.changeData);
     _resultId = _applyChange(p.changeType, p.changeData);
     p.status = HolacracyTypes.ProposalStatus.Adopted;
     p.resolvedAt = uint64(block.timestamp);
@@ -287,8 +486,9 @@ contract MeetingFactory is IMeetingFactory {
     if (p.status != HolacracyTypes.ProposalStatus.Draft) {
       revert MeetingFactory_InvalidProposalStatus(_proposalId, p.status);
     }
-    if (!orgFactory.isOrgAdmin(p.orgId, msg.sender)) {
-      revert MeetingFactory_NotOrgAdmin(p.orgId, msg.sender);
+    // §5.3.4 — proposer may withdraw; Facilitator may discard an invalid proposal.
+    if (msg.sender != p.proposer && msg.sender != _circleFacilitators[p.circleId]) {
+      revert MeetingFactory_NotProposerOrFacilitator(_proposalId, msg.sender);
     }
 
     p.status = HolacracyTypes.ProposalStatus.Discarded;
@@ -300,6 +500,7 @@ contract MeetingFactory is IMeetingFactory {
   /// @inheritdoc IMeetingFactory
   function raiseObjection(
     uint256 _proposalId,
+    uint256 _objectorRoleId,
     bytes32 _concernHash
   ) external returns (uint256 _objectionId) {
     ProposalRecord storage p = _proposals[_proposalId];
@@ -307,21 +508,34 @@ contract MeetingFactory is IMeetingFactory {
     if (p.status != HolacracyTypes.ProposalStatus.Draft) {
       revert MeetingFactory_InvalidProposalStatus(_proposalId, p.status);
     }
-    if (!orgFactory.isOrgMember(p.orgId, msg.sender)) {
+    if (!org.isMember(msg.sender)) {
       revert MeetingFactory_NotOrgMember(p.orgId, msg.sender);
+    }
+    // §5.3 Representation Rule for objections: objector must either lead a role
+    // in the proposal's circle, or be the circle's elected Facilitator or Secretary.
+    bool isFacilitator = _circleFacilitators[p.circleId] == msg.sender;
+    bool isSecretary = _circleSecretaries[p.circleId] == msg.sender;
+    if (!isFacilitator && !isSecretary) {
+      if (!roleRegistry.isRoleLead(_objectorRoleId, msg.sender)) {
+        revert MeetingFactory_NotRoleLead(_objectorRoleId, msg.sender);
+      }
+      if (roleRegistry.getRoleCircleId(_objectorRoleId) != p.circleId) {
+        revert MeetingFactory_ObjectorRoleNotInCircle(_objectorRoleId, p.circleId);
+      }
     }
 
     _objectionId = ++_objectionCounter;
     ObjectionRecord storage o = _objections[_objectionId];
     o.id = _objectionId;
     o.proposalId = _proposalId;
+    o.objectorRoleId = _objectorRoleId;
     o.objector = msg.sender;
     o.concernHash = _concernHash;
     o.status = HolacracyTypes.ObjectionStatus.Raised;
     o.raisedAt = uint64(block.timestamp);
     _openObjectionCount[_proposalId] += 1;
 
-    emit ObjectionRaised(_objectionId, _proposalId, msg.sender, _concernHash);
+    emit ObjectionRaised(_objectionId, _proposalId, msg.sender, _objectorRoleId, _concernHash);
   }
 
   /// @inheritdoc IMeetingFactory
@@ -357,11 +571,50 @@ contract MeetingFactory is IMeetingFactory {
     uint256 _circleId,
     address _facilitator
   ) external {
-    if (!orgFactory.isOrgAdmin(orgId, msg.sender)) {
+    // §5.1.2: Facilitator MUST be elected. The admin setter is a pre-election bootstrap
+    // that locks once a FacilitatorElection is adopted for the circle.
+    if (_facilitatorElected[_circleId]) revert MeetingFactory_FacilitatorAlreadyElected(_circleId);
+    if (!org.isAdmin(msg.sender)) {
       revert MeetingFactory_NotOrgAdmin(orgId, msg.sender);
     }
     _circleFacilitators[_circleId] = _facilitator;
     emit CircleFacilitatorSet(_circleId, _facilitator);
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function setCircleSecretary(
+    uint256 _circleId,
+    address _secretary
+  ) external {
+    // §5.1.2: Secretary MUST be elected. The admin setter is a pre-election bootstrap
+    // that locks once a SecretaryElection is adopted for the circle.
+    if (_secretaryElected[_circleId]) revert MeetingFactory_SecretaryAlreadyElected(_circleId);
+    if (!org.isAdmin(msg.sender)) {
+      revert MeetingFactory_NotOrgAdmin(orgId, msg.sender);
+    }
+    _circleSecretaries[_circleId] = _secretary;
+    emit CircleSecretarySet(_circleId, _secretary);
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function strikeProposal(
+    uint256 _proposalId
+  ) external {
+    ProposalRecord storage p = _proposals[_proposalId];
+    if (p.id == 0) revert MeetingFactory_ProposalNotFound(_proposalId);
+    if (p.status != HolacracyTypes.ProposalStatus.Draft) {
+      revert MeetingFactory_InvalidProposalStatus(_proposalId, p.status);
+    }
+    // §4.2.2 — Secretary rules on constitutional validity and strikes invalid governance.
+    if (_circleSecretaries[p.circleId] != msg.sender) {
+      revert MeetingFactory_NotSecretary(p.circleId, msg.sender);
+    }
+
+    p.status = HolacracyTypes.ProposalStatus.Discarded;
+    p.resolvedAt = uint64(block.timestamp);
+
+    emit ProposalStruck(_proposalId, p.circleId, msg.sender);
+    emit ProposalDiscarded(_proposalId, p.orgId, msg.sender);
   }
 
   /// @inheritdoc IMeetingFactory
@@ -373,7 +626,7 @@ contract MeetingFactory is IMeetingFactory {
     if (p.status != HolacracyTypes.ProposalStatus.Draft) {
       revert MeetingFactory_InvalidProposalStatus(_proposalId, p.status);
     }
-    if (uint64(block.timestamp) <= p.submittedAt + MAX_PROPOSAL_AGE) {
+    if (uint64(block.timestamp) <= p.submittedAt + _proposalMaxAge) {
       revert MeetingFactory_ProposalNotExpired(_proposalId);
     }
 

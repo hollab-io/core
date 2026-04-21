@@ -15,6 +15,8 @@ export type Organization = {
     name: string;
     creator: HexStr;
     token: HexStr;
+    /** OrganizationInstance clone — one-stop address for membership, join, admin, agent links. */
+    instanceAddress: HexStr;
     circleRegistry: HexStr;
     roleRegistry: HexStr;
     governanceProcess: HexStr;
@@ -113,12 +115,14 @@ export type Objection = {
     processAddress: HexStr;
     proposalId: BigIntStr;
     objector: HexStr;
+    /** Role the objector is representing (§5.3). 0 when the caller used the facilitator/secretary bypass. */
+    objectorRoleId: BigIntStr;
     /** Content-address of off-chain concern text. */
     concernHash: HexStr;
     status: ObjectionStatus;
     raisedAt: BigIntStr;
     resolvedAt: BigIntStr | null;
-    /** Objector (withdrawal) or org admin (integration). Null until resolved. */
+    /** Objector (withdrawal) or circle Facilitator (§5.3.3). Null until resolved. */
     resolvedBy: HexStr | null;
     txHash: HexStr;
 };
@@ -231,11 +235,24 @@ export type ActionVoteCast = {
     txHash: HexStr;
 };
 
+export type ContentRef = {
+    id: string;
+    registryAddress: HexStr;
+    entityType: HexStr;
+    entityId: BigIntStr;
+    fieldName: HexStr;
+    contentHash: HexStr;
+    visibility: number;
+    updatedAt: BigIntStr;
+    txHash: HexStr;
+};
+
 export type MeetingComponentSet = {
     id: string;
     orgId: BigIntStr;
     meetingFactory: HexStr;
     actionVoting: HexStr;
+    roleDataRegistry: HexStr;
     deployedAt: BigIntStr;
     txHash: HexStr;
 };

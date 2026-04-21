@@ -5,6 +5,7 @@ import type {
     ActionVoteCast,
     ChecklistItem,
     Circle,
+    ContentRef,
     GovernanceMeeting,
     GovernanceMeetingLink,
     JoinRequest,
@@ -29,14 +30,18 @@ import {
     GET_ROLE,
     LIST_ACTION_VOTE_CASTS,
     LIST_ACTION_VOTES_BY_CIRCLE,
+    LIST_CHECKLIST_ITEMS_BY_CONTRACT,
     LIST_CHECKLIST_ITEMS_BY_ROLE,
     LIST_CIRCLES_BY_ORG,
+    LIST_CONTENT_REFS_BY_ENTITY,
+    LIST_CONTENT_REFS_BY_FIELD,
     LIST_GOVERNANCE_MEETING_LINKS,
     LIST_GOVERNANCE_MEETINGS_BY_CIRCLE,
     LIST_GOVERNANCE_MEETINGS_BY_CONTRACT,
     LIST_MEETING_COMPONENTS_BY_ORG,
     LIST_MEETING_OUTPUTS,
     LIST_MEETING_OUTPUTS_BY_CONTRACT,
+    LIST_METRICS_BY_CONTRACT,
     LIST_METRICS_BY_ROLE,
     LIST_OBJECTIONS_BY_PROPOSAL,
     LIST_OPEN_PROPOSALS_BY_ORG,
@@ -276,6 +281,53 @@ export function createIndexingClient(url: string) {
             return data.metrics;
         },
 
+        async listChecklistItemsByContract(
+            contractAddress: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<ChecklistItem>> {
+            const data = await gql.request<{ checklistItems: PaginatedResult<ChecklistItem> }>(
+                LIST_CHECKLIST_ITEMS_BY_CONTRACT,
+                { contractAddress, ...opts },
+            );
+            return data.checklistItems;
+        },
+
+        async listMetricsByContract(
+            contractAddress: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<Metric>> {
+            const data = await gql.request<{ metrics: PaginatedResult<Metric> }>(
+                LIST_METRICS_BY_CONTRACT,
+                { contractAddress, ...opts },
+            );
+            return data.metrics;
+        },
+
+        async listContentRefsByEntity(
+            registryAddress: string,
+            entityType: string,
+            entityId: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<ContentRef>> {
+            const data = await gql.request<{ contentRefs: PaginatedResult<ContentRef> }>(
+                LIST_CONTENT_REFS_BY_ENTITY,
+                { registryAddress, entityType, entityId, ...opts },
+            );
+            return data.contentRefs;
+        },
+
+        async listContentRefsByField(
+            registryAddress: string,
+            fieldName: string,
+            opts: PaginationOptions = {},
+        ): Promise<PaginatedResult<ContentRef>> {
+            const data = await gql.request<{ contentRefs: PaginatedResult<ContentRef> }>(
+                LIST_CONTENT_REFS_BY_FIELD,
+                { registryAddress, fieldName, ...opts },
+            );
+            return data.contentRefs;
+        },
+
         // ── Governance meetings ─────────────────────────────────────────────────
         async listGovernanceMeetingsByContract(
             contractAddress: string,
@@ -357,14 +409,21 @@ export function createIndexingClient(url: string) {
             return data.orgMembers;
         },
 
+        /**
+         * List members of an org scoped to its OrganizationInstance clone.
+         * Post-refactor, membership lives on the per-org instance — the
+         * `instanceAddress` argument is the authoritative membership scope.
+         * GraphQL filter still reads the `registryAddress` column (kept for
+         * name stability), which now stores the instance address.
+         */
         async listOrgMembersByOrg(
-            registryAddress: string,
+            instanceAddress: string,
             orgId: string,
             opts: PaginationOptions = {},
         ): Promise<PaginatedResult<OrgMember>> {
             const data = await gql.request<{ orgMembers: PaginatedResult<OrgMember> }>(
                 LIST_ORG_MEMBERS_BY_ORG,
-                { registryAddress: registryAddress.toLowerCase(), orgId, ...opts },
+                { registryAddress: instanceAddress.toLowerCase(), orgId, ...opts },
             );
             return data.orgMembers;
         },

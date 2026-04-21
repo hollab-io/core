@@ -4,10 +4,11 @@
  * Lets an outside user look up a HolLab org by subname and submit a join request.
  * Shown inside OrganizationsHome for users who want to join (rather than create) an org.
  */
-import { organizationFactoryAbi } from "@hollab-io/viem-extension";
+import { organizationFactoryAbi, organizationInstanceAbi } from "@hollab-io/viem-extension";
+import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Building2, Check, Loader2, Search, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPublicClient, http } from "viem";
 
 import { useChain } from "../context/ChainContext";
@@ -18,6 +19,7 @@ type OrgPreview = {
     name: string;
     subname: string;
     creator: `0x${string}`;
+    instanceAddress: `0x${string}`;
 };
 
 type LookupState =
@@ -28,6 +30,8 @@ type LookupState =
     | { kind: "error"; message: string };
 
 type SubmitState = "idle" | "pending" | "done" | "error";
+
+const DEBOUNCE_MS = 600;
 
 const SPRING = { type: "spring", stiffness: 360, damping: 30 } as const;
 
@@ -45,60 +49,92 @@ export default function JoinOrganizationPanel({ onClose, prefilled }: Props) {
     );
 
     const [subname, setSubname] = useState(prefilled?.subname ?? "");
+    const [debouncedSubname, setDebouncedSubname] = useState(prefilled?.subname ?? "");
     const [message, setMessage] = useState("");
-    const [lookupState, setLookupState] = useState<LookupState>(
-        prefilled ? { kind: "found", org: prefilled } : { kind: "idle" },
-    );
     const [submitState, setSubmitState] = useState<SubmitState>("idle");
     const [submitError, setSubmitError] = useState<string | null>(null);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const { requestToJoin } = useJoinRequest();
 
-    const lookupOrg = useCallback(async (value: string) => {
-        const trimmed = value.trim().toLowerCase();
-        if (trimmed.length < 3) {
-            setLookupState({ kind: "idle" });
-            return;
-        }
-        setLookupState({ kind: "searching" });
-        try {
-            const org = (await publicClient.readContract({
+    // Debounce the input value into the query key — React Query dedupes and caches.
+    useEffect(() => {
+        if (prefilled) return;
+        const id = setTimeout(() => setDebouncedSubname(subname), DEBOUNCE_MS);
+        return () => clearTimeout(id);
+    }, [subname, prefilled]);
+
+    const trimmedDebounced = debouncedSubname.trim().toLowerCase();
+    const lookupEnabled = !prefilled && trimmedDebounced.length >= 3;
+
+    const orgLookup = useQuery({
+        queryKey: ["orgBySubname", chainConfig.orgFactoryAddress, trimmedDebounced] as const,
+        enabled: lookupEnabled,
+        staleTime: 30_000,
+        retry: false,
+        queryFn: async () => {
+            // Post-refactor the factory returns just an address; the instance
+            // owns the full metadata under summary().
+            const instanceAddress = (await publicClient.readContract({
                 address: chainConfig.orgFactoryAddress,
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 abi: organizationFactoryAbi as any,
                 functionName: "getOrganizationBySubname",
-                args: [trimmed],
-            })) as { id: bigint; name: string; subname: string; creator: `0x${string}` };
+                args: [trimmedDebounced],
+            })) as `0x${string}`;
 
-            if (!org || org.id === 0n) {
-                setLookupState({ kind: "not-found" });
-            } else {
-                setLookupState({
-                    kind: "found",
-                    org: { id: org.id, name: org.name, subname: org.subname, creator: org.creator },
-                });
+            const ZERO = "0x0000000000000000000000000000000000000000";
+            if (instanceAddress.toLowerCase() === ZERO) {
+                return null;
             }
-        } catch {
-            setLookupState({ kind: "error", message: "Could not reach the network. Try again." });
-        }
-    }, []);
 
-    useEffect(() => {
-        // If prefilled org was passed, don't re-trigger lookup from the subname field.
-        if (prefilled) return;
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => void lookupOrg(subname), 600);
-        return () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current);
+            const summary = (await publicClient.readContract({
+                address: instanceAddress,
+                abi: organizationInstanceAbi,
+                functionName: "summary",
+            })) as {
+                id: bigint;
+                name: string;
+                subname: string;
+                creator: `0x${string}`;
+            };
+            return { ...summary, instanceAddress };
+        },
+    });
+
+    const lookupState: LookupState = useMemo(() => {
+        if (prefilled) return { kind: "found", org: prefilled };
+        if (!lookupEnabled) return { kind: "idle" };
+        // Pending includes the initial load and debounced re-fetches.
+        if (orgLookup.isPending || orgLookup.isFetching) return { kind: "searching" };
+        if (orgLookup.isError) {
+            return { kind: "error", message: "Could not reach the network. Try again." };
+        }
+        const org = orgLookup.data;
+        if (!org || org.id === 0n) return { kind: "not-found" };
+        return {
+            kind: "found",
+            org: {
+                id: org.id,
+                name: org.name,
+                subname: org.subname,
+                creator: org.creator,
+                instanceAddress: org.instanceAddress,
+            },
         };
-    }, [subname, lookupOrg, prefilled]);
+    }, [
+        prefilled,
+        lookupEnabled,
+        orgLookup.isPending,
+        orgLookup.isFetching,
+        orgLookup.isError,
+        orgLookup.data,
+    ]);
 
     const handleSubmit = async () => {
         if (lookupState.kind !== "found") return;
         setSubmitState("pending");
         setSubmitError(null);
         try {
-            await requestToJoin({ orgId: lookupState.org.id, message });
+            await requestToJoin({ instanceAddress: lookupState.org.instanceAddress, message });
             setSubmitState("done");
         } catch (err) {
             setSubmitState("error");

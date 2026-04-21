@@ -1,84 +1,60 @@
 # OrganizationFactory
 
-The entry point for creating and managing hollab.eth organizations. Deployed once per chain as a singleton.
+Thin **directory** + creation entry point for hollab.eth organizations. Deployed once per chain as a singleton.
+
+The factory no longer holds per-org state. Every organization's members, admins, join requests, agent identity links, and component wiring live on a per-org [`OrganizationInstance`](/contracts/organization-instance) clone. The factory just mints the clone and maintains the `(orgId, subname) → instance` index.
 
 **Source:** `packages/contracts/src/contracts/OrganizationFactory.sol`
 
-**Constructor:** `OrganizationFactory(roleRegistryImpl, ensRegistrar, meetingComponentsFactory)`
+**Constructor:** `OrganizationFactory(roleRegistryImpl, orgInstanceImpl, ensRegistrar, meetingComponentsFactory)`
 
 ## Creating an Organization
 
 ```solidity
 function createOrganization(
-    string calldata name,
-    string calldata subname
-) external returns (uint256 orgId)
+    string calldata subname,
+    string calldata purpose,
+    TokenConfig calldata tokenConfig
+) external returns (uint256 orgId, address instance)
 ```
 
-This deploys the full org infrastructure in a single transaction:
+One transaction bootstraps an organization:
 
-1. Clones a new **RoleRegistry** (minimal proxy)
-2. Deploys a **GovToken** (ERC20Votes) via GovTokenDeployer
-3. Creates an **AccessManager** for role-based permissions
-4. Registers an **ENS subname** (`subname.hollab.eth`)
-5. Stores the Organization struct and emits discovery events
+1. Clones a **RoleRegistry** (minimal proxy) and seeds its anchor circle (§1.3.3)
+2. Deploys a **GovToken** (ERC20Votes) via `GovTokenDeployer` and mints initial allocations
+3. Deploys an **AccessManager** owned by the caller
+4. Registers the ENS subname `subname.hollab.eth` pointing at the AccessManager
+5. Clones an **OrganizationInstance** and initializes it with the component addresses
+6. Hands `RoleRegistry` factory authority over to the instance — the factory has no further write authority over the org
 
-The caller becomes the org creator and first admin.
+The caller becomes the org creator, first admin, and first member on the instance.
 
-## Membership
-
-Organizations have two roles: **admin** and **member**.
+## Events
 
 ```solidity
-// Admin management (owner only)
-function addOrgAdmin(uint256 orgId, address admin) external
-function removeOrgAdmin(uint256 orgId, address admin) external
-    // prevents removing the last admin (_orgAdminCount tracking)
-
-// Member management (admin only)
-function addOrgMember(uint256 orgId, address member) external
-function removeOrgMember(uint256 orgId, address member) external
+event OrganizationCreated(
+    uint256 indexed orgId,
+    string subname,
+    address indexed creator,
+    address indexed instance,
+    address roleRegistry
+);
 ```
 
-### Join Requests
+`OrganizationCreated` is the only event the factory emits. `instance` and `roleRegistry` are published together so indexers can factory-discover both clones from a single event. All membership, join-request, admin, and agent-identity events are emitted by the [`OrganizationInstance`](/contracts/organization-instance) clone itself.
 
-External users can request to join an organization:
+## Directory Queries
 
 ```solidity
-function requestToJoin(uint256 orgId) external
-function approveJoinRequest(uint256 orgId, uint256 requestId) external
-function rejectJoinRequest(uint256 orgId, uint256 requestId) external
+function getOrganization(uint256 orgId) external view returns (address instance);
+function getOrganizationBySubname(string calldata subname) external view returns (address instance);
+function organizationCount() external view returns (uint256 count);
+function roleRegistryImplementation() external view returns (address impl);
+function organizationInstanceImplementation() external view returns (address impl);
 ```
 
-## Agent Identity (ERC-8004)
+Both lookups return `address(0)` when the org/subname doesn't exist. Once you have an instance address, call [`summary()`](/contracts/organization-instance#summary) on it for the full `Organization` struct (name, purpose, component addresses, token, anchor circle, timestamps).
 
-Org members can link ERC-8004 agent NFTs to their org identity:
+## Migration Note
 
-```solidity
-function linkAgentIdentity(uint256 orgId, address agentRegistry, uint256 agentId) external
-```
-
-Emits `AgentIdentityLinked(orgId, member, agentRegistry, agentId)`. This enables the agent-native surface where AI agents participate in governance through linked identities.
-
-## Queries
-
-```solidity
-function getOrganization(uint256 orgId) external view returns (Organization memory)
-function getOrganizations() external view returns (Organization[] memory)
-function getOrganizationBySubname(string calldata subname) external view returns (Organization memory)
-```
-
-## Organization Struct
-
-```solidity
-struct Organization {
-    uint256 id;
-    string name;
-    string subname;           // ENS label
-    address creator;
-    address roleRegistry;     // Cloned RoleRegistry
-    address accessManager;    // OpenZeppelin AccessManager
-    address token;            // GovToken address
-    // ...
-}
-```
+Earlier versions of this contract exposed `addOrgMember`, `removeOrgMember`, `addOrgAdmin`, `removeOrgAdmin`, `requestToJoin`, `approveJoinRequest`, `rejectJoinRequest`, `linkAgentIdentity`, and `getOrganization` returning an `Organization` struct. All of these moved to [`OrganizationInstance`](/contracts/organization-instance) during the factory-to-instance refactor. If you were calling the factory for any of them, retarget the call to `IOrganizationInstance(instance)` after resolving the instance address from `getOrganization(orgId)`.

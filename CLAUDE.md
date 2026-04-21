@@ -77,10 +77,11 @@ Read `README.md` and `specs/00-overview.md` for the full model. The essentials:
 
 **Per-org contract set, cloned via ERC-1167 from `OrganizationFactory`:**
 
-`OrganizationFactory` constructor takes three params: `(roleRegistryImpl, ensRegistrar, meetingComponentsFactory)`.
+`OrganizationFactory` constructor takes four params: `(roleRegistryImpl, orgInstanceImpl, ensRegistrar, meetingComponentsFactory)`. The factory is a thin directory — `createOrganization` returns `(orgId, instance)`, emits `OrganizationCreated(orgId, subname, creator, instance, roleRegistry)`, and stores `(id → instance)` + `(subname → instance)` indices. No per-org state lives on the factory.
 
+-   `OrganizationInstance` — per-org one-stop address. Holds members/admins/join requests/agent identity links, stores component wiring (`roleRegistry`, `meetingFactory`, `token`, `accessManager`), and is the caller that gates `RoleRegistry.setGovernanceProcess` (via `setRoleRegistryGovernanceProcess`). `IOrganizationInstance` is the shared interface used by `MeetingFactory`, `MeetingComponentsFactory`, and `ActionVoting`.
 -   `CircleRegistry` — circle hierarchy, role-to-circle assignments, elected positions (Facilitator, Secretary, Circle Rep)
--   `RoleRegistry` — role definitions (purpose, domains, accountabilities). `setGovernanceProcess` is restricted to the OrgFactory (routed via `setRoleRegistryGovernanceProcess`, gated to `meetingComponentsFactory`). Emits `GovernanceProcessSet` when wired.
+-   `RoleRegistry` — role definitions (purpose, domains, accountabilities). `setGovernanceProcess` is gated to the instance (which delegates authority to `MeetingComponentsFactory.deploy`). Emits `GovernanceProcessSet` when wired.
 -   `GovernanceProcess` — proposal lifecycle: `createProposal` → `raiseObjection` (opens an objection sub-lifecycle closed by `resolveObjection`) → `adopt` / `discard`. `adoptProposal` enforces zero open objections and reverts on expired proposals (`MAX_PROPOSAL_AGE` = 14 days). `discardExpiredProposal` is permissionless. This is the only path; `executeGovernance` no longer exists.
 -   `GovernanceMeeting` — meeting outcomes (adopted proposals, election results)
 -   DAO layer: `GovToken` (ERC20Votes) + `HolGovernor` + `TimelockController` + `CircleTreasury` + ENS subname `<org>.hollab.eth`
@@ -89,9 +90,9 @@ Proposals encode structural ops (CreateRole / AmendRole / RemoveRole, CreatePoli
 
 **Facilitator role:** `resolveObjection` requires the original objector (withdrawal) or the circle facilitator (dismissal per Holacracy §5.3.3-5.3.4). `setCircleFacilitator(circleId, facilitator)` is admin-gated for now.
 
-**ERC-8004 agent identity:** Members can link agent NFTs to their org identity via `linkAgentIdentity(orgId, agentRegistry, agentId)`, emitting `AgentIdentityLinked`. This enables the agent-native surface described in the agent-sdk.
+**ERC-8004 agent identity:** Members call `OrganizationInstance.linkAgentIdentity(agentRegistry, agentId)` to link an agent NFT they own to their org identity. Emits `AgentIdentityLinked(account, agentRegistry, agentId)`. This enables the agent-native surface described in the agent-sdk.
 
-**Admin safety:** `removeOrgAdmin` prevents removing the last admin via `_orgAdminCount` tracking. `MeetingComponentsFactory.deploy()` requires org admin (`isOrgAdmin` check). `MeetingFactory` stores `orgId` at init and validates all `_orgId` params via `_validateOrgId()`. `ActionVoting` stores `orgId` at init and uses it for admin checks instead of `circleId`.
+**Admin safety:** `OrganizationInstance.removeAdmin` prevents removing the last admin via `adminCount` tracking (reverts with `OrganizationInstance_LastAdmin`). `MeetingComponentsFactory.deploy()` requires org admin (`isOrgAdmin` on the instance). `MeetingFactory` / `ActionVoting` both store `orgId` at init and hold an `IOrganizationInstance org` reference for admin checks instead of the factory + `orgId` pair.
 
 **Data flow:**
 

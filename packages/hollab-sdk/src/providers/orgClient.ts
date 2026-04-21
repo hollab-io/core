@@ -5,6 +5,7 @@ import type { IOrgClient } from "../interfaces/orgClient.interface.js";
 import type { IStorageClient } from "../interfaces/storageClient.interface.js";
 import type {
     CircleMeta,
+    OkrObjective,
     OrgClientConfig,
     OrgMeta,
     Proposal,
@@ -14,6 +15,7 @@ import type {
 import {
     buildCircleKeyShareKey,
     buildCircleMetaKey,
+    buildOkrKey,
     buildOrgMetaKey,
     buildProposalKey,
     buildRoleConfigKey,
@@ -189,6 +191,33 @@ export class OrgClient implements IOrgClient {
             this.streamId,
             buildRoleConfigKey(roleId),
             jsonEncode(config),
+            key,
+        );
+    }
+
+    /** @inheritdoc */
+    async getOkrs(circleId: bigint, roleId: bigint, quarter: string): Promise<OkrObjective[]> {
+        const key = await this.getRoleKey(circleId, roleId);
+        const data = await this.storageClient.getDecrypted(
+            this.streamId,
+            buildOkrKey(roleId, quarter),
+            key,
+        );
+        return data ? jsonDecode<OkrObjective[]>(data) : [];
+    }
+
+    /** @inheritdoc */
+    async setOkrs(
+        circleId: bigint,
+        roleId: bigint,
+        quarter: string,
+        objectives: OkrObjective[],
+    ): Promise<void> {
+        const key = await this.getRoleKey(circleId, roleId);
+        await this.storageClient.putEncrypted(
+            this.streamId,
+            buildOkrKey(roleId, quarter),
+            jsonEncode(objectives),
             key,
         );
     }

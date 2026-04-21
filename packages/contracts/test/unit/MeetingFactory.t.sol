@@ -4,9 +4,11 @@ pragma solidity 0.8.28;
 import {Clones} from '@openzeppelin/contracts/proxy/Clones.sol';
 import {IMeetingFactory, MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {IOrganizationFactory, OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {Test} from 'forge-std/Test.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 contract StubENSRegistrarForMeetingFactory is IENSSubdomainRegistrar {
@@ -38,18 +40,23 @@ contract UnitMeetingFactory is Test {
 
   function setUp() external {
     _orgFactory = new OrganizationFactory(
-      address(new RoleRegistry()), address(new StubENSRegistrarForMeetingFactory()), address(0)
+      address(new RoleRegistry()),
+      address(new OrganizationInstance()),
+      address(new StubENSRegistrarForMeetingFactory()),
+      address(0)
     );
     _meetingFactory = MeetingFactory(Clones.clone(address(new MeetingFactory())));
 
     vm.prank(_deployer);
-    _orgId = _orgFactory.createOrganization('meeting-org', 'Build holacracy tools', _defaultTokenConfig());
+    (uint256 _newOrgId, address _instance) =
+      _orgFactory.createOrganization('meeting-org', 'Build holacracy tools', _defaultTokenConfig());
+    _orgId = _newOrgId;
 
     vm.prank(_deployer);
-    _orgFactory.addOrgMember(_orgId, _member);
+    IOrganizationInstance(_instance).addMember(_member);
 
     vm.prank(_deployer);
-    _meetingFactory.initialize(_orgId, address(_orgFactory), address(0));
+    _meetingFactory.initialize(_orgId, _instance, address(0));
   }
 
   function test_startMeeting() external {

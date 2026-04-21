@@ -6,11 +6,13 @@ import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
 import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
+import {RoleDataRegistry} from 'contracts/RoleDataRegistry.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {ENSSubdomainRegistrar} from 'ens/ENSSubdomainRegistrar.sol';
 import {Script, console} from 'forge-std/Script.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 
 interface IENS {
   function owner(
@@ -72,16 +74,19 @@ contract DeploySepolia is Script {
 
     // ── 2. Implementation contracts (clone sources, deployed once) ─────────────
     RoleRegistry roleRegistryImpl = new RoleRegistry();
+    OrganizationInstance orgInstanceImpl = new OrganizationInstance();
     MeetingFactory meetingImpl = new MeetingFactory();
     ActionVoting actionVotingImpl = new ActionVoting();
+    RoleDataRegistry roleDataRegistryImpl = new RoleDataRegistry();
 
     // ── 3. MeetingComponentsFactory ───────────────────────────────────────────
     MeetingComponentsFactory meetingFactory =
-      new MeetingComponentsFactory(address(meetingImpl), address(actionVotingImpl));
+      new MeetingComponentsFactory(address(meetingImpl), address(actionVotingImpl), address(roleDataRegistryImpl));
 
     // ── 4. OrganizationFactory ────────────────────────────────────────────────
-    OrganizationFactory orgFactory =
-      new OrganizationFactory(address(roleRegistryImpl), address(ensRegistrar), address(meetingFactory));
+    OrganizationFactory orgFactory = new OrganizationFactory(
+      address(roleRegistryImpl), address(orgInstanceImpl), address(ensRegistrar), address(meetingFactory)
+    );
     ensRegistrar.authorize(address(orgFactory));
 
     // ── 5. Create the first organization ──────────────────────────────────────
@@ -94,7 +99,7 @@ contract DeploySepolia is Script {
     uint256[] memory amounts = new uint256[](1);
     amounts[0] = initialSupply;
 
-    uint256 orgId = orgFactory.createOrganization(
+    (uint256 orgId, address orgInstanceAddr) = orgFactory.createOrganization(
       orgSubname,
       orgPurpose,
       IOrganizationFactory.TokenConfig({
@@ -105,7 +110,7 @@ contract DeploySepolia is Script {
       })
     );
 
-    HolacracyTypes.Organization memory org = orgFactory.getOrganization(orgId);
+    IOrganizationInstance org = IOrganizationInstance(orgInstanceAddr);
 
     vm.stopBroadcast();
 
@@ -113,6 +118,7 @@ contract DeploySepolia is Script {
     string memory obj = 'sepolia';
     vm.serializeAddress(obj, 'ensRegistrar', address(ensRegistrar));
     vm.serializeAddress(obj, 'roleRegistryImpl', address(roleRegistryImpl));
+    vm.serializeAddress(obj, 'orgInstanceImpl', address(orgInstanceImpl));
     vm.serializeAddress(obj, 'meetingImpl', address(meetingImpl));
     vm.serializeAddress(obj, 'actionVotingImpl', address(actionVotingImpl));
     vm.serializeAddress(obj, 'meetingFactory', address(meetingFactory));
@@ -131,6 +137,7 @@ contract DeploySepolia is Script {
     console.log('');
     console.log('--- Implementations (clone sources) ---');
     console.log('RoleRegistry impl:        ', address(roleRegistryImpl));
+    console.log('OrganizationInstance impl:', address(orgInstanceImpl));
     console.log('MeetingFactory impl:      ', address(meetingImpl));
     console.log('ActionVoting impl:        ', address(actionVotingImpl));
     console.log('');
@@ -139,9 +146,10 @@ contract DeploySepolia is Script {
     console.log('');
     console.log('--- Sample Organization (id:', orgId, ') ---');
     console.log('Subname:                  ', orgSubname);
-    console.log('GovToken:                 ', org.token);
-    console.log('RoleRegistry:             ', org.roleRegistry);
-    console.log('AccessManager:            ', org.accessManager);
+    console.log('Instance:                 ', orgInstanceAddr);
+    console.log('GovToken:                 ', org.token());
+    console.log('RoleRegistry:             ', org.roleRegistry());
+    console.log('AccessManager:            ', org.accessManager());
     console.log('');
     console.log('Artifact saved to: deployments/11155111-sepolia.json');
   }

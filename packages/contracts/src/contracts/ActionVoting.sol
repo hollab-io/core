@@ -2,8 +2,9 @@
 pragma solidity 0.8.28;
 
 import {IVotes} from '@openzeppelin/contracts/governance/utils/IVotes.sol';
+import {Initializable} from '@openzeppelin/contracts/proxy/utils/Initializable.sol';
 import {IActionVoting} from 'interfaces/IActionVoting.sol';
-import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
 
 /**
@@ -13,7 +14,7 @@ import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
  *      weight computation, deadline enforcement). Vote tallies are computed off-chain
  *      by the indexer from VoteCast events.
  */
-contract ActionVoting is IActionVoting {
+contract ActionVoting is Initializable, IActionVoting {
   /*///////////////////////////////////////////////////////////////
                             TYPES
   //////////////////////////////////////////////////////////////*/
@@ -32,17 +33,14 @@ contract ActionVoting is IActionVoting {
   /// @notice The org ID this ActionVoting clone belongs to
   uint256 public orgId;
 
-  /// @notice Reference to the organization factory
-  IOrganizationFactory public orgFactory;
+  /// @notice Reference to the per-org OrganizationInstance
+  IOrganizationInstance public org;
 
   /// @notice Reference to the governance token (IVotes)
   IVotes public govToken;
 
   /// @notice Auto-incrementing vote ID counter
   uint256 internal _voteCounter;
-
-  /// @notice Whether the contract has been initialized
-  bool internal _initialized;
 
   /// @notice Vote ID => minimal verification data
   mapping(uint256 => VoteCore) internal _voteCores;
@@ -63,34 +61,23 @@ contract ActionVoting is IActionVoting {
   mapping(uint256 => uint256) internal _circleMintedTotal;
 
   /*///////////////////////////////////////////////////////////////
-                            MODIFIERS
-  //////////////////////////////////////////////////////////////*/
-
-  /// @notice Prevents re-initialization
-  modifier initializer() {
-    if (_initialized) revert ActionVoting_AlreadyInitialized();
-    _initialized = true;
-    _;
-  }
-
-  /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
   /// @notice Disables initialization on the implementation contract
   constructor() {
-    _initialized = true;
+    _disableInitializers();
   }
 
   /// @inheritdoc IActionVoting
   function initialize(
     uint256 _orgId,
-    address _orgFactory,
+    address _orgInstance,
     address,
     address _govToken
   ) external initializer {
     orgId = _orgId;
-    orgFactory = IOrganizationFactory(_orgFactory);
+    org = IOrganizationInstance(_orgInstance);
     govToken = IVotes(_govToken);
   }
 
@@ -281,7 +268,7 @@ contract ActionVoting is IActionVoting {
   function _assertOrgAdmin(
     uint256 _circleId
   ) internal view {
-    if (!orgFactory.isOrgAdmin(orgId, msg.sender)) {
+    if (!org.isAdmin(msg.sender)) {
       revert ActionVoting_NotCircleLeadOrFacilitator(_circleId);
     }
   }

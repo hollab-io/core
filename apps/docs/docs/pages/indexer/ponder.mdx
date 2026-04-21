@@ -8,17 +8,18 @@ Ponder subscribes to on-chain events from the factory contracts and their per-or
 
 ### Indexed Contracts
 
-| Contract                 | Discovery               | Events                                                                                                                                                                                |
-| ------------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| OrganizationFactory      | Fixed address           | `OrganizationCreated`, `OrgComponentsDeployed`                                                                                                                                        |
-| MeetingComponentsFactory | Fixed address           | `MeetingComponentsDeployed`                                                                                                                                                           |
-| RoleRegistry             | Auto-discovered per org | Circle/role creation, updates, removals                                                                                                                                               |
-| MeetingFactory           | Auto-discovered per org | `MeetingStarted`, `MeetingEnded`, `MeetingOutputRecorded`, `MeetingProposalLinked`, `ProposalCreated`, `ProposalAdopted`, `ProposalDiscarded`, `ObjectionRaised`, `ObjectionResolved` |
-| ActionVoting             | Auto-discovered per org | `VoteCreated`, `VoteCast`                                                                                                                                                             |
+| Contract                 | Discovery                                                          | Events                                                                                                                                                                                |
+| ------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OrganizationFactory      | Fixed address                                                      | `OrganizationCreated`                                                                                                                                                                 |
+| OrganizationInstance     | Auto-discovered per org (from `OrganizationCreated._instance`)     | `MemberAdded`, `MemberRemoved`, `AdminAdded`, `AdminRemoved`, `JoinRequested`, `JoinApproved`, `JoinRejected`, `AgentIdentityLinked`, `MeetingFactorySet`                             |
+| RoleRegistry             | Auto-discovered per org (from `OrganizationCreated._roleRegistry`) | Circle/role creation, updates, removals                                                                                                                                               |
+| MeetingComponentsFactory | Fixed address                                                      | `MeetingComponentsDeployed`                                                                                                                                                           |
+| MeetingFactory           | Auto-discovered per org                                            | `MeetingStarted`, `MeetingEnded`, `MeetingOutputRecorded`, `MeetingProposalLinked`, `ProposalCreated`, `ProposalAdopted`, `ProposalDiscarded`, `ObjectionRaised`, `ObjectionResolved` |
+| ActionVoting             | Auto-discovered per org                                            | `VoteCreated`, `VoteCast`                                                                                                                                                             |
 
 ### Contract Discovery
 
-Ponder starts by watching the two factory contracts. When an `OrgComponentsDeployed` or `MeetingComponentsDeployed` event fires, Ponder dynamically registers the new clone addresses and starts indexing their events too.
+Ponder starts by watching the two factory contracts. When `OrganizationCreated` fires, Ponder dynamically registers the new `OrganizationInstance` and `RoleRegistry` clone addresses from the event parameters and starts indexing their events. `MeetingComponentsDeployed` does the same for `MeetingFactory` / `ActionVoting` clones.
 
 This means the indexer automatically picks up new organizations without reconfiguration.
 
@@ -26,18 +27,20 @@ This means the indexer automatically picks up new organizations without reconfig
 
 Key tables maintained by the indexer:
 
-| Table                                  | Source                                                      |
-| -------------------------------------- | ----------------------------------------------------------- |
-| `organization`                         | OrganizationFactory events                                  |
-| `circle`, `role`, `policy`             | RoleRegistry events                                         |
-| `tacticalMeeting`, `governanceMeeting` | MeetingFactory events                                       |
-| `meetingOutput`                        | Meeting output recordings                                   |
-| `proposal`                             | `ProposalCreated` / `ProposalAdopted` / `ProposalDiscarded` |
-| `objection`                            | `ObjectionRaised` / `ObjectionResolved`                     |
-| `orgMember`, `joinRequest`             | Membership events                                           |
-| `actionVote`, `actionVoteCast`         | ActionVoting events                                         |
-| `meetingComponentSet`                  | Factory deployment events                                   |
-| `governanceMeetingLink`                | Proposal-meeting links                                      |
+| Table                                  | Source                                                                       |
+| -------------------------------------- | ---------------------------------------------------------------------------- |
+| `organization`                         | `OrganizationFactory.OrganizationCreated` + `OrganizationInstance.summary()` |
+| `circle`, `role`, `policy`             | RoleRegistry events                                                          |
+| `tacticalMeeting`, `governanceMeeting` | MeetingFactory events                                                        |
+| `meetingOutput`                        | Meeting output recordings                                                    |
+| `proposal`                             | `ProposalCreated` / `ProposalAdopted` / `ProposalDiscarded`                  |
+| `objection`                            | `ObjectionRaised` / `ObjectionResolved`                                      |
+| `orgMember`, `joinRequest`             | `OrganizationInstance` membership + join events                              |
+| `actionVote`, `actionVoteCast`         | ActionVoting events                                                          |
+| `meetingComponentSet`                  | Factory deployment events                                                    |
+| `governanceMeetingLink`                | Proposal-meeting links                                                       |
+
+The `organization` row carries an `instanceAddress` column pointing at the per-org `OrganizationInstance` clone — the authoritative target for membership writes, join approvals, and agent identity links.
 
 The `proposal` table is fully event-sourced and mirrors the on-chain `ProposalRecord`: `proposalId`, `processAddress`, `orgId`, `circleId`, `proposer`, `proposerRoleId`, `tensionHash`, `changeType`, `changeData`, `status` (0=Draft, 3=Adopted, 5=Discarded in MVP), `changeResultId` (set on adopt), and `submittedAt` / `resolvedAt` / `resolvedBy` timestamps.
 

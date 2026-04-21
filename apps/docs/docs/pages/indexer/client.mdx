@@ -63,8 +63,10 @@ Proposal rows carry the full `ProposalRecord` surface (`tensionHash`, `changeTyp
 ### Members & Voting
 
 ```ts
-const members = await client.listOrgMembersByOrg(factoryAddress, orgId);
-const pending = await client.listPendingJoinRequestsByOrg(contractAddress, orgId);
+// Pass the per-org OrganizationInstance address — the authoritative membership scope.
+// Available on `organization.instanceAddress` from any org read.
+const members = await client.listOrgMembersByOrg(instanceAddress, orgId);
+const pending = await client.listPendingJoinRequestsByOrg(orgId);
 const votes = await client.listActionVotes(contractAddress);
 const casts = await client.listActionVoteCasts(contractAddress, voteId);
 ```

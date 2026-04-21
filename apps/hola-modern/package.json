@@ -19,6 +19,7 @@
         "@fullcalendar/react": "^6.1.20",
         "@fullcalendar/timegrid": "^6.1.20",
         "@hollab-io/contracts": "workspace:*",
+        "@hollab-io/hollab-sdk": "workspace:*",
         "@hollab-io/indexing-client": "workspace:*",
         "@hollab-io/viem-extension": "workspace:*",
         "@rainbow-me/rainbowkit": "2.2.10",

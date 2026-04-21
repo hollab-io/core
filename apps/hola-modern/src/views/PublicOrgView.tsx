@@ -10,7 +10,6 @@
 import { useMemo } from "react";
 
 import { isAgentAddress } from "../config/agents";
-import { useChain } from "../context/ChainContext";
 import { useCirclesFromIndexer } from "../hooks/useCirclesFromIndexer";
 import { useOrgMembersFromIndexer } from "../hooks/useOrgMembersFromIndexer";
 import { useOpenProposalsByOrg } from "../hooks/useProposalsFromIndexer";
@@ -47,11 +46,10 @@ export default function PublicOrgView({
     onOpenProposal,
     onJoin,
 }: Props) {
-    const { chainConfig } = useChain();
     const { data: org, isLoading: orgLoading, error: orgError } = usePublicOrgFromIndexer(orgId);
     const { circles } = useCirclesFromIndexer(orgId);
     const { roles } = useRolesFromIndexer(orgId);
-    const { members } = useOrgMembersFromIndexer(chainConfig.orgFactoryAddress, orgId);
+    const { members } = useOrgMembersFromIndexer(org?.instanceAddress, orgId);
     const { data: openProposals = [] } = useOpenProposalsByOrg(orgId);
 
     const anchor = useMemo(() => circles.find((c) => c.isAnchor) ?? circles[0] ?? null, [circles]);

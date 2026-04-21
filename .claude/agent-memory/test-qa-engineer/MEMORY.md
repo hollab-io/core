@@ -1,0 +1,2 @@
+-   [project_testing_infra.md](./project_testing_infra.md) — Vitest/Playwright setup, config locations, Ponder virtual module gotcha, no jsdom/testing-library
+-   [project_testing_stack.md](./project_testing_stack.md) — E2E patterns: direct viem contract calls, event-based ID extraction, MeetingComponentsFactory API change

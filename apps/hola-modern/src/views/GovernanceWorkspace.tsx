@@ -5,6 +5,7 @@ import {
     Plus,
     Scale,
     ScrollText,
+    Search,
     ShieldAlert,
     Vote,
     X,
@@ -134,7 +135,7 @@ function buildEmptyObjectionForm(objectorRoleId: string): ObjectionFormState {
 }
 
 export default function GovernanceWorkspace() {
-    const searchQuery = "";
+    const [searchQuery, setSearchQuery] = useState("");
     const {
         activateGovernanceProposal,
         adoptGovernanceProposal,
@@ -391,14 +392,31 @@ export default function GovernanceWorkspace() {
                         </p>
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() => setShowProposalComposer(true)}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#3481FF] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-colors hover:bg-[#2b74ec]"
-                    >
-                        <Plus size={16} aria-hidden="true" />
-                        Create proposal
-                    </button>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <label className="relative flex items-center">
+                            <Search
+                                size={16}
+                                aria-hidden="true"
+                                className="pointer-events-none absolute left-3 text-slate-400"
+                            />
+                            <input
+                                type="search"
+                                value={searchQuery}
+                                onChange={(event) => setSearchQuery(event.target.value)}
+                                placeholder="Search proposals, meetings, elections…"
+                                aria-label="Search governance activity"
+                                className="w-full min-w-[18rem] rounded-2xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-[#3481FF] focus:outline-none focus:ring-2 focus:ring-[#3481FF]/20"
+                            />
+                        </label>
+                        <button
+                            type="button"
+                            onClick={() => setShowProposalComposer(true)}
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#3481FF] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-colors hover:bg-[#2b74ec]"
+                        >
+                            <Plus size={16} aria-hidden="true" />
+                            Create proposal
+                        </button>
+                    </div>
                 </div>
 
                 <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">

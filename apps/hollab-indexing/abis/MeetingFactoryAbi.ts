@@ -109,6 +109,7 @@ export const MeetingFactoryAbi = [
             { name: "_objectionId", type: "uint256", indexed: true, internalType: "uint256" },
             { name: "_proposalId", type: "uint256", indexed: true, internalType: "uint256" },
             { name: "_objector", type: "address", indexed: true, internalType: "address" },
+            { name: "_objectorRoleId", type: "uint256", indexed: false, internalType: "uint256" },
             { name: "_concernHash", type: "bytes32", indexed: false, internalType: "bytes32" },
         ],
         anonymous: false,

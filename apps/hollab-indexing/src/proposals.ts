@@ -77,7 +77,7 @@ ponder.on("MeetingFactory:ProposalDiscarded", async ({ event, context }) => {
 });
 
 ponder.on("MeetingFactory:ObjectionRaised", async ({ event, context }) => {
-    const { _objectionId, _proposalId, _objector, _concernHash } = event.args;
+    const { _objectionId, _proposalId, _objector, _objectorRoleId, _concernHash } = event.args;
     const contract = event.log.address;
 
     await context.db.insert(schema.objection).values({
@@ -86,6 +86,7 @@ ponder.on("MeetingFactory:ObjectionRaised", async ({ event, context }) => {
         processAddress: contract,
         proposalId: _proposalId,
         objector: _objector,
+        objectorRoleId: _objectorRoleId,
         concernHash: _concernHash,
         status: 0, // Raised
         raisedAt: event.block.timestamp,

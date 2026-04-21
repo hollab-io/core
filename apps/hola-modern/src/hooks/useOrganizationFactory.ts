@@ -1,6 +1,6 @@
 import type { MeetingComponentSet, Organization } from "@hollab-io/indexing-client";
 import { meetingComponentsFactoryAbi } from "@hollab-io/contracts/actions";
-import { organizationFactoryAbi } from "@hollab-io/viem-extension";
+import { organizationFactoryAbi, organizationInstanceAbi } from "@hollab-io/viem-extension";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createPublicClient, decodeEventLog, http } from "viem";
 import { useAccount } from "wagmi";
@@ -8,13 +8,22 @@ import { useAccount } from "wagmi";
 import { useChain } from "../context/ChainContext";
 import { useSendTransaction } from "./useSendTransaction";
 
-function deriveSubname(orgName: string): string {
+export function deriveSubname(orgName: string): string {
     return orgName
         .trim()
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "")
-        .slice(0, 48);
+        .slice(0, 32);
+}
+
+/**
+ * Checks whether a subname matches the on-chain ENS constraints:
+ * 3–32 chars, lowercase alphanumerics and dashes, no leading/trailing dash.
+ * The 32-char upper bound tracks the contract audit's [I-3] finding.
+ */
+export function isValidSubname(subname: string): boolean {
+    return /^[a-z0-9](?:[a-z0-9-]{1,30}[a-z0-9])?$/.test(subname);
 }
 
 function deriveTokenSymbol(orgName: string): string {
@@ -27,35 +36,6 @@ function deriveTokenSymbol(orgName: string): string {
         .slice(0, 5);
     return symbol || "ORG";
 }
-
-const orgReadAbi = [
-    {
-        type: "function",
-        name: "getOrganization",
-        stateMutability: "view",
-        inputs: [{ name: "_orgId", type: "uint256" }],
-        outputs: [
-            {
-                name: "_org",
-                type: "tuple",
-                components: [
-                    { name: "id", type: "uint256" },
-                    { name: "name", type: "string" },
-                    { name: "subname", type: "string" },
-                    { name: "creator", type: "address" },
-                    { name: "roleRegistry", type: "address" },
-                    { name: "circleRegistry", type: "address" },
-                    { name: "governanceProcess", type: "address" },
-                    { name: "meetingFactory", type: "address" },
-                    { name: "accessManager", type: "address" },
-                    { name: "anchorCircleId", type: "uint256" },
-                    { name: "createdAt", type: "uint256" },
-                    { name: "token", type: "address" },
-                ],
-            },
-        ],
-    },
-] as const;
 
 const erc20MetaAbi = [
     {
@@ -85,14 +65,19 @@ export type DeployParams = {
     name: string;
     purpose: string;
     walletAddress: `0x${string}`;
+    /** Optional override — if omitted, derived from name. */
+    subname?: string;
 };
 
 export type DeployResult = {
     txHash: `0x${string}`;
     organization: Organization;
+    /** OrganizationInstance clone address. Duplicated on `organization.instanceAddress`. */
+    instanceAddress: `0x${string}`;
     meetingComponents: {
         meetingFactory: `0x${string}`;
         actionVoting: `0x${string}`;
+        roleDataRegistry: `0x${string}`;
     } | null;
     batched: boolean;
 };
@@ -105,10 +90,10 @@ export function useDeployOrganization() {
 
     return useMutation<DeployResult, Error, DeployParams>({
         mutationFn: async (params) => {
-            const subname = deriveSubname(params.name);
-            if (subname.length < 3) {
+            const subname = params.subname ?? deriveSubname(params.name);
+            if (!isValidSubname(subname)) {
                 throw new Error(
-                    "Organization name too short — needs at least 3 alphanumeric characters.",
+                    "Invalid subname — use 3–32 lowercase letters, digits, or dashes (no leading/trailing dash).",
                 );
             }
 
@@ -160,8 +145,10 @@ export function useDeployOrganization() {
             });
 
             let orgId: bigint | null = null;
+            let instanceAddress: `0x${string}` | null = null;
             let meetingFactoryOut: `0x${string}` | null = null;
             let actionVotingOut: `0x${string}` | null = null;
+            let roleDataRegistryOut: `0x${string}` | null = null;
 
             for (const receipt of receipts) {
                 for (const log of receipt.logs) {
@@ -173,7 +160,12 @@ export function useDeployOrganization() {
                             topics: log.topics,
                         });
                         if (decoded.eventName === "OrganizationCreated") {
-                            orgId = (decoded.args as { _orgId: bigint })._orgId;
+                            const a = decoded.args as {
+                                _orgId: bigint;
+                                _instance: `0x${string}`;
+                            };
+                            orgId = a._orgId;
+                            instanceAddress = a._instance;
                             continue;
                         }
                     } catch {
@@ -190,9 +182,11 @@ export function useDeployOrganization() {
                             const args = decoded.args as {
                                 _meetingFactory: `0x${string}`;
                                 _actionVoting: `0x${string}`;
+                                _roleDataRegistry: `0x${string}`;
                             };
                             meetingFactoryOut = args._meetingFactory;
                             actionVotingOut = args._actionVoting;
+                            roleDataRegistryOut = args._roleDataRegistry;
                         }
                     } catch {
                         // not a meeting components event
@@ -200,7 +194,7 @@ export function useDeployOrganization() {
                 }
             }
 
-            if (orgId === null) {
+            if (orgId === null || instanceAddress === null) {
                 throw new Error(
                     "Organization created but could not find OrganizationCreated event",
                 );
@@ -208,12 +202,13 @@ export function useDeployOrganization() {
 
             const txHash = receipts[0]?.transactionHash ?? ("0x" as `0x${string}`);
 
-            // 4. Read org struct + token metadata from chain
+            // 4. Read org struct + token metadata from the OrganizationInstance.
+            // `summary()` is the authoritative source of org metadata post-refactor —
+            // the factory no longer holds anything beyond the id → instance index.
             const orgData = await publicClient.readContract({
-                address: chainConfig.orgFactoryAddress,
-                abi: orgReadAbi,
-                functionName: "getOrganization",
-                args: [orgId],
+                address: instanceAddress,
+                abi: organizationInstanceAbi,
+                functionName: "summary",
             });
 
             let tokenName = "";
@@ -251,6 +246,7 @@ export function useDeployOrganization() {
                 name: orgData.name,
                 creator: orgData.creator,
                 token: orgData.token,
+                instanceAddress,
                 circleRegistry: orgData.circleRegistry,
                 roleRegistry: orgData.roleRegistry,
                 governanceProcess: orgData.governanceProcess,
@@ -267,11 +263,15 @@ export function useDeployOrganization() {
             };
 
             const meetingComponents =
-                meetingFactoryOut && actionVotingOut
-                    ? { meetingFactory: meetingFactoryOut, actionVoting: actionVotingOut }
+                meetingFactoryOut && actionVotingOut && roleDataRegistryOut
+                    ? {
+                          meetingFactory: meetingFactoryOut,
+                          actionVoting: actionVotingOut,
+                          roleDataRegistry: roleDataRegistryOut,
+                      }
                     : null;
 
-            return { txHash, organization, meetingComponents, batched };
+            return { txHash, organization, instanceAddress, meetingComponents, batched };
         },
 
         onSuccess: ({ organization, meetingComponents }) => {
@@ -290,6 +290,7 @@ export function useDeployOrganization() {
                     orgId: organization.id,
                     meetingFactory: meetingComponents.meetingFactory,
                     actionVoting: meetingComponents.actionVoting,
+                    roleDataRegistry: meetingComponents.roleDataRegistry,
                     deployedAt: Math.floor(Date.now() / 1000).toString(),
                     txHash: "0x",
                 };

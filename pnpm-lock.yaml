@@ -101,6 +101,9 @@ importers:
             "@hollab-io/contracts":
                 specifier: workspace:*
                 version: link:../../packages/contracts
+            "@hollab-io/hollab-sdk":
+                specifier: workspace:*
+                version: link:../../packages/hollab-sdk
             "@hollab-io/indexing-client":
                 specifier: workspace:*
                 version: link:../../packages/indexing-client

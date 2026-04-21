@@ -4,7 +4,7 @@
 const PAGE_INFO = `pageInfo { startCursor endCursor hasPreviousPage hasNextPage }`;
 
 export const ORGANIZATION_FIELDS = `
-    id subname name creator token
+    id subname name creator token instanceAddress
     circleRegistry roleRegistry governanceProcess
     anchorCircleId tokenName tokenSymbol tokenTotalSupply
     circleCount roleCount memberCount purpose createdAt updatedAt
@@ -32,7 +32,7 @@ export const PROPOSAL_FIELDS = `
 `;
 
 export const OBJECTION_FIELDS = `
-    id objectionId processAddress proposalId objector concernHash
+    id objectionId processAddress proposalId objector objectorRoleId concernHash
     status raisedAt resolvedAt resolvedBy txHash
 `;
 
@@ -249,6 +249,48 @@ export const LIST_METRICS_BY_ROLE = `
     }
 `;
 
+export const LIST_CHECKLIST_ITEMS_BY_CONTRACT = `
+    query ListChecklistItemsByContract($contractAddress: String!, $limit: Int, $after: String, $before: String) {
+        checklistItems(where: { contractAddress: $contractAddress, isActive: true }, limit: $limit, after: $after, before: $before) {
+            items { ${CHECKLIST_ITEM_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+export const LIST_METRICS_BY_CONTRACT = `
+    query ListMetricsByContract($contractAddress: String!, $limit: Int, $after: String, $before: String) {
+        metrics(where: { contractAddress: $contractAddress, isActive: true }, limit: $limit, after: $after, before: $before) {
+            items { ${METRIC_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+// ─── Content refs ────────────────────────────────────────────────────────────
+
+export const CONTENT_REF_FIELDS = `
+    id registryAddress entityType entityId fieldName contentHash visibility updatedAt txHash
+`;
+
+export const LIST_CONTENT_REFS_BY_ENTITY = `
+    query ListContentRefsByEntity($registryAddress: String!, $entityType: String!, $entityId: String!, $limit: Int, $after: String, $before: String) {
+        contentRefs(where: { registryAddress: $registryAddress, entityType: $entityType, entityId: $entityId }, limit: $limit, after: $after, before: $before) {
+            items { ${CONTENT_REF_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
+export const LIST_CONTENT_REFS_BY_FIELD = `
+    query ListContentRefsByField($registryAddress: String!, $fieldName: String!, $limit: Int, $after: String, $before: String) {
+        contentRefs(where: { registryAddress: $registryAddress, fieldName: $fieldName }, limit: $limit, after: $after, before: $before) {
+            items { ${CONTENT_REF_FIELDS} }
+            ${PAGE_INFO}
+        }
+    }
+`;
+
 // ─── Governance meetings ──────────────────────────────────────────────────────
 
 export const LIST_GOVERNANCE_MEETINGS_BY_CONTRACT = `
@@ -281,7 +323,7 @@ export const LIST_GOVERNANCE_MEETING_LINKS = `
 // ─── Meeting components ──────────────────────────────────────────────────────
 
 export const MEETING_COMPONENT_SET_FIELDS = `
-    id orgId meetingFactory actionVoting deployedAt txHash
+    id orgId meetingFactory actionVoting roleDataRegistry deployedAt txHash
 `;
 
 export const LIST_MEETING_COMPONENTS_BY_ORG = `

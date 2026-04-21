@@ -28,6 +28,7 @@ export default defineConfig({
             items: [
                 { text: "Overview", link: "/contracts/overview" },
                 { text: "OrganizationFactory", link: "/contracts/organization-factory" },
+                { text: "OrganizationInstance", link: "/contracts/organization-instance" },
                 { text: "RoleRegistry", link: "/contracts/role-registry" },
                 { text: "MeetingFactory", link: "/contracts/meeting-factory" },
                 { text: "ActionVoting", link: "/contracts/action-voting" },

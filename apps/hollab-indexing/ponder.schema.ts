@@ -20,6 +20,9 @@ export const organization = onchainTable("organization", (t) => ({
     name: t.text().notNull(),
     creator: t.hex().notNull(),
     token: t.hex().notNull(),
+    // OrganizationInstance clone — the one-stop address for membership writes,
+    // join requests, admin ops, and agent identity links.
+    instanceAddress: t.hex().notNull(),
     circleRegistry: t.hex().notNull(),
     roleRegistry: t.hex().notNull(),
     governanceProcess: t.hex().notNull(),
@@ -93,6 +96,22 @@ export const policy = onchainTable("policy", (t) => ({
     updatedAt: t.bigint().notNull(),
 }));
 
+// ─── Content references ──────────────────────────────────────────────────────
+// Off-chain content addresses anchored on-chain via RoleRegistry._setContentRefs.
+// Used for encrypted role/policy fields AND for OKR objectives stored in 0G.
+// entityType is keccak256("role") or keccak256("policy").
+export const contentRef = onchainTable("content_ref", (t) => ({
+    id: t.text().primaryKey(), // "<registryAddress>-<entityType>-<entityId>-<fieldName>"
+    registryAddress: t.hex().notNull(),
+    entityType: t.hex().notNull(),
+    entityId: t.bigint().notNull(),
+    fieldName: t.hex().notNull(),
+    contentHash: t.hex().notNull(),
+    visibility: t.integer().notNull(), // 0=Public 1=OrgEncrypted 2=RoleEncrypted
+    updatedAt: t.bigint().notNull(),
+    txHash: t.hex().notNull(),
+}));
+
 // ─── Holacracy proposals ──────────────────────────────────────────────────────
 // Event-sourced — full lifecycle history. The on-chain MeetingFactory only
 // records commitments (created / adopted / discarded / objected / resolved);
@@ -140,6 +159,9 @@ export const objection = onchainTable("objection", (t) => ({
     processAddress: t.hex().notNull(),
     proposalId: t.bigint().notNull(),
     objector: t.hex().notNull(),
+    // The role the objector is representing (§5.3 Representation Rule). 0 when
+    // the objector raised under a facilitator/secretary bypass (no specific role).
+    objectorRoleId: t.bigint().notNull(),
     // Content-address of the objection concern text (off-chain).
     concernHash: t.hex().notNull(),
     // 0=Raised 1=Testing 2=Valid 3=Invalid 4=Resolved 5=Abandoned
@@ -148,7 +170,7 @@ export const objection = onchainTable("objection", (t) => ({
     raisedAt: t.bigint().notNull(),
     resolvedAt: t.bigint(),
     // The address that resolved this objection — either the original
-    // objector (withdrawal) or an org admin (integration confirmed).
+    // objector (withdrawal) or the circle Facilitator (§5.3.3).
     // Null until resolved.
     resolvedBy: t.hex(),
     txHash: t.hex().notNull(),
@@ -162,6 +184,7 @@ export const meetingComponentSet = onchainTable("meeting_component_set", (t) => 
     orgId: t.bigint().notNull(),
     meetingFactory: t.hex().notNull(),
     actionVoting: t.hex().notNull(),
+    roleDataRegistry: t.hex().notNull(),
     deployedAt: t.bigint().notNull(),
     txHash: t.hex().notNull(),
 }));

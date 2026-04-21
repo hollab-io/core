@@ -1,0 +1,1 @@
+-   [project_proposal_lifecycle_shipped.md](./project_proposal_lifecycle_shipped.md) — Proposal lifecycle live on-chain; P0 refined to per-tension public/private; both next-bet PRDs exist on disk

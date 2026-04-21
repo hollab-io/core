@@ -7,7 +7,10 @@
  * Requires ethers BrowserProvider to bridge the wallet signer to the
  * 0G SDK's ethers-based upload API.
  */
-import { Indexer, MemData } from "@0gfoundation/0g-ts-sdk";
+// Use the SDK's /browser entry to avoid pulling `node:fs/promises` via ZgFile,
+// which Rollup cannot bundle for the browser. The /browser subpath ships the
+// same public API (Indexer, MemData) compiled for the browser target.
+import { Indexer, MemData } from "@0gfoundation/0g-ts-sdk/browser";
 import { useMutation } from "@tanstack/react-query";
 import { BrowserProvider } from "ethers";
 
@@ -30,7 +33,7 @@ export type UploadResult = {
  * Upload raw bytes to 0G Storage from the browser.
  * Handles Indexer init, signer bridging, merkle tree generation, and upload.
  */
-async function uploadBytes(data: Uint8Array): Promise<UploadResult> {
+export async function uploadBytes(data: Uint8Array): Promise<UploadResult> {
     const signer = await getEthersSigner();
     const indexer = new Indexer(zgConfig.indexerRpc);
 
@@ -48,6 +51,40 @@ async function uploadBytes(data: Uint8Array): Promise<UploadResult> {
     }
 
     return { rootHash: rootHash! };
+}
+
+/**
+ * Download raw bytes from 0G Storage by Merkle root hash.
+ * Standalone async function (not a hook) so composition hooks can call it directly.
+ */
+/**
+ * Download raw bytes from 0G Storage by Merkle root hash.
+ *
+ * The 0G SDK's Indexer.download writes to a file path (Node-only), so in the
+ * browser we locate the shard nodes via the indexer and fetch the file data
+ * over HTTP from the first available node.
+ */
+export async function downloadBytes(rootHash: string): Promise<Uint8Array> {
+    const indexer = new Indexer(zgConfig.indexerRpc);
+    const locations = await indexer.getFileLocations(rootHash);
+
+    if (!locations.length) {
+        throw new Error(`0G: no shard nodes found for root hash ${rootHash}`);
+    }
+
+    // Try each shard node until one succeeds
+    for (const node of locations) {
+        try {
+            const url = `${node.url}/file?root=${rootHash}`;
+            const response = await fetch(url);
+            if (!response.ok) continue;
+            return new Uint8Array(await response.arrayBuffer());
+        } catch {
+            continue;
+        }
+    }
+
+    throw new Error(`0G: all shard nodes failed to serve root hash ${rootHash}`);
 }
 
 export function useZgStorage() {

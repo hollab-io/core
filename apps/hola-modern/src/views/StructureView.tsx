@@ -155,8 +155,7 @@ function AddMembersPanel({
 }: {
     org: Organization;
     addOrgMembers: (params: {
-        orgFactoryAddress: `0x${string}`;
-        orgId: bigint;
+        instanceAddress: `0x${string}`;
         memberAddresses: `0x${string}`[];
         walletAddress: `0x${string}`;
     }) => Promise<`0x${string}`>;
@@ -283,8 +282,7 @@ function AddMembersPanel({
                 .map((e) => e.address as `0x${string}`);
 
             await addOrgMembers({
-                orgFactoryAddress: chainConfig.orgFactoryAddress,
-                orgId: BigInt(org.id),
+                instanceAddress: org.instanceAddress as `0x${string}`,
                 memberAddresses: addresses,
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
             });
@@ -308,8 +306,7 @@ function AddMembersPanel({
         authenticatedWalletAddress,
         entries,
         addOrgMembers,
-        chainConfig.orgFactoryAddress,
-        org.id,
+        org.instanceAddress,
         inviteMember,
         onClose,
     ]);
@@ -489,7 +486,7 @@ export default function StructureView({ org, isDarkMode, autoOpenInvite, onInvit
         setRequestActionError(null);
         try {
             await approveWithTokens({
-                orgId: BigInt(org.id),
+                instanceAddress: org.instanceAddress as `0x${string}`,
                 requester: req.requester,
                 govTokenAddress: org.token as `0x${string}`,
             });
@@ -505,7 +502,10 @@ export default function StructureView({ org, isDarkMode, autoOpenInvite, onInvit
         setRejectingId(req.id);
         setRequestActionError(null);
         try {
-            await rejectRequest({ orgId: BigInt(org.id), requester: req.requester });
+            await rejectRequest({
+                instanceAddress: org.instanceAddress as `0x${string}`,
+                requester: req.requester,
+            });
             setJoinRequests((prev) => prev.filter((r) => r.id !== req.id));
         } catch (err) {
             setRequestActionError(err instanceof Error ? err.message : "Transaction failed");

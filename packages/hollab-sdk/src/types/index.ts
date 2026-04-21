@@ -6,6 +6,8 @@ export type {
     Tension,
     Proposal,
     RoleConfig,
+    OkrObjective,
+    OkrKeyResult,
     OrgClientConfig,
 } from "./org.types.js";
 export type {

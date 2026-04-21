@@ -9,6 +9,7 @@ import {
     CircleDot,
     FileText,
     Loader2,
+    Lock,
     MinusCircle,
     MoveRight,
     Plus,
@@ -23,11 +24,20 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { encodeFunctionData, zeroHash } from "viem";
 import { usePublicClient, useWalletClient } from "wagmi";
 
+import type { DataVisibilityValue } from "../hooks/useContentRef";
 import type { GovernanceMeeting } from "../hooks/useGovernanceMeetingsFromIndexer";
+import { DataVisibility, fieldNameHash } from "../hooks/useContentRef";
+import { useEncryptedStorage } from "../hooks/useEncryptedStorage";
 import {
+    encodeAmendPolicy,
     encodeAmendRole,
+    encodeAmendRoleWithRefs,
+    encodeCreatePolicy,
     encodeCreateRole,
+    encodeCreateRoleWithRefs,
     encodeExpandRoleToCircle,
+    encodeMoveRole,
+    encodeRemovePolicy,
     encodeRemoveRole,
     ChangeType as OnChainChangeType,
 } from "../hooks/useExecuteGovernance";
@@ -67,6 +77,9 @@ type PendingGovernanceAction = {
     // Target
     existingTargetId?: string;
     destinationCircleId?: string;
+    // Encrypted storage
+    visibility?: DataVisibilityValue;
+    contentRefs?: { fieldName: string; rootHash: string; visibility: number }[];
 };
 
 type ProposalDraft = {
@@ -84,6 +97,8 @@ type ProposalDraft = {
     // Target fields
     existingTargetId: string;
     destinationCircleId: string;
+    // Encrypted storage
+    visibility: DataVisibilityValue;
 };
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -256,9 +271,8 @@ function buildGovernanceCalls(
     let circleId: bigint;
 
     if (action.changeType === "create-role") {
-        changeType = OnChainChangeType.CreateRole;
         circleId = BigInt(action.circleId || "0");
-        encodedData = encodeCreateRole({
+        const roleParams = {
             circleId,
             name: action.roleName ?? "",
             purpose: action.roleDescription ?? "",
@@ -269,11 +283,25 @@ function buildGovernanceCalls(
                       .map((s) => s.trim())
                       .filter(Boolean)
                 : [],
-        });
+        };
+        if (action.contentRefs?.length) {
+            changeType = OnChainChangeType.CreateRoleWithRefs;
+            encodedData = encodeCreateRoleWithRefs({
+                ...roleParams,
+                fieldNames: action.contentRefs.map((r) => fieldNameHash(r.fieldName)),
+                refs: action.contentRefs.map((r) => ({
+                    contentHash:
+                        `0x${r.rootHash.replace("0x", "").padStart(64, "0")}` as `0x${string}`,
+                    visibility: r.visibility,
+                })),
+            });
+        } else {
+            changeType = OnChainChangeType.CreateRole;
+            encodedData = encodeCreateRole(roleParams);
+        }
     } else if (action.changeType === "amend-role" && action.existingTargetId) {
-        changeType = OnChainChangeType.AmendRole;
         circleId = BigInt(action.circleId || "0");
-        encodedData = encodeAmendRole({
+        const roleParams = {
             roleId: BigInt(action.existingTargetId),
             name: action.roleName ?? "",
             purpose: action.roleDescription ?? "",
@@ -284,7 +312,22 @@ function buildGovernanceCalls(
                       .map((s) => s.trim())
                       .filter(Boolean)
                 : [],
-        });
+        };
+        if (action.contentRefs?.length) {
+            changeType = OnChainChangeType.AmendRoleWithRefs;
+            encodedData = encodeAmendRoleWithRefs({
+                ...roleParams,
+                fieldNames: action.contentRefs.map((r) => fieldNameHash(r.fieldName)),
+                refs: action.contentRefs.map((r) => ({
+                    contentHash:
+                        `0x${r.rootHash.replace("0x", "").padStart(64, "0")}` as `0x${string}`,
+                    visibility: r.visibility,
+                })),
+            });
+        } else {
+            changeType = OnChainChangeType.AmendRole;
+            encodedData = encodeAmendRole(roleParams);
+        }
     } else if (action.changeType === "remove-role" && action.existingTargetId) {
         changeType = OnChainChangeType.RemoveRole;
         circleId = BigInt(action.circleId || "0");
@@ -293,8 +336,38 @@ function buildGovernanceCalls(
         changeType = OnChainChangeType.ExpandRoleToCircle;
         circleId = BigInt(action.circleId || "0");
         encodedData = encodeExpandRoleToCircle(BigInt(action.existingTargetId));
+    } else if (action.changeType === "create-policy") {
+        changeType = OnChainChangeType.CreatePolicy;
+        circleId = BigInt(action.circleId || "0");
+        encodedData = encodeCreatePolicy({
+            circleId,
+            name: action.policyTitle ?? "",
+            body: action.policyBody ?? "",
+        });
+    } else if (action.changeType === "amend-policy" && action.existingTargetId) {
+        changeType = OnChainChangeType.AmendPolicy;
+        circleId = BigInt(action.circleId || "0");
+        encodedData = encodeAmendPolicy({
+            policyId: BigInt(action.existingTargetId),
+            name: action.policyTitle ?? "",
+            body: action.policyBody ?? "",
+        });
+    } else if (action.changeType === "remove-policy" && action.existingTargetId) {
+        changeType = OnChainChangeType.RemovePolicy;
+        circleId = BigInt(action.circleId || "0");
+        encodedData = encodeRemovePolicy(BigInt(action.existingTargetId));
+    } else if (
+        action.changeType === "move-role" &&
+        action.existingTargetId &&
+        action.destinationCircleId
+    ) {
+        changeType = OnChainChangeType.MoveRole;
+        circleId = BigInt(action.circleId || "0");
+        encodedData = encodeMoveRole({
+            roleId: BigInt(action.existingTargetId),
+            toCircleId: BigInt(action.destinationCircleId),
+        });
     } else {
-        // Policies and move-role not yet supported on-chain
         return [];
     }
 
@@ -334,6 +407,7 @@ function buildEmptyDraft(circleId: string, roleId: string): ProposalDraft {
         policyBody: "",
         existingTargetId: "",
         destinationCircleId: "",
+        visibility: DataVisibility.Public,
     };
 }
 
@@ -808,6 +882,58 @@ function ProposalWizard({
                                     />
                                 </div>
                             </>
+                        )}
+
+                        {/* Data visibility selector — only for create/amend role */}
+                        {isRoleAction && (isCreate || draft.changeType === "amend-role") && (
+                            <div>
+                                <label className={labelCls}>
+                                    <Lock size={11} className="mr-1 inline" />
+                                    Data visibility
+                                </label>
+                                <div className="mt-1.5 flex gap-2">
+                                    {(
+                                        [
+                                            {
+                                                value: DataVisibility.Public,
+                                                label: "Public",
+                                                desc: "Readable by anyone",
+                                            },
+                                            {
+                                                value: DataVisibility.OrgEncrypted,
+                                                label: "Org-encrypted",
+                                                desc: "Org members only",
+                                            },
+                                            {
+                                                value: DataVisibility.RoleEncrypted,
+                                                label: "Role-encrypted",
+                                                desc: "Role holders only",
+                                            },
+                                        ] as const
+                                    ).map((opt) => (
+                                        <button
+                                            key={opt.value}
+                                            type="button"
+                                            onClick={() =>
+                                                setDraft((d) => ({
+                                                    ...d,
+                                                    visibility: opt.value,
+                                                }))
+                                            }
+                                            className={`flex-1 rounded-lg border px-3 py-2 text-left text-xs transition-colors ${
+                                                draft.visibility === opt.value
+                                                    ? "border-[#3481FF]/40 bg-[#3481FF]/10 text-[#6aabff]"
+                                                    : "border-white/[0.07] bg-white/[0.02] text-slate-400 hover:border-white/[0.14]"
+                                            }`}
+                                        >
+                                            <div className="font-medium">{opt.label}</div>
+                                            <div className="mt-0.5 text-[10px] opacity-60">
+                                                {opt.desc}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         )}
 
                         {/* Create / amend policy fields */}
@@ -1573,6 +1699,9 @@ export default function GovernanceMeetingRoom({
     const [isTxPending, setIsTxPending] = useState(false);
     const [txError, setTxError] = useState<string | null>(null);
 
+    // Encrypted storage (0G + key management)
+    const { encryptAndUpload, unlockKeys, isKeyUnlocked } = useEncryptedStorage();
+
     // Proposal wizard state
     const [showWizard, setShowWizard] = useState(false);
     const [wizardStep, setWizardStep] = useState<ProposalWizardStep>("action");
@@ -1785,7 +1914,7 @@ export default function GovernanceMeetingRoom({
         ],
     );
 
-    const handleSubmitProposal = useCallback(() => {
+    const handleSubmitProposal = useCallback(async () => {
         if (!activeGovernanceMeeting) return;
 
         const isRoleAction = proposalDraft.changeType.includes("role");
@@ -1856,6 +1985,49 @@ export default function GovernanceMeetingRoom({
         // Queue the on-chain action for batched execution at meeting completion
         const actionLabel = `${changeLabel}: ${title}`;
 
+        // Encrypt + upload to 0G when visibility is non-public and this is a role action
+        let contentRefs: { fieldName: string; rootHash: string; visibility: number }[] | undefined;
+        const vis = proposalDraft.visibility;
+        if (
+            isRoleAction &&
+            (isCreate || proposalDraft.changeType === "amend-role") &&
+            vis !== undefined
+        ) {
+            // Unlock encryption keys if needed
+            if (vis !== DataVisibility.Public && !isKeyUnlocked && orgId) {
+                await unlockKeys(BigInt(orgId));
+            }
+
+            const fields: { name: string; text: string }[] = [];
+            if (proposalDraft.roleName) fields.push({ name: "name", text: proposalDraft.roleName });
+            if (proposalDraft.roleDescription)
+                fields.push({ name: "purpose", text: proposalDraft.roleDescription });
+            if (proposalDraft.roleDomain)
+                fields.push({ name: "domains", text: proposalDraft.roleDomain });
+            if (proposalDraft.roleAccountabilities)
+                fields.push({ name: "accountabilities", text: proposalDraft.roleAccountabilities });
+
+            if (fields.length > 0) {
+                const cId = BigInt(proposalDraft.circleId || "0");
+                const rId = proposalDraft.existingTargetId
+                    ? BigInt(proposalDraft.existingTargetId)
+                    : undefined;
+                const results = await Promise.all(
+                    fields.map(async (f) => {
+                        const { rootHash } = await encryptAndUpload.mutateAsync({
+                            text: f.text,
+                            visibility: vis,
+                            orgId: BigInt(orgId ?? "0"),
+                            circleId: cId,
+                            roleId: rId,
+                        });
+                        return { fieldName: f.name, rootHash, visibility: vis };
+                    }),
+                );
+                contentRefs = results;
+            }
+        }
+
         setPendingActions((prev) => [
             ...prev,
             {
@@ -1871,6 +2043,8 @@ export default function GovernanceMeetingRoom({
                 policyBody: proposalDraft.policyBody || undefined,
                 existingTargetId: proposalDraft.existingTargetId || undefined,
                 destinationCircleId: proposalDraft.destinationCircleId || undefined,
+                visibility: vis,
+                contentRefs,
             },
         ]);
 
@@ -1880,11 +2054,15 @@ export default function GovernanceMeetingRoom({
     }, [
         activeGovernanceMeeting,
         createGovernanceProposal,
+        encryptAndUpload,
         initialCircleId,
         initialRoleId,
+        isKeyUnlocked,
+        orgId,
         proposalDraft,
         snapshot.policies,
         snapshot.roles,
+        unlockKeys,
     ]);
 
     const agendaItems = useMemo(

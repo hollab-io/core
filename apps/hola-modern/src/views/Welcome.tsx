@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { BookOpen } from "lucide-react";
+import { ArrowRight, BookOpen } from "lucide-react";
 
 import logoSvg from "../assets/logo.svg";
 import WalletAuthControl from "../components/WalletAuthControl";
@@ -13,7 +13,13 @@ const FEATURES = [
     "Agent-ready SDK",
 ] as const;
 
-export default function WelcomeScreen({ onShowConstitution }: { onShowConstitution?: () => void }) {
+export default function WelcomeScreen({
+    onShowConstitution,
+    onBrowsePublic,
+}: {
+    onShowConstitution?: () => void;
+    onBrowsePublic?: () => void;
+}) {
     return (
         <section className="relative flex min-h-[100dvh] w-full items-center justify-center overflow-hidden bg-white dark:bg-[#050505]">
             {/* ── Background mesh gradients ── */}
@@ -177,21 +183,47 @@ export default function WelcomeScreen({ onShowConstitution }: { onShowConstituti
                     </div>
                 </motion.div>
 
+                {/* Secondary CTA — try without a wallet */}
+                {onBrowsePublic && (
+                    <motion.button
+                        type="button"
+                        onClick={onBrowsePublic}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.8, delay: 0.46, ease: EXPO }}
+                        className="group mt-5 inline-flex items-center gap-2 rounded-full
+                            border border-slate-200 dark:border-white/[0.08]
+                            bg-white/60 dark:bg-white/[0.03]
+                            px-4 py-2 text-[12px] font-semibold
+                            text-slate-600 dark:text-slate-300
+                            transition-all duration-500
+                            hover:border-[#3481FF]/40 hover:text-[#3481FF]
+                            hover:shadow-[0_0_24px_rgba(52,129,255,0.12)]"
+                    >
+                        Browse public organizations
+                        <ArrowRight
+                            size={12}
+                            strokeWidth={2}
+                            className="transition-transform duration-300 group-hover:translate-x-0.5"
+                        />
+                    </motion.button>
+                )}
+
                 {/* Constitution link */}
                 {onShowConstitution && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ duration: 0.8, delay: 0.5, ease: EXPO }}
-                        className="mt-6"
+                        transition={{ duration: 0.8, delay: 0.54, ease: EXPO }}
+                        className="mt-4"
                     >
                         <button
                             type="button"
                             onClick={onShowConstitution}
-                            className="inline-flex items-center gap-2 text-[13px] font-medium text-slate-400 dark:text-slate-500
+                            className="inline-flex items-center gap-2 text-[12px] font-medium text-slate-400 dark:text-slate-600
                                 transition-colors duration-300 hover:text-[#3481FF]"
                         >
-                            <BookOpen size={14} strokeWidth={1.75} />
+                            <BookOpen size={12} strokeWidth={1.75} />
                             Read the Constitution
                         </button>
                     </motion.div>

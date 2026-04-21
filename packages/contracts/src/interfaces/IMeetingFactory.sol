@@ -47,9 +47,12 @@ interface IMeetingFactory {
   /// @notice Commitments-only record of an objection raised against a proposal.
   /// @dev    No on-chain validation of objection criteria (§5.3.4) — the
   ///         contract only records who raised what and when it was resolved.
+  ///         The objectorRoleId records which role the objection represents,
+  ///         enforcing §5.3's representation rule on-chain.
   struct ObjectionRecord {
     uint256 id;
     uint256 proposalId;
+    uint256 objectorRoleId;
     address objector;
     uint64 raisedAt;
     uint64 resolvedAt;
@@ -105,14 +108,35 @@ interface IMeetingFactory {
 
   /// @notice Emitted when an objection is raised against a Draft proposal.
   event ObjectionRaised(
-    uint256 indexed _objectionId, uint256 indexed _proposalId, address indexed _objector, bytes32 _concernHash
+    uint256 indexed _objectionId,
+    uint256 indexed _proposalId,
+    address indexed _objector,
+    uint256 _objectorRoleId,
+    bytes32 _concernHash
   );
 
   /// @notice Emitted when an objection is resolved (by the objector or by the facilitator).
   event ObjectionResolved(uint256 indexed _objectionId, uint256 indexed _proposalId, address _resolvedBy);
 
-  /// @notice Emitted when a circle facilitator is set.
+  /// @notice Emitted when a circle facilitator is set via the admin bootstrap path.
   event CircleFacilitatorSet(uint256 indexed _circleId, address indexed _facilitator);
+
+  /// @notice Emitted when a circle secretary is set via the admin bootstrap path.
+  event CircleSecretarySet(uint256 indexed _circleId, address indexed _secretary);
+
+  /// @notice Emitted when a Facilitator Election is adopted for a circle. After this,
+  ///         the admin setter for that circle is locked (§5.1.2).
+  event FacilitatorElected(uint256 indexed _circleId, address indexed _facilitator, address _previousFacilitator);
+
+  /// @notice Emitted when a Secretary Election is adopted for a circle. After this,
+  ///         the admin setter for that circle is locked (§5.1.2).
+  event SecretaryElected(uint256 indexed _circleId, address indexed _secretary, address _previousSecretary);
+
+  /// @notice Emitted when the Secretary strikes a Draft proposal as invalid (§4.2.2).
+  event ProposalStruck(uint256 indexed _proposalId, uint256 indexed _circleId, address indexed _secretary);
+
+  /// @notice Emitted when an org admin updates the proposal age window.
+  event ProposalMaxAgeUpdated(uint64 _oldAge, uint64 _newAge, address indexed _by);
 
   /*///////////////////////////////////////////////////////////////
                             ERRORS
@@ -132,6 +156,35 @@ interface IMeetingFactory {
   error MeetingFactory_UnresolvedObjections(uint256 _proposalId, uint256 _count);
   error MeetingFactory_ProposalExpired(uint256 _proposalId);
   error MeetingFactory_ProposalNotExpired(uint256 _proposalId);
+
+  /// @notice Thrown when a proposer isn't the role lead of the role they claim to represent (§5.3).
+  error MeetingFactory_NotRoleLead(uint256 _roleId, address _caller);
+
+  /// @notice Thrown when discarding a proposal from someone who is neither the proposer nor the circle facilitator (§5.3.4).
+  error MeetingFactory_NotProposerOrFacilitator(uint256 _proposalId, address _caller);
+
+  /// @notice Thrown when an objector's represented role is not in the proposal's circle (§5.3).
+  error MeetingFactory_ObjectorRoleNotInCircle(uint256 _objectorRoleId, uint256 _circleId);
+
+  /// @notice Thrown when the admin setter is called after a Facilitator Election has been adopted.
+  error MeetingFactory_FacilitatorAlreadyElected(uint256 _circleId);
+
+  /// @notice Thrown when the admin setter is called after a Secretary Election has been adopted.
+  error MeetingFactory_SecretaryAlreadyElected(uint256 _circleId);
+
+  /// @notice Thrown when a Secretary-only action is called by someone else.
+  error MeetingFactory_NotSecretary(uint256 _circleId, address _caller);
+
+  /// @notice Thrown when a proposal's change targets a circle other than the proposal's circle.
+  error MeetingFactory_ChangeCircleMismatch(uint256 _proposalCircleId, uint256 _targetCircleId);
+
+  /// @notice Thrown when a *WithRefs proposal encodes more content refs than MAX_CONTENT_REFS.
+  /// @dev    Adoption is permissionless — capping the ref array at decode time prevents a
+  ///         malicious proposer from crafting a huge-ref proposal that DoS's whoever adopts it.
+  error MeetingFactory_TooManyContentRefs(uint256 _length, uint256 _max);
+
+  /// @notice Thrown by setProposalMaxAge when the requested age is outside [MIN, MAX].
+  error MeetingFactory_InvalidProposalMaxAge(uint64 _provided, uint64 _min, uint64 _max);
 
   /*///////////////////////////////////////////////////////////////
                             LOGIC
@@ -169,10 +222,12 @@ interface IMeetingFactory {
                         PROPOSAL LIFECYCLE
   //////////////////////////////////////////////////////////////*/
 
-  /// @notice Create a Draft proposal. Any org member may call.
+  /// @notice Create a Draft proposal. Enforces §5.3's Representation Rule — the
+  ///         caller must be a role lead of `_proposerRoleId`.
   /// @param  _orgId           Organization the proposal targets
-  /// @param  _circleId        Circle the change applies to (anchor = 0)
-  /// @param  _proposerRoleId  0 if the proposer is not currently a role lead
+  /// @param  _circleId        Circle the change applies to
+  /// @param  _proposerRoleId  The role the proposer represents. Must be a role the
+  ///                          caller leads (§5.3).
   /// @param  _tensionHash     Content-address (CIDv1, 0G root, or keccak) of
   ///                          the tension text — text itself stays off-chain
   /// @param  _changeType      The structural change to enact on adoption
@@ -188,24 +243,30 @@ interface IMeetingFactory {
   ) external returns (uint256 _proposalId);
 
   /// @notice Adopt a Draft proposal — applies its change to the RoleRegistry.
-  /// @dev    Org admin only. The contract does NOT check that all objections
-  ///         are resolved first — that is the meeting coordinator's job. The
-  ///         event log provides a full auditable trail.
+  /// @dev    Permissionless once objections are resolved and the proposal is
+  ///         still within MAX_PROPOSAL_AGE. Adoption expresses consent having
+  ///         been reached; any caller can trigger it. (§5.3)
   function adoptProposal(
     uint256 _proposalId
   ) external returns (uint256 _resultId);
 
   /// @notice Discard a Draft proposal without applying its change.
-  /// @dev    Org admin only.
+  /// @dev    Callable by the original proposer (withdrawal) or the circle's
+  ///         Facilitator (§5.3.4 — invalid proposal).
   function discardProposal(
     uint256 _proposalId
   ) external;
 
-  /// @notice Raise an objection against a Draft proposal. Any org member.
-  /// @param  _proposalId   The proposal being objected to
-  /// @param  _concernHash  Content-address of the objection text (off-chain)
+  /// @notice Raise an objection against a Draft proposal. Enforces §5.3's
+  ///         Representation Rule — the objector must either lead a role in
+  ///         the proposal's circle, or be the circle's elected Facilitator or
+  ///         Secretary.
+  /// @param  _proposalId      The proposal being objected to
+  /// @param  _objectorRoleId  The role the objector represents (must belong to the proposal's circle)
+  /// @param  _concernHash     Content-address of the objection text (off-chain)
   function raiseObjection(
     uint256 _proposalId,
+    uint256 _objectorRoleId,
     bytes32 _concernHash
   ) external returns (uint256 _objectionId);
 
@@ -223,12 +284,38 @@ interface IMeetingFactory {
     uint256 _proposalId
   ) external;
 
-  /// @notice Set the Facilitator for a circle. Admin only (until elections are onchain).
+  /// @notice Set the Facilitator for a circle via the admin bootstrap path. Locked
+  ///         per-circle after a FacilitatorElection proposal is adopted (§5.1.2).
   /// @param _circleId The circle ID
   /// @param _facilitator The facilitator address
   function setCircleFacilitator(
     uint256 _circleId,
     address _facilitator
+  ) external;
+
+  /// @notice Set the Secretary for a circle via the admin bootstrap path. Locked
+  ///         per-circle after a SecretaryElection proposal is adopted (§5.1.2).
+  /// @param _circleId The circle ID
+  /// @param _secretary The secretary address
+  function setCircleSecretary(
+    uint256 _circleId,
+    address _secretary
+  ) external;
+
+  /// @notice Strike a Draft proposal as invalid. Callable only by the elected Secretary
+  ///         of the proposal's circle (§4.2.2). Marks the proposal Discarded and emits
+  ///         ProposalStruck so it's distinguishable from a normal discard.
+  /// @param _proposalId The Draft proposal to strike
+  function strikeProposal(
+    uint256 _proposalId
+  ) external;
+
+  /// @notice Update the per-org proposal age window. Org admin only.
+  /// @dev    Must be within [MIN_PROPOSAL_MAX_AGE, MAX_PROPOSAL_MAX_AGE].
+  ///         See specs/99-agent-native-divergence.md for rationale.
+  /// @param _newAge The new proposal max age, in seconds
+  function setProposalMaxAge(
+    uint64 _newAge
   ) external;
 
   /*///////////////////////////////////////////////////////////////
@@ -245,4 +332,7 @@ interface IMeetingFactory {
 
   function proposalCount() external view returns (uint256 _count);
   function objectionCount() external view returns (uint256 _count);
+
+  /// @notice Current proposal age window for this org (seconds). See setProposalMaxAge.
+  function proposalMaxAge() external view returns (uint64);
 }

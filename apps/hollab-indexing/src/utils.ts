@@ -1,6 +1,8 @@
 import type { Context } from "ponder:registry";
 import schema from "ponder:schema";
 
+import { OrganizationInstanceAbi } from "../abis/OrganizationInstanceAbi";
+
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
 function isZeroAddress(a: `0x${string}`): boolean {
@@ -10,8 +12,9 @@ function isZeroAddress(a: `0x${string}`): boolean {
 // ─── Core refresh ─────────────────────────────────────────────────────────────
 
 /**
- * Called by every RoleRegistry event handler.
- * Looks up the org via registryIndex, then refreshes the org snapshot.
+ * Called by RoleRegistry / CircleRegistry event handlers that hold a per-org
+ * clone address. Looks up the org via registryIndex, then refreshes the
+ * org snapshot by calling `summary()` on the OrganizationInstance.
  */
 export async function refreshOrgData(
     context: Context,
@@ -21,48 +24,20 @@ export async function refreshOrgData(
     const index = await context.db.find(schema.registryIndex, { registryAddress });
     if (!index) return;
 
-    await upsertOrgSnapshot(context, index.factoryAddress, index.orgId, timestamp);
+    // `factoryAddress` on the registry_index row now holds the OrganizationInstance address.
+    await upsertOrgSnapshot(context, index.factoryAddress, timestamp);
 }
 
 /**
- * Upserts an org snapshot using direct contract reads (no DataProvider).
- * Called from OrganizationCreated and role-change events.
+ * Upserts an org snapshot by reading `summary()` directly off the
+ * OrganizationInstance clone. The instance is the authoritative source for
+ * org metadata + component wiring after the factory-to-instance refactor.
  */
 export async function upsertOrgSnapshot(
     context: Context,
-    factoryAddress: `0x${string}`,
-    orgId: bigint,
+    instanceAddress: `0x${string}`,
     timestamp: bigint,
 ) {
-    const orgFactoryAbi = [
-        {
-            type: "function",
-            name: "getOrganization",
-            stateMutability: "view",
-            inputs: [{ name: "_orgId", type: "uint256" }],
-            outputs: [
-                {
-                    name: "_org",
-                    type: "tuple",
-                    components: [
-                        { name: "id", type: "uint256" },
-                        { name: "name", type: "string" },
-                        { name: "subname", type: "string" },
-                        { name: "creator", type: "address" },
-                        { name: "roleRegistry", type: "address" },
-                        { name: "circleRegistry", type: "address" },
-                        { name: "governanceProcess", type: "address" },
-                        { name: "meetingFactory", type: "address" },
-                        { name: "accessManager", type: "address" },
-                        { name: "anchorCircleId", type: "uint256" },
-                        { name: "createdAt", type: "uint256" },
-                        { name: "token", type: "address" },
-                    ],
-                },
-            ],
-        },
-    ] as const;
-
     const tokenMetaAbi = [
         {
             type: "function",
@@ -88,10 +63,9 @@ export async function upsertOrgSnapshot(
     ] as const;
 
     const org = await context.client.readContract({
-        abi: orgFactoryAbi,
-        address: factoryAddress,
-        functionName: "getOrganization",
-        args: [orgId],
+        abi: OrganizationInstanceAbi,
+        address: instanceAddress,
+        functionName: "summary",
     });
 
     let tokenName = "";
@@ -130,10 +104,11 @@ export async function upsertOrgSnapshot(
             name: org.name,
             creator: org.creator,
             token: org.token,
+            instanceAddress,
             circleRegistry: org.circleRegistry,
             roleRegistry: org.roleRegistry,
             governanceProcess: org.governanceProcess,
-            anchorCircleId: 0n,
+            anchorCircleId: org.anchorCircleId,
             tokenName,
             tokenSymbol,
             tokenTotalSupply,
@@ -146,6 +121,8 @@ export async function upsertOrgSnapshot(
         })
         .onConflictDoUpdate((existing) => ({
             ...existing,
+            instanceAddress,
+            governanceProcess: org.governanceProcess,
             tokenTotalSupply,
             updatedAt: timestamp,
         }));

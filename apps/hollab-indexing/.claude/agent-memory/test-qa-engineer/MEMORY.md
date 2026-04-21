@@ -1,0 +1,2 @@
+-   [project_test_infra.md](./project_test_infra.md) — Test stack: no Vitest in hola-modern (Playwright E2E only); Vitest in packages/indexing-client, packages/viem-extension, packages/hollab-sdk
+-   [project_conventions.md](./project_conventions.md) — Key QA conventions: parseHash/routeToHash not exported; PublicOrgView wallet-free constraints

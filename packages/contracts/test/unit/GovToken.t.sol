@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
+import {Ownable} from '@openzeppelin/contracts/access/Ownable.sol';
 import {GovToken} from 'contracts/governance/GovToken.sol';
 import {Test} from 'forge-std/Test.sol';
 
@@ -11,8 +12,6 @@ contract UnitGovToken is Test {
   address internal _newMinter = makeAddr('newMinter');
   address internal _recipient = makeAddr('recipient');
   address internal _stranger = makeAddr('stranger');
-
-  event MinterChanged(address indexed previousMinter, address indexed newMinter);
 
   function setUp() external {
     _govToken = new GovToken('HolGov', 'HOL', _initialMinter);
@@ -94,9 +93,9 @@ contract UnitGovToken is Test {
   }
 
   function test_SetMinterEmitsMinterChanged() external {
-    // it emits MinterChanged with previous and new minter
+    // it emits OwnershipTransferred (OZ Ownable event) via transferOwnership
     vm.expectEmit(true, true, true, true, address(_govToken));
-    emit MinterChanged(_initialMinter, _newMinter);
+    emit Ownable.OwnershipTransferred(_initialMinter, _newMinter);
 
     vm.prank(_initialMinter);
     _govToken.setMinter(_newMinter);
@@ -152,9 +151,9 @@ contract UnitGovToken is Test {
     vm.prank(_initialMinter);
     _govToken.setMinter(_newMinter);
 
-    // it emits MinterChanged for the second transfer
+    // it emits OwnershipTransferred for the second transfer
     vm.expectEmit(true, true, true, true, address(_govToken));
-    emit MinterChanged(_newMinter, _thirdMinter);
+    emit Ownable.OwnershipTransferred(_newMinter, _thirdMinter);
 
     vm.prank(_newMinter);
     _govToken.setMinter(_thirdMinter);
@@ -165,7 +164,7 @@ contract UnitGovToken is Test {
   function test_SetMinterToSameAddressIsAllowed() external {
     // setting minter to itself is not explicitly forbidden
     vm.expectEmit(true, true, true, true, address(_govToken));
-    emit MinterChanged(_initialMinter, _initialMinter);
+    emit Ownable.OwnershipTransferred(_initialMinter, _initialMinter);
 
     vm.prank(_initialMinter);
     _govToken.setMinter(_initialMinter);

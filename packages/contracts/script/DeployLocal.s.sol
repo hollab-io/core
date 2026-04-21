@@ -5,11 +5,13 @@ import {ActionVoting} from 'contracts/ActionVoting.sol';
 import {MeetingComponentsFactory} from 'contracts/MeetingComponentsFactory.sol';
 import {MeetingFactory} from 'contracts/MeetingFactory.sol';
 import {OrganizationFactory} from 'contracts/OrganizationFactory.sol';
+import {OrganizationInstance} from 'contracts/OrganizationInstance.sol';
+import {RoleDataRegistry} from 'contracts/RoleDataRegistry.sol';
 import {RoleRegistry} from 'contracts/RoleRegistry.sol';
 import {IENSSubdomainRegistrar} from 'ens/IENSSubdomainRegistrar.sol';
 import {Script, console} from 'forge-std/Script.sol';
 import {IOrganizationFactory} from 'interfaces/IOrganizationFactory.sol';
-import {HolacracyTypes} from 'libraries/HolacracyTypes.sol';
+import {IOrganizationInstance} from 'interfaces/IOrganizationInstance.sol';
 
 /// @notice Stub ENS subdomain registrar for local development — records calls without ENS logic
 contract MockENSSubdomainRegistrar is IENSSubdomainRegistrar {
@@ -52,16 +54,19 @@ contract DeployLocal is Script {
 
     // ── 2. Implementation contracts (clone sources) ─────────────────────────
     RoleRegistry roleRegistryImpl = new RoleRegistry();
+    OrganizationInstance orgInstanceImpl = new OrganizationInstance();
     MeetingFactory meetingImpl = new MeetingFactory();
     ActionVoting actionVotingImpl = new ActionVoting();
+    RoleDataRegistry roleDataRegistryImpl = new RoleDataRegistry();
 
     // ── 3. MeetingComponentsFactory ─────────────────────────────────────────
     MeetingComponentsFactory meetingFactory =
-      new MeetingComponentsFactory(address(meetingImpl), address(actionVotingImpl));
+      new MeetingComponentsFactory(address(meetingImpl), address(actionVotingImpl), address(roleDataRegistryImpl));
 
     // ── 4. OrganizationFactory ──────────────────────────────────────────────
-    OrganizationFactory factory =
-      new OrganizationFactory(address(roleRegistryImpl), address(ensRegistrar), address(meetingFactory));
+    OrganizationFactory factory = new OrganizationFactory(
+      address(roleRegistryImpl), address(orgInstanceImpl), address(ensRegistrar), address(meetingFactory)
+    );
 
     // ── 5. Create a sample organization ─────────────────────────────────────
     address[] memory holders = new address[](1);
@@ -69,7 +74,7 @@ contract DeployLocal is Script {
     uint256[] memory amounts = new uint256[](1);
     amounts[0] = 1_000_000e18;
 
-    uint256 orgId = factory.createOrganization(
+    (uint256 orgId, address orgInstance) = factory.createOrganization(
       'demo',
       'A demo Holacracy organization',
       IOrganizationFactory.TokenConfig({
@@ -90,12 +95,13 @@ contract DeployLocal is Script {
     console.log('MockENSRegistrar:         ', address(ensRegistrar));
     console.log('');
 
-    HolacracyTypes.Organization memory org = factory.getOrganization(orgId);
+    IOrganizationInstance org = IOrganizationInstance(orgInstance);
     console.log('--- Sample Organization (id:', orgId, ') ---');
-    console.log('Subname:              ', org.subname);
-    console.log('Creator:              ', org.creator);
-    console.log('RoleRegistry:         ', org.roleRegistry);
-    console.log('GovToken:             ', org.token);
+    console.log('Instance:             ', orgInstance);
+    console.log('Subname:              ', org.subname());
+    console.log('Creator:              ', org.creator());
+    console.log('RoleRegistry:         ', org.roleRegistry());
+    console.log('GovToken:             ', org.token());
 
     // ── Write JSON artifact for tooling ──────────────────────────────────────
     string memory obj = 'local';

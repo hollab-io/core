@@ -5,41 +5,47 @@ The smart contracts live in `packages/contracts/` and implement the Holacracy go
 ## Contract Map
 
 ```
-OrganizationFactory (singleton)
-├── creates → RoleRegistry (ERC-1167 clone per org)
-├── creates → GovToken (ERC20Votes, one per org)
-├── creates → AccessManager (one per org)
+OrganizationFactory (singleton, thin directory)
+├── clones → OrganizationInstance (per-org, one-stop address)
+│     ├── holds → members, admins, join requests, agent identity links
+│     ├── wires → MeetingFactory via setMeetingFactory
+│     └── owns → RoleRegistry factory authority
+├── clones → RoleRegistry (ERC-1167 per org, seeded with anchor circle)
+├── deploys → GovToken (ERC20Votes, one per org)
+├── deploys → AccessManager (one per org)
 └── registers → ENS subname via ENSSubdomainRegistrar
 
 MeetingComponentsFactory (singleton)
-├── clones → MeetingFactory (per org/circle, stores orgId at init)
-├── clones → ActionVoting (per org/circle, stores orgId at init)
-└── deploy() requires org admin (isOrgAdmin check)
+├── clones → MeetingFactory (per org, stores orgId at init)
+├── clones → ActionVoting (per org, stores orgId at init)
+├── calls → instance.setMeetingFactory(meetingFactory)
+├── calls → instance.setRoleRegistryGovernanceProcess(meetingFactory)
+└── deploy() requires org admin (isOrgAdmin on OrganizationInstance)
 
 MeetingFactory
-└── set as governanceProcess on RoleRegistry
+└── set as governanceProcess on RoleRegistry by the instance
     (only contract that can modify roles)
-    setGovernanceProcess restricted to OrgFactory (msg.sender == factory)
 ```
 
 ## Core Contracts
 
-| Contract                                               | Type             | Purpose                                 |
-| ------------------------------------------------------ | ---------------- | --------------------------------------- |
-| [OrganizationFactory](/contracts/organization-factory) | Singleton        | Deploy orgs, manage membership          |
-| [RoleRegistry](/contracts/role-registry)               | Clone per org    | Store roles, circles, assignments       |
-| [MeetingFactory](/contracts/meeting-factory)           | Clone per org    | Meeting lifecycle, governance execution |
-| [ActionVoting](/contracts/action-voting)               | Clone per org    | Token-weighted + collaborator voting    |
-| [GovToken](/contracts/gov-token)                       | Instance per org | ERC20Votes for governance power         |
-| [ENSSubdomainRegistrar](/contracts/ens)                | Singleton        | `myorg.hollab.eth` registration         |
+| Contract                                                 | Type             | Purpose                                                         |
+| -------------------------------------------------------- | ---------------- | --------------------------------------------------------------- |
+| [OrganizationFactory](/contracts/organization-factory)   | Singleton        | Thin directory: mint orgs, index `id/subname → instance`        |
+| [OrganizationInstance](/contracts/organization-instance) | Clone per org    | One-stop address: members, admins, join, agent identity, wiring |
+| [RoleRegistry](/contracts/role-registry)                 | Clone per org    | Store roles, circles, assignments                               |
+| [MeetingFactory](/contracts/meeting-factory)             | Clone per org    | Meeting lifecycle, governance execution                         |
+| [ActionVoting](/contracts/action-voting)                 | Clone per org    | Token-weighted + collaborator voting                            |
+| [GovToken](/contracts/gov-token)                         | Instance per org | ERC20Votes for governance power                                 |
+| [ENSSubdomainRegistrar](/contracts/ens)                  | Singleton        | `myorg.hollab.eth` registration                                 |
 
 ## Supporting Contracts
 
-| Contract                 | Purpose                                                        |
-| ------------------------ | -------------------------------------------------------------- |
-| GovTokenDeployer         | Helper to deploy GovToken (extracted for contract size limits) |
-| MeetingComponentsFactory | Deploy MeetingFactory + ActionVoting clones                    |
-| HolacracyTypes           | Shared enums and structs                                       |
+| Contract                 | Purpose                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------- |
+| GovTokenDeployer         | Helper to deploy GovToken (extracted for contract size limits)                   |
+| MeetingComponentsFactory | Deploy MeetingFactory + ActionVoting clones; wire them into OrganizationInstance |
+| HolacracyTypes           | Shared enums and structs                                                         |
 
 ## Design Patterns
 
@@ -51,7 +57,7 @@ Implementation contracts are deployed once as part of infrastructure. Each `crea
 
 ### Governance Lock
 
-RoleRegistry accepts a `governanceProcess` address during initialization. Only this address (the MeetingFactory) can call `createRole`, `updateRole`, and `removeRole`. This enforces the Holacracy principle that organizational structure only changes through governance meetings.
+RoleRegistry accepts a `governanceProcess` address that only the per-org `OrganizationInstance` can set (via `MeetingComponentsFactory`). Once wired, only the MeetingFactory can call `createRole`, `updateRole`, and `removeRole`. This enforces the Holacracy principle that organizational structure only changes through governance meetings — and keeps each org's authority boundary contained to its own instance.
 
 ### Event-First Data
 

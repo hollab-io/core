@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useDeferredValue, useMemo, useRef, useState } from "react";
 
+import { showToast } from "../components/toastBus";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 type MeetingRecord = {
@@ -458,6 +459,7 @@ export default function CalendarView({ isDarkMode }: CalendarViewProps) {
                 >
                     <button
                         type="button"
+                        onClick={() => showToast("Event scheduling coming soon")}
                         className={`inline-flex h-12 items-center gap-3 rounded-2xl px-5 text-[15px] font-medium ${calendarTheme.createButton}`}
                         aria-label="Create event"
                     >
@@ -743,6 +745,7 @@ export default function CalendarView({ isDarkMode }: CalendarViewProps) {
 
                             <button
                                 type="button"
+                                onClick={() => showToast("Help center coming soon")}
                                 className="calendar-google-icon-button"
                                 aria-label="Open help"
                             >
@@ -750,6 +753,7 @@ export default function CalendarView({ isDarkMode }: CalendarViewProps) {
                             </button>
                             <button
                                 type="button"
+                                onClick={() => showToast("Calendar settings coming soon")}
                                 className="calendar-google-icon-button"
                                 aria-label="Open calendar settings"
                             >
