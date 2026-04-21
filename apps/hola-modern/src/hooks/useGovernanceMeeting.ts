@@ -1,3 +1,14 @@
+/**
+ * Governance meeting helpers.
+ *
+ * `conveneMeeting` / `completeMeeting` / `linkProposal` are **optional
+ * reporting wrappers** — no governance write path on `MeetingFactory` (create /
+ * raise / resolve / adopt / discard) requires an open meeting. Orgs may call
+ * these to publish an auditable "we processed governance at this time" marker,
+ * or skip them entirely and operate async / continuously.
+ *
+ * See specs/99-agent-native-divergence.md §3 for the product framing.
+ */
 import { meetingFactoryAbi } from "@hollab-io/viem-extension";
 import { useCallback } from "react";
 import { useAccount } from "wagmi";

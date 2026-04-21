@@ -7,10 +7,11 @@
  * Contract boundary: MeetingFactory (the per-org governance process).
  */
 import { meetingFactoryAbi } from "@hollab-io/viem-extension";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { keccak256, stringToHex, zeroHash } from "viem";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createPublicClient, http, keccak256, stringToHex, zeroHash } from "viem";
 import { useAccount } from "wagmi";
 
+import { useChain } from "../context/ChainContext";
 import { useSendTransaction } from "./useSendTransaction";
 
 type Meeting = {
@@ -243,21 +244,66 @@ export function useDiscardExpiredProposal() {
 
 // ── Derivations ─────────────────────────────────────────────────────────────
 
-/** MeetingFactory enforces `MAX_PROPOSAL_AGE = 14 days` on adoptProposal. */
-export const MAX_PROPOSAL_AGE_SECONDS = 14 * 24 * 60 * 60;
+/**
+ * Fallback value used while the on-chain `proposalMaxAge` read is in flight.
+ * Matches `MeetingFactory.DEFAULT_PROPOSAL_MAX_AGE` so behavior is consistent
+ * with a freshly-initialized clone that has not been reconfigured.
+ * See specs/99-agent-native-divergence.md — the per-org value is authoritative
+ * and can be read via `useProposalMaxAge(meetingFactoryAddress)`.
+ */
+export const DEFAULT_PROPOSAL_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 export function isProposalExpired(
     submittedAt: string | bigint | number,
+    maxAgeSeconds: number,
     nowSeconds = Math.floor(Date.now() / 1000),
 ): boolean {
     const submitted = typeof submittedAt === "bigint" ? Number(submittedAt) : Number(submittedAt);
-    return nowSeconds - submitted > MAX_PROPOSAL_AGE_SECONDS;
+    return nowSeconds - submitted > maxAgeSeconds;
 }
 
 export function secondsUntilExpiry(
     submittedAt: string | bigint | number,
+    maxAgeSeconds: number,
     nowSeconds = Math.floor(Date.now() / 1000),
 ): number {
     const submitted = typeof submittedAt === "bigint" ? Number(submittedAt) : Number(submittedAt);
-    return MAX_PROPOSAL_AGE_SECONDS - (nowSeconds - submitted);
+    return maxAgeSeconds - (nowSeconds - submitted);
+}
+
+/**
+ * Reads the per-org `proposalMaxAge` from the given MeetingFactory clone.
+ * Value is authoritative; falls back to {@link DEFAULT_PROPOSAL_MAX_AGE_SECONDS}
+ * during the initial load.
+ */
+export function useProposalMaxAge(meetingFactoryAddress: `0x${string}` | undefined): {
+    maxAgeSeconds: number;
+    isLoading: boolean;
+} {
+    const { chainConfig } = useChain();
+
+    const query = useQuery({
+        queryKey: ["proposalMaxAge", chainConfig.chain.id, meetingFactoryAddress],
+        enabled: !!meetingFactoryAddress,
+        queryFn: async () => {
+            if (!meetingFactoryAddress) return DEFAULT_PROPOSAL_MAX_AGE_SECONDS;
+            const publicClient = createPublicClient({
+                chain: chainConfig.chain,
+                transport: http(chainConfig.chain.rpcUrls.default.http[0]),
+            });
+            const raw = await publicClient.readContract({
+                address: meetingFactoryAddress,
+                abi: meetingFactoryAbi,
+                functionName: "proposalMaxAge",
+            });
+            return Number(raw);
+        },
+        // proposalMaxAge changes via admin tx, which is rare; cache for 5 min.
+        staleTime: 5 * 60 * 1000,
+    });
+
+    return {
+        maxAgeSeconds: query.data ?? DEFAULT_PROPOSAL_MAX_AGE_SECONDS,
+        isLoading: query.isLoading,
+    };
 }

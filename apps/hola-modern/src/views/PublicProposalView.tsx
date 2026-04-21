@@ -15,7 +15,11 @@ import { useMemo } from "react";
 import { useAccount } from "wagmi";
 
 import { isAgentAddress } from "../config/agents";
-import { isProposalExpired, useDiscardExpiredProposal } from "../hooks/useProposalLifecycle";
+import {
+    isProposalExpired,
+    useDiscardExpiredProposal,
+    useProposalMaxAge,
+} from "../hooks/useProposalLifecycle";
 import {
     useObjectionsByProposal,
     useOpenProposalsByOrg,
@@ -94,6 +98,13 @@ export default function PublicProposalView({ orgId, proposalId, onBackToOrg }: P
     const { address } = useAccount();
     const discardExpired = useDiscardExpiredProposal();
 
+    // processAddress may be null during the initial load; the hook short-circuits
+    // internally via `enabled`, so calling it up here is both correct and
+    // rules-of-hooks compliant.
+    const { maxAgeSeconds } = useProposalMaxAge(
+        (proposal?.processAddress ?? processAddress ?? undefined) as `0x${string}` | undefined,
+    );
+
     if (isLoading) {
         return (
             <main className="mx-auto max-w-3xl px-6 py-16 text-slate-500 dark:text-slate-400">
@@ -128,7 +139,7 @@ export default function PublicProposalView({ orgId, proposalId, onBackToOrg }: P
         label: "Unknown",
         tone: "draft" as StatusTone,
     };
-    const expired = proposal.status === 0 && isProposalExpired(proposal.submittedAt);
+    const expired = proposal.status === 0 && isProposalExpired(proposal.submittedAt, maxAgeSeconds);
     const status = expired ? { label: "Expired", tone: "expired" as StatusTone } : baseStatus;
     const changeLabel =
         CHANGE_TYPE_LABELS[proposal.changeType] ?? `ChangeType ${proposal.changeType}`;
@@ -168,7 +179,7 @@ export default function PublicProposalView({ orgId, proposalId, onBackToOrg }: P
                 {expired && (
                     <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-red-400/25 bg-red-500/[0.06] px-4 py-3 text-[12px] text-red-600 dark:text-red-300">
                         <span className="flex-1">
-                            This proposal passed its 14-day window without being adopted or
+                            This proposal passed its expiry window without being adopted or
                             discarded. Anyone can clean it up on-chain.
                         </span>
                         <button

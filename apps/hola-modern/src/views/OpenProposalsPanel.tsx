@@ -5,7 +5,7 @@
  * Closes the gap flagged by UX-C-1: the frontend needs a surface where
  * members can `raiseObjection`, objectors/facilitators can `resolveObjection`,
  * admins can `adopt` / `discard`, and anyone can `discardExpiredProposal`
- * after the 14-day window. The public PublicProposalView remains read-only.
+ * after the org's proposal expiry window. The public PublicProposalView remains read-only.
  *
  * Permission gating is delegated to the contract — reverts surface as
  * human-readable error text. Showing gated buttons always makes the state
@@ -23,6 +23,7 @@ import {
     useAdoptProposal,
     useDiscardExpiredProposal,
     useDiscardProposal,
+    useProposalMaxAge,
     useRaiseObjection,
     useResolveObjection,
 } from "../hooks/useProposalLifecycle";
@@ -89,8 +90,9 @@ function ProposalRow({ proposal }: { proposal: Proposal }) {
     const openObjectionCount = openObjections.length;
     const proposerIsAgent = isAgentAddress(proposal.proposer);
 
-    const expired = isProposalExpired(proposal.submittedAt);
-    const secondsLeft = secondsUntilExpiry(proposal.submittedAt);
+    const { maxAgeSeconds } = useProposalMaxAge(proposal.processAddress as `0x${string}`);
+    const expired = isProposalExpired(proposal.submittedAt, maxAgeSeconds);
+    const secondsLeft = secondsUntilExpiry(proposal.submittedAt, maxAgeSeconds);
 
     // Expiry signal: red if expired; amber within 48h.
     const expiryTone = expired
@@ -337,7 +339,7 @@ function ProposalActions({
                     type="button"
                     disabled={!address || anyPending}
                     onClick={() => discardExpired.mutate({ meeting, proposalId: proposalIdBig })}
-                    title="Permissionless — anyone can discard a proposal past 14 days"
+                    title="Permissionless — anyone can discard a proposal past its per-org expiry window"
                     className="inline-flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-500/[0.08] px-3 py-1 text-[11px] font-semibold text-red-600 dark:text-red-400 transition-colors hover:border-red-400/60 hover:bg-red-500/[0.14] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     {discardExpired.isPending && <Loader2 size={11} className="animate-spin" />}
