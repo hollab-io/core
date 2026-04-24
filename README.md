@@ -52,7 +52,11 @@ This is the full loop: **create** an org, **structure** it through governance, *
 ## Status (What Works Today)
 
 -   **Proposal lifecycle end-to-end on-chain** — `createProposal` → `raiseObjection` / `resolveObjection` → `adopt` / `discard`, indexed and queryable. `executeGovernance` has been removed; the lifecycle primitives are the only path.
--   **Public proposal permalinks** — every proposal is reachable at `#/o/:orgId/p/:proposalId`, with an open-proposals panel on each org page.
+-   **Readable tensions on-chain** — `createProposalWithTension(...)` publishes plaintext via a `ProposalTensionPublished` event; the on-chain `tensionHash` is derived (`keccak256`) so the content address stays canonical. Long or sensitive content can still commit only a hash and resolve via IPFS / 0G / encrypted backends.
+-   **Agent-native governance** — attribution-only proposer model (propose as a member or as a role you lead), per-org `MAX_PROPOSAL_AGE` (default 7 days, bounds [1 hour, 30 days]), and async proposal queues instead of mandatory synchronous meetings. See [`specs/99`](./specs/99-agent-native-divergence.md).
+-   **ERC-8004 agent identity** — members can bind an agent NFT to their org identity via `OrganizationInstance.linkAgentIdentity(...)`; ownership is verified on-chain, enabling an agent-native surface on top of the same governance primitives.
+-   **Officer bootstrap + election lock** — admins can set a circle's Facilitator / Secretary to any address (human or autonomous agent) pre-election; `isFacilitatorElected` / `isSecretaryElected` flip once a corresponding election adopts, after which the bootstrap setters are locked and governance owns the role.
+-   **Public proposal permalinks** — every proposal is reachable at `#/o/:orgId/p/:proposalId`, with an open-proposals panel on each org page and a proposal-queue-health dashboard (`{open, expiring < 2d, expired}`) for members.
 -   **Agent SDK lifecycle methods** — `@hollab-io/agent-sdk` exposes proposal read/write helpers (propose tension, raise/resolve objection, adopt/discard) backed by the indexing client.
 -   **Seeded demo org** — `lantern` is seeded on local/dev with circles, roles, and live proposals for exercising the flow.
 
@@ -78,17 +82,18 @@ A public ledger gives you both:
 
 The design principle is simple: **on-chain for commitments, off-chain for coordination**.
 
-| On-chain (must be verifiable/permanent)               | Off-chain (coordination, content, discussion)                |
-| ----------------------------------------------------- | ------------------------------------------------------------ |
-| Org structure (circles, roles, memberships)           | Meeting facilitation flow (check-ins, reactions, discussion) |
-| Role definitions (purpose, domains, accountabilities) | Proposal content (tension descriptions, explanations)        |
-| Governance outcomes (proposal adopted/rejected)       | Objection deliberation and integration                       |
-| Elected role assignments (Facilitator, Secretary)     | Nomination discussions, candidate reasoning                  |
-| Authority boundaries (who can act on what)            | Tactical meeting triage and project updates                  |
+| On-chain (must be verifiable/permanent)                                | Off-chain (coordination, long-form, private)                   |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Org structure (circles, roles, memberships)                            | Meeting facilitation flow (check-ins, reactions, discussion)   |
+| Role definitions (purpose, domains, accountabilities)                  | Long-form proposal explanations, deliberation threads          |
+| Short tension text (via `createProposalWithTension` event, ≤280 chars) | Private/encrypted proposal bodies (addressed by `tensionHash`) |
+| Governance outcomes (proposal adopted/rejected)                        | Objection deliberation and integration                         |
+| Elected role assignments (Facilitator, Secretary)                      | Nomination discussions, candidate reasoning                    |
+| Authority boundaries (who can act on what)                             | Tactical meeting triage and project updates                    |
 
 Meeting coordination events (IDM steps, agenda items, nominations) are emitted as **events only** — the indexer reconstructs the full meeting state, but the chain only stores what matters: who ended up in which role, and which governance changes were adopted.
 
-Proposals support **ContentRefs** — on-chain hashes pointing to off-chain encrypted content. The ledger proves _that_ a proposal with specific content was adopted, without storing the content itself.
+Proposals may include a short plaintext tension inline — published via the `ProposalTensionPublished` event log — or a **ContentRef** hash pointing to off-chain encrypted content (IPFS / 0G). The ledger proves _that_ a proposal with specific content was adopted: short tensions stay readable without any off-chain retrieval, longer or private content stays addressable but off-chain.
 
 ## Architecture
 
@@ -101,7 +106,7 @@ OrganizationFactory (singleton directory)
 OrganizationInstance (ERC-1167 per-org, one-stop address)
   │
   │  Per-org state
-  ├── members, admins, join requests, agent identity links
+  ├── members, admins, join requests, ERC-8004 agent identity links
   ├── component wiring (meetingFactory, accessManager, token)
   │
   │  Holacracy framework (ERC-1167 clones, referenced by the instance)
@@ -122,12 +127,12 @@ OrganizationInstance (ERC-1167 per-org, one-stop address)
 
 The core of the system — minimalistic contracts that store organizational structure and governance outcomes.
 
-| Contract              | What it stores                                                                                                                                      | Why on-chain                                                                                                                                         |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CircleRegistry**    | Circle hierarchy, role-to-circle assignments, circle leads, elected roles (Facilitator, Secretary, Circle Rep)                                      | This is the org's authority graph — who can act in which capacity. Other systems need to read it trustlessly.                                        |
-| **RoleRegistry**      | Role name, purpose, domains, accountabilities                                                                                                       | Defines the boundaries of distributed authority. A role's domains determine what its lead can control without asking permission.                     |
-| **GovernanceProcess** | Proposal lifecycle (`createProposal` → `raiseObjection` / `resolveObjection` → `adopt` / `discard`), objection records, adoption/rejection outcomes | The permanent record that a governance change was legitimately adopted through the constitutional process.                                           |
-| **GovernanceMeeting** | Meeting existence, participant authorization, adopted proposals, election results                                                                   | Proves that outcomes came from a properly convened meeting with authorized participants. Coordination (IDM steps, agenda management) is events-only. |
+| Contract              | What it stores                                                                                                                                                                                                               | Why on-chain                                                                                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CircleRegistry**    | Circle hierarchy, role-to-circle assignments, circle leads, elected roles (Facilitator, Secretary, Circle Rep)                                                                                                               | This is the org's authority graph — who can act in which capacity. Other systems need to read it trustlessly.                                        |
+| **RoleRegistry**      | Role name, purpose, domains, accountabilities                                                                                                                                                                                | Defines the boundaries of distributed authority. A role's domains determine what its lead can control without asking permission.                     |
+| **GovernanceProcess** | Proposal lifecycle (`createProposal` / `createProposalWithTension` → `raiseObjection` / `resolveObjection` → `adopt` / `discard`), objection records, adoption/rejection outcomes, per-org `proposalMaxAge` freshness window | The permanent record that a governance change was legitimately adopted through the constitutional process.                                           |
+| **GovernanceMeeting** | Meeting existence, participant authorization, adopted proposals, election results                                                                                                                                            | Proves that outcomes came from a properly convened meeting with authorized participants. Coordination (IDM steps, agenda management) is events-only. |
 
 Proposals encode structural changes, executed atomically on adoption:
 

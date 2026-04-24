@@ -914,7 +914,6 @@ contract UnitMeetingFactoryProposals is Test {
     assertEq(p.tensionHash, expectedHash);
   }
 
-
   function test_SetCircleSecretary_RevertsNonAdmin() external {
     vm.prank(_member);
     vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotOrgAdmin.selector, _orgId, _member));
