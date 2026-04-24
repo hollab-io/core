@@ -83,6 +83,15 @@ export const MeetingFactoryAbi = [
     },
     {
         type: "event",
+        name: "ProposalTensionPublished",
+        inputs: [
+            { name: "_proposalId", type: "uint256", indexed: true, internalType: "uint256" },
+            { name: "_text", type: "string", indexed: false, internalType: "string" },
+        ],
+        anonymous: false,
+    },
+    {
+        type: "event",
         name: "ProposalAdopted",
         inputs: [
             { name: "_proposalId", type: "uint256", indexed: true, internalType: "uint256" },

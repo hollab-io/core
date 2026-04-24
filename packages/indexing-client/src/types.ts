@@ -92,6 +92,14 @@ export type Proposal = {
     proposerRoleId: BigIntStr;
     /** Content-address of off-chain tension text (CIDv1 / 0G root / keccak). */
     tensionHash: HexStr;
+    /**
+     * Plaintext tension, populated when the proposer used
+     * `createProposalWithTension`. `keccak256(tensionText) === tensionHash`
+     * when non-null. `null` means the proposer committed only a hash; consumers
+     * must resolve the text via the storage backend (IPFS / 0G) indicated by
+     * `tensionHash`, or fall back to a "no description" display.
+     */
+    tensionText: string | null;
     /** uint8 mirroring HolacracyTypes.ChangeType — see `ChangeType` in `@hollab-io/agent-sdk`. */
     changeType: number;
     /** ABI-encoded change payload; same shape executeGovernance accepts. */

@@ -42,6 +42,10 @@ ponder.on("MeetingFactory:ProposalCreated", async ({ event, context }) => {
         proposer: _proposer,
         proposerRoleId: _proposerRoleId,
         tensionHash: _tensionHash,
+        // Populated by the ProposalTensionPublished handler below when the
+        // proposer chose the plaintext-publishing path. Both events fire in
+        // the same tx, so upsert ordering is deterministic.
+        tensionText: null,
         changeType: _changeType,
         changeData: _changeData,
         status: 0, // Draft
@@ -50,6 +54,16 @@ ponder.on("MeetingFactory:ProposalCreated", async ({ event, context }) => {
         resolvedAt: null,
         resolvedBy: null,
         txHash: event.transaction.hash,
+    });
+});
+
+ponder.on("MeetingFactory:ProposalTensionPublished", async ({ event, context }) => {
+    const { _proposalId, _text } = event.args;
+    const id = pid(event.log.address, _proposalId);
+
+    // ProposalCreated fires before this in the same tx, so the row exists.
+    await context.db.update(schema.proposal, { id }).set({
+        tensionText: _text,
     });
 });
 

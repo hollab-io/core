@@ -42,6 +42,7 @@ import {
     ChangeType as OnChainChangeType,
 } from "../hooks/useExecuteGovernance";
 import { useGovernanceMeeting } from "../hooks/useGovernanceMeeting";
+import { useRolesFromIndexer } from "../hooks/useRolesFromIndexer";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -67,6 +68,20 @@ type PendingGovernanceAction = {
     label: string;
     // Role fields
     circleId: string;
+    /**
+     * The role the proposer is attributing the proposal to (§5.3 Representation
+     * Rule). `undefined` or `"0"` means "propose as a member" — specs/99 §1
+     * attribution-only divergence. Non-zero values require the caller to lead
+     * that role; the contract reverts otherwise.
+     */
+    proposerRoleId?: string;
+    /**
+     * Plaintext tension the proposer wants published on-chain. When set, we
+     * route through `createProposalWithTension` so the indexer captures the
+     * text verbatim — makes proposals readable across every surface.
+     * When empty/undefined, we fall back to `createProposal` with zero hash.
+     */
+    tensionText?: string;
     roleName?: string;
     roleDescription?: string;
     roleDomain?: string;
@@ -86,6 +101,8 @@ type ProposalDraft = {
     changeType: ChangeType;
     circleId: string;
     proposerRoleId: string;
+    /** Short plaintext tension — published on-chain when non-empty. */
+    tensionText: string;
     // Role fields
     roleName: string;
     roleDescription: string;
@@ -371,18 +388,40 @@ function buildGovernanceCalls(
         return [];
     }
 
-    const createCall = {
-        to: meetingFactoryAddress,
-        data: encodeFunctionData({
-            abi: meetingFactoryAbi,
-            functionName: "createProposal",
-            // (orgId, circleId, proposerRoleId, tensionHash, changeType, changeData)
-            // proposerRoleId=0 and tensionHash=zeroHash because the authed
-            // meeting room captures these details off-chain in the agenda
-            // item, not on the proposal record.
-            args: [orgId, circleId, 0n, zeroHash, changeType, encodedData],
-        }),
-    };
+    // proposerRoleId = 0 means "propose as member" per specs/99 §1; otherwise
+    // the contract requires the caller to lead that role. When the draft carries
+    // plaintext tension, we route through `createProposalWithTension` so the
+    // indexer captures the text verbatim — this is what makes proposals readable
+    // across every public surface. Falling back to `createProposal` with a zero
+    // hash keeps the quick-action path cheap when no description is written.
+    const proposerRoleId = BigInt(
+        action.proposerRoleId && action.proposerRoleId !== "" ? action.proposerRoleId : "0",
+    );
+    const hasTension = Boolean(action.tensionText && action.tensionText.trim().length > 0);
+    const createCall = hasTension
+        ? {
+              to: meetingFactoryAddress,
+              data: encodeFunctionData({
+                  abi: meetingFactoryAbi,
+                  functionName: "createProposalWithTension",
+                  args: [
+                      orgId,
+                      circleId,
+                      proposerRoleId,
+                      (action.tensionText ?? "").trim(),
+                      changeType,
+                      encodedData,
+                  ],
+              }),
+          }
+        : {
+              to: meetingFactoryAddress,
+              data: encodeFunctionData({
+                  abi: meetingFactoryAbi,
+                  functionName: "createProposal",
+                  args: [orgId, circleId, proposerRoleId, zeroHash, changeType, encodedData],
+              }),
+          };
     const adoptCall = {
         to: meetingFactoryAddress,
         data: encodeFunctionData({
@@ -399,6 +438,7 @@ function buildEmptyDraft(circleId: string, roleId: string): ProposalDraft {
         changeType: "create-role",
         circleId,
         proposerRoleId: roleId,
+        tensionText: "",
         roleName: "",
         roleDescription: "",
         roleDomain: "",
@@ -571,6 +611,7 @@ function ProposalWizard({
     circles,
     roles,
     policies,
+    callerAddress,
 }: {
     draft: ProposalDraft;
     setDraft: (fn: (d: ProposalDraft) => ProposalDraft) => void;
@@ -579,12 +620,30 @@ function ProposalWizard({
     onSubmit: () => void;
     onCancel: () => void;
     circles: { id: string; title: string }[];
-    roles: { id: string; title: string; circleId: string; summary: string }[];
+    /**
+     * `leadAddresses` is optional — when provided, the composer can show which
+     * roles the connected wallet leads (attribution-only §5.3 requires the
+     * caller to lead any role they attribute a proposal to).
+     */
+    roles: {
+        id: string;
+        title: string;
+        circleId: string;
+        summary: string;
+        leadAddresses?: string[];
+    }[];
     policies: { id: string; title: string; circleId: string; summary: string }[];
+    callerAddress?: `0x${string}` | null;
 }) {
     const stepIndex = WIZARD_STEPS.findIndex((s) => s.id === wizardStep);
     const circleRoles = roles.filter((r) => r.circleId === draft.circleId);
     const circlePolicies = policies.filter((p) => p.circleId === draft.circleId);
+    const callerLower = callerAddress?.toLowerCase();
+    const ledInCircle = callerLower
+        ? circleRoles.filter((r) =>
+              (r.leadAddresses ?? []).some((a) => a.toLowerCase() === callerLower),
+          )
+        : [];
 
     const isRoleAction = draft.changeType.includes("role");
     const isPolicyAction = draft.changeType.includes("policy");
@@ -660,7 +719,38 @@ function ProposalWizard({
                         transition={{ duration: 0.2, ease: EXPO }}
                         className="space-y-4"
                     >
-                        {/* Circle & role selectors */}
+                        {/* Tension — published on-chain when set */}
+                        <div>
+                            <label className={labelCls}>Tension</label>
+                            <textarea
+                                value={draft.tensionText}
+                                onChange={(e) =>
+                                    setDraft((d) => ({ ...d, tensionText: e.target.value }))
+                                }
+                                placeholder="What's not working — one or two sentences the org can actually read."
+                                rows={2}
+                                maxLength={280}
+                                className={textareaCls}
+                            />
+                            <div className="mt-1 flex items-center justify-between text-[10.5px] text-slate-500">
+                                <span>
+                                    Published on-chain via{" "}
+                                    <span className="font-mono">createProposalWithTension</span>.
+                                    Empty tensions fall back to the hash-only path.
+                                </span>
+                                <span
+                                    className={`font-mono tabular-nums ${
+                                        draft.tensionText.length > 240
+                                            ? "text-amber-400"
+                                            : "text-slate-600"
+                                    }`}
+                                >
+                                    {draft.tensionText.length}/280
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Circle & attribution selectors */}
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div>
                                 <label className={labelCls}>Circle</label>
@@ -670,9 +760,11 @@ function ProposalWizard({
                                         setDraft((d) => ({
                                             ...d,
                                             circleId: e.target.value,
-                                            proposerRoleId:
-                                                roles.find((r) => r.circleId === e.target.value)
-                                                    ?.id ?? "",
+                                            // Clear attribution when the circle changes — the previously
+                                            // chosen role almost certainly isn't in the new circle, and
+                                            // "propose as member" is a safer default than an inherited
+                                            // role the caller may not lead.
+                                            proposerRoleId: "",
                                             existingTargetId: "",
                                         }))
                                     }
@@ -687,7 +779,7 @@ function ProposalWizard({
                                 </select>
                             </div>
                             <div>
-                                <label className={labelCls}>Your role</label>
+                                <label className={labelCls}>Propose as</label>
                                 <select
                                     value={draft.proposerRoleId}
                                     onChange={(e) =>
@@ -695,13 +787,35 @@ function ProposalWizard({
                                     }
                                     className={selectCls}
                                 >
-                                    <option value="">— optional —</option>
+                                    <option value="">— as member —</option>
                                     {circleRoles.map((r) => (
                                         <option key={r.id} value={r.id}>
                                             {r.title}
                                         </option>
                                     ))}
                                 </select>
+                                {draft.circleId ? (
+                                    ledInCircle.length > 0 ? (
+                                        <p className="mt-1.5 text-[10.5px] leading-relaxed text-slate-500">
+                                            You lead{" "}
+                                            <span className="font-medium text-slate-700 dark:text-slate-300">
+                                                {ledInCircle.map((r) => r.title).join(", ")}
+                                            </span>{" "}
+                                            in this circle. Any other role will revert with
+                                            NotRoleLead — propose as member instead.
+                                        </p>
+                                    ) : (
+                                        <p className="mt-1.5 text-[10.5px] leading-relaxed text-slate-500">
+                                            You don&apos;t lead any role in this circle. Propose as
+                                            member — attribution stays accurate.
+                                        </p>
+                                    )
+                                ) : (
+                                    <p className="mt-1.5 text-[10.5px] leading-relaxed text-slate-500">
+                                        Any member may propose. Selecting a role attributes the
+                                        proposal — the contract requires that you lead it.
+                                    </p>
+                                )}
                             </div>
                         </div>
 
@@ -2035,6 +2149,8 @@ export default function GovernanceMeetingRoom({
                 changeType: proposalDraft.changeType,
                 label: actionLabel,
                 circleId: proposalDraft.circleId,
+                proposerRoleId: proposalDraft.proposerRoleId || undefined,
+                tensionText: proposalDraft.tensionText.trim() || undefined,
                 roleName: proposalDraft.roleName || undefined,
                 roleDescription: proposalDraft.roleDescription || undefined,
                 roleDomain: proposalDraft.roleDomain || undefined,
@@ -2104,16 +2220,24 @@ export default function GovernanceMeetingRoom({
         () => snapshot.circles.map((c) => ({ id: c.id, title: c.title })),
         [snapshot.circles],
     );
-    const rolesForWizard = useMemo(
-        () =>
-            snapshot.roles.map((r) => ({
-                id: r.id,
-                title: r.title,
-                circleId: r.circleId,
-                summary: r.summary,
-            })),
-        [snapshot.roles],
-    );
+    // Pull role-lead addresses from the indexer so the composer can tell the
+    // caller which roles they can validly attribute a proposal to. The workspace
+    // snapshot maps leads → partnerId but loses the raw address; we re-join
+    // here on the role id.
+    const { roles: indexedRoles } = useRolesFromIndexer(orgId ?? null);
+    const rolesForWizard = useMemo(() => {
+        const leadsById = new Map<string, string[]>();
+        for (const r of indexedRoles) {
+            leadsById.set(r.id, r.leads as string[]);
+        }
+        return snapshot.roles.map((r) => ({
+            id: r.id,
+            title: r.title,
+            circleId: r.circleId,
+            summary: r.summary,
+            leadAddresses: leadsById.get(r.id) ?? [],
+        }));
+    }, [snapshot.roles, indexedRoles]);
     const policiesForWizard = useMemo(
         () =>
             snapshot.policies.map((p) => ({
@@ -2315,6 +2439,11 @@ export default function GovernanceMeetingRoom({
                                                             circles={circlesForWizard}
                                                             roles={rolesForWizard}
                                                             policies={policiesForWizard}
+                                                            callerAddress={
+                                                                authenticatedWalletAddress as
+                                                                    | `0x${string}`
+                                                                    | null
+                                                            }
                                                         />
                                                     }
                                                     pendingActions={pendingActions}

@@ -849,6 +849,72 @@ contract UnitMeetingFactoryProposals is Test {
     _meetingFactory.setCircleSecretary(_anchorCircleId, makeAddr('other'));
   }
 
+  function test_IsFacilitatorElected_FlipsOnAdoption() external {
+    assertFalse(_meetingFactory.isFacilitatorElected(_anchorCircleId));
+
+    address elected = makeAddr('electedFacilitator');
+    bytes memory data = abi.encode(_anchorCircleId, elected, address(0));
+    vm.prank(_deployer);
+    uint256 pid = _meetingFactory.createProposal(
+      _orgId, _anchorCircleId, _anchorRoleId, TENSION, HolacracyTypes.ChangeType.FacilitatorElection, data
+    );
+    vm.prank(_deployer);
+    _meetingFactory.adoptProposal(pid);
+
+    assertTrue(_meetingFactory.isFacilitatorElected(_anchorCircleId));
+  }
+
+  function test_IsSecretaryElected_FlipsOnAdoption() external {
+    assertFalse(_meetingFactory.isSecretaryElected(_anchorCircleId));
+
+    address elected = makeAddr('electedSecretary');
+    bytes memory data = abi.encode(_anchorCircleId, elected, address(0));
+    vm.prank(_deployer);
+    uint256 pid = _meetingFactory.createProposal(
+      _orgId, _anchorCircleId, _anchorRoleId, TENSION, HolacracyTypes.ChangeType.SecretaryElection, data
+    );
+    vm.prank(_deployer);
+    _meetingFactory.adoptProposal(pid);
+
+    assertTrue(_meetingFactory.isSecretaryElected(_anchorCircleId));
+  }
+
+  /*//////////////////////////////////////////////////////////////
+                  TENSION PLAINTEXT (createProposalWithTension)
+  //////////////////////////////////////////////////////////////*/
+
+  function test_CreateProposalWithTension_HashesTextAndEmitsEvent() external {
+    string memory text = 'Role X lacks clarity on who owns incident response';
+    bytes32 expectedHash = keccak256(bytes(text));
+    bytes memory data = _encodeCreateRole('Tension Role');
+
+    // Predict next id for the event check
+    uint256 nextId = _meetingFactory.proposalCount() + 1;
+
+    vm.expectEmit(true, true, true, true);
+    emit IMeetingFactory.ProposalCreated(
+      nextId,
+      _orgId,
+      _anchorCircleId,
+      _deployer,
+      _anchorRoleId,
+      expectedHash,
+      uint8(HolacracyTypes.ChangeType.CreateRole),
+      data
+    );
+    vm.expectEmit(true, false, false, true);
+    emit IMeetingFactory.ProposalTensionPublished(nextId, text);
+
+    vm.prank(_deployer);
+    uint256 pid = _meetingFactory.createProposalWithTension(
+      _orgId, _anchorCircleId, _anchorRoleId, text, HolacracyTypes.ChangeType.CreateRole, data
+    );
+
+    IMeetingFactory.ProposalRecord memory p = _meetingFactory.getProposal(pid);
+    assertEq(p.tensionHash, expectedHash);
+  }
+
+
   function test_SetCircleSecretary_RevertsNonAdmin() external {
     vm.prank(_member);
     vm.expectRevert(abi.encodeWithSelector(IMeetingFactory.MeetingFactory_NotOrgAdmin.selector, _orgId, _member));

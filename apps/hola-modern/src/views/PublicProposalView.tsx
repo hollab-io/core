@@ -150,30 +150,40 @@ export default function PublicProposalView({ orgId, proposalId, onBackToOrg }: P
             <button
                 type="button"
                 onClick={onBackToOrg}
-                className="mb-8 rounded-full border border-slate-200 px-4 py-1.5 text-[12px] font-medium text-slate-600 hover:border-slate-300 dark:border-white/10 dark:text-slate-300"
+                className="mb-8 inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-4 py-1.5 text-[12px] font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300 dark:hover:border-white/20 dark:hover:bg-white/[0.03]"
             >
-                ← {org ? org.name : "Back to org"}
+                <span aria-hidden>←</span>
+                {org ? org.name : "Back to org"}
             </button>
 
-            <header className="mb-10">
-                <p className="text-[11px] font-mono uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+            <header className="mb-12">
+                <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
                     {org
                         ? `${org.subname}.hollab.eth · proposal ${proposal.proposalId}`
                         : `proposal ${proposal.proposalId}`}
                 </p>
-                <div className="mt-3 flex items-center gap-2">
+                <h1 className="mt-3 text-[2.4rem] font-semibold leading-[1.05] tracking-[-0.03em]">
+                    {proposal.tensionText ? proposal.tensionText : "Tension"}
+                </h1>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
                     <span
                         className={`rounded-full border px-3 py-0.5 text-[11px] font-semibold ${TONE_CLASSES[status.tone]}`}
                     >
                         {status.label}
                     </span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    <span className="rounded-full border border-slate-200/70 px-3 py-0.5 text-[11px] font-medium text-slate-600 dark:border-white/[0.08] dark:text-slate-300">
                         {changeLabel}
                     </span>
                 </div>
-                <h1 className="mt-3 text-3xl font-semibold tracking-[-0.02em]">Tension</h1>
-                <p className="mt-2 font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                    {proposal.tensionHash}
+                <p className="mt-5 font-mono text-[11px] text-slate-400 dark:text-slate-500">
+                    {proposal.tensionText ? (
+                        <>
+                            <span className="text-slate-400 dark:text-slate-600">hash </span>
+                            {proposal.tensionHash}
+                        </>
+                    ) : (
+                        proposal.tensionHash
+                    )}
                 </p>
 
                 {expired && (
@@ -218,31 +228,33 @@ export default function PublicProposalView({ orgId, proposalId, onBackToOrg }: P
                 )}
             </header>
 
-            <section className="mb-10">
-                <h2 className="mb-3 text-[11px] font-mono uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+            <section className="mb-12">
+                <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
                     Proposer
                 </h2>
-                <span
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[11px] ${
-                        proposerIsAgent
-                            ? "border-[#3481FF]/30 bg-[#3481FF]/[0.08] text-[#3481FF]"
-                            : "border-slate-200/70 text-slate-600 dark:border-white/[0.06] dark:text-slate-300"
-                    }`}
-                >
-                    {proposerIsAgent && <span aria-label="agent">🤖</span>}
-                    {proposal.proposer.slice(0, 6)}…{proposal.proposer.slice(-4)}
-                </span>
-                <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                    Submitted {new Date(Number(proposal.submittedAt) * 1000).toLocaleString()}
-                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                    <span
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-mono text-[11px] ${
+                            proposerIsAgent
+                                ? "border-[#3481FF]/30 bg-[#3481FF]/[0.08] text-[#3481FF]"
+                                : "border-slate-200/70 text-slate-600 dark:border-white/[0.06] dark:text-slate-300"
+                        }`}
+                    >
+                        {proposerIsAgent && <span aria-label="agent">🤖</span>}
+                        {proposal.proposer.slice(0, 6)}…{proposal.proposer.slice(-4)}
+                    </span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {new Date(Number(proposal.submittedAt) * 1000).toLocaleString()}
+                    </span>
+                </div>
             </section>
 
-            <section className="mb-10">
-                <h2 className="mb-3 text-[11px] font-mono uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+            <section className="mb-12">
+                <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
                     Objections ({objections.length})
                 </h2>
                 {objections.length === 0 ? (
-                    <p className="text-[13px] text-slate-500 dark:text-slate-400">
+                    <p className="rounded-xl border border-dashed border-slate-200/80 px-4 py-3 text-[12.5px] text-slate-500 dark:border-white/[0.06] dark:text-slate-400">
                         No objections raised.
                     </p>
                 ) : (
@@ -287,15 +299,18 @@ export default function PublicProposalView({ orgId, proposalId, onBackToOrg }: P
             </section>
 
             <section className="mb-10">
-                <h2 className="mb-3 text-[11px] font-mono uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                <h2 className="mb-3 font-mono text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
                     Change payload
                 </h2>
-                <pre className="overflow-x-auto rounded-xl border border-slate-200/70 p-4 font-mono text-[10px] text-slate-600 dark:border-white/[0.06] dark:text-slate-300">
+                <pre className="overflow-x-auto rounded-xl border border-slate-200/70 bg-slate-50/60 p-4 font-mono text-[10.5px] leading-relaxed text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-slate-300">
                     {proposal.changeData}
                 </pre>
                 {proposal.changeResultId !== null && (
                     <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                        Applied as id {proposal.changeResultId}
+                        Applied as id{" "}
+                        <span className="font-mono text-slate-700 dark:text-slate-200">
+                            {proposal.changeResultId}
+                        </span>
                     </p>
                 )}
             </section>

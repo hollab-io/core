@@ -148,6 +148,7 @@ const MOCK_PROPOSAL: Proposal = {
     proposer: "0xproposer",
     proposerRoleId: "1",
     tensionHash: "0xabc",
+    tensionText: null,
     changeType: 0,
     changeData: "0xdeadbeef",
     changeResultId: null,

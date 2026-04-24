@@ -100,6 +100,14 @@ interface IMeetingFactory {
     bytes _changeData
   );
 
+  /// @notice Emitted alongside ProposalCreated when the proposer chose to
+  ///         publish the tension plaintext on-chain (via createProposalWithTension).
+  ///         The `_tensionHash` on the proposal record is the keccak256 of this
+  ///         text, so consumers can verify that the text and hash agree.
+  ///         Proposals created via the legacy bytes32-only `createProposal`
+  ///         path do not emit this event — the tension stays off-chain.
+  event ProposalTensionPublished(uint256 indexed _proposalId, string _text);
+
   /// @notice Emitted when a proposal is adopted and its change is applied.
   event ProposalAdopted(uint256 indexed _proposalId, uint256 indexed _orgId, uint256 _resultId, address _adoptedBy);
 
@@ -242,6 +250,26 @@ interface IMeetingFactory {
     bytes calldata _changeData
   ) external returns (uint256 _proposalId);
 
+  /// @notice Create a Draft proposal and publish the tension plaintext on-chain.
+  ///         Semantics match `createProposal`: §5.3 Representation Rule applies
+  ///         the same way, and the contract hashes `_tensionText` as keccak256
+  ///         for the on-chain commitment so `ProposalRecord.tensionHash`
+  ///         remains the canonical content address.
+  /// @dev    Emits `ProposalCreated` with `_tensionHash = keccak256(bytes(_tensionText))`
+  ///         plus `ProposalTensionPublished(_proposalId, _tensionText)` so indexers
+  ///         can persist the plaintext without any off-chain retrieval.
+  /// @param  _tensionText  Free-text tension description. Keep it short — every byte
+  ///                       is event-log gas. Empty strings are allowed (hashes to
+  ///                       the well-known keccak of empty bytes).
+  function createProposalWithTension(
+    uint256 _orgId,
+    uint256 _circleId,
+    uint256 _proposerRoleId,
+    string calldata _tensionText,
+    HolacracyTypes.ChangeType _changeType,
+    bytes calldata _changeData
+  ) external returns (uint256 _proposalId);
+
   /// @notice Adopt a Draft proposal — applies its change to the RoleRegistry.
   /// @dev    Permissionless once objections are resolved and the proposal is
   ///         still within MAX_PROPOSAL_AGE. Adoption expresses consent having
@@ -301,6 +329,24 @@ interface IMeetingFactory {
     uint256 _circleId,
     address _secretary
   ) external;
+
+  /// @notice Whether a FacilitatorElection has been adopted for the given circle.
+  ///         When true, the admin bootstrap setter is locked — further changes
+  ///         must go through the governance election path.
+  /// @param _circleId The circle ID
+  /// @return locked True once an election has adopted
+  function isFacilitatorElected(
+    uint256 _circleId
+  ) external view returns (bool locked);
+
+  /// @notice Whether a SecretaryElection has been adopted for the given circle.
+  ///         When true, the admin bootstrap setter is locked — further changes
+  ///         must go through the governance election path.
+  /// @param _circleId The circle ID
+  /// @return locked True once an election has adopted
+  function isSecretaryElected(
+    uint256 _circleId
+  ) external view returns (bool locked);
 
   /// @notice Strike a Draft proposal as invalid. Callable only by the elected Secretary
   ///         of the proposal's circle (§4.2.2). Marks the proposal Discarded and emits
