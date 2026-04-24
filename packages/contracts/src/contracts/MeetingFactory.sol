@@ -420,6 +420,31 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     HolacracyTypes.ChangeType _changeType,
     bytes calldata _changeData
   ) external returns (uint256 _proposalId) {
+    _proposalId = _createProposal(_orgId, _circleId, _proposerRoleId, _tensionHash, _changeType, _changeData);
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function createProposalWithTension(
+    uint256 _orgId,
+    uint256 _circleId,
+    uint256 _proposerRoleId,
+    string calldata _tensionText,
+    HolacracyTypes.ChangeType _changeType,
+    bytes calldata _changeData
+  ) external returns (uint256 _proposalId) {
+    bytes32 _hash = keccak256(bytes(_tensionText));
+    _proposalId = _createProposal(_orgId, _circleId, _proposerRoleId, _hash, _changeType, _changeData);
+    emit ProposalTensionPublished(_proposalId, _tensionText);
+  }
+
+  function _createProposal(
+    uint256 _orgId,
+    uint256 _circleId,
+    uint256 _proposerRoleId,
+    bytes32 _tensionHash,
+    HolacracyTypes.ChangeType _changeType,
+    bytes calldata _changeData
+  ) internal returns (uint256 _proposalId) {
     _validateOrgId(_orgId);
     if (!org.isMember(msg.sender)) {
       revert MeetingFactory_NotOrgMember(_orgId, msg.sender);
@@ -594,6 +619,20 @@ contract MeetingFactory is Initializable, IMeetingFactory {
     }
     _circleSecretaries[_circleId] = _secretary;
     emit CircleSecretarySet(_circleId, _secretary);
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function isFacilitatorElected(
+    uint256 _circleId
+  ) external view returns (bool) {
+    return _facilitatorElected[_circleId];
+  }
+
+  /// @inheritdoc IMeetingFactory
+  function isSecretaryElected(
+    uint256 _circleId
+  ) external view returns (bool) {
+    return _secretaryElected[_circleId];
   }
 
   /// @inheritdoc IMeetingFactory

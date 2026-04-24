@@ -1,27 +1,38 @@
 import type { Organization } from "@hollab-io/indexing-client";
 import { motion } from "framer-motion";
-import { ArrowRight, Clock3, Loader2, Scale, ShieldAlert } from "lucide-react";
-import { useState } from "react";
+import {
+    AlertTriangle,
+    Check,
+    ChevronDown,
+    Clock3,
+    FileText,
+    Loader2,
+    Radio,
+    SlidersHorizontal,
+    X,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { useGovernanceMeeting } from "../hooks/useGovernanceMeeting";
 import { useDeployMeetingComponents } from "../hooks/useMeetingComponentsFactory";
+import {
+    isProposalExpired,
+    MAX_PROPOSAL_MAX_AGE_SECONDS,
+    MIN_PROPOSAL_MAX_AGE_SECONDS,
+    secondsUntilExpiry,
+    useProposalMaxAge,
+    useSetProposalMaxAge,
+} from "../hooks/useProposalLifecycle";
+import { useOpenProposalsByOrg } from "../hooks/useProposalsFromIndexer";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
+import FacilitatorsCard from "./FacilitatorsCard";
 import OpenProposalsPanel from "./OpenProposalsPanel";
 
 const EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
-const SPRING = { type: "spring", stiffness: 340, damping: 28 } as const;
 
 const REVIEW_STEPS = [
-    {
-        step: "a",
-        label: "Present proposal",
-        desc: "Proposer describes the issue and shares a proposal",
-    },
-    {
-        step: "b",
-        label: "Clarifying questions",
-        desc: "Others ask questions to understand — no reactions",
-    },
+    { step: "a", label: "Present proposal", desc: "Proposer frames the tension and proposal" },
+    { step: "b", label: "Clarifying questions", desc: "Others ask to understand — no reactions" },
     {
         step: "c",
         label: "Reaction round",
@@ -31,13 +42,9 @@ const REVIEW_STEPS = [
     {
         step: "e",
         label: "Challenge round",
-        desc: "Each participant raises concerns; facilitator captures challenges",
+        desc: "Circle role-leads raise concerns; facilitator captures objections",
     },
-    {
-        step: "f",
-        label: "Integration",
-        desc: "Resolve each challenge until the proposal is adopted",
-    },
+    { step: "f", label: "Integration", desc: "Resolve each objection until the proposal adopts" },
 ] as const;
 
 type Props = {
@@ -60,15 +67,34 @@ export default function GovernanceView({
     const deploy = useDeployMeetingComponents();
     const [isConvening, setIsConvening] = useState(false);
     const [conveneError, setConveneError] = useState<string | null>(null);
+    const [ritualOpen, setRitualOpen] = useState(false);
 
     // Only show on-chain meetings as resumable if they were convened
     // recently (within the last hour) and not yet completed.
-    // Older uncompleted meetings are stale — likely abandoned.
     const ONE_HOUR_SECS = 3600;
     const nowSecs = Math.floor(Date.now() / 1000);
     const indexedInProgress = indexedGovernanceMeetings.filter(
         (m) => !m.completedAt && nowSecs - Number(m.createdAt) < ONE_HOUR_SECS,
     );
+
+    // Proposal-centric stats — meetings become a secondary signal.
+    const { data: openProposals = [] } = useOpenProposalsByOrg(activeOrg?.id ?? null);
+    const { maxAgeSeconds } = useProposalMaxAge(governanceMeetingAddress);
+    const proposalStats = useMemo(() => {
+        const expired = openProposals.filter((p) =>
+            isProposalExpired(p.submittedAt, maxAgeSeconds),
+        );
+        const TWO_DAYS = 2 * 24 * 60 * 60;
+        const expiringSoon = openProposals.filter((p) => {
+            if (isProposalExpired(p.submittedAt, maxAgeSeconds)) return false;
+            return secondsUntilExpiry(p.submittedAt, maxAgeSeconds) < TWO_DAYS;
+        });
+        return {
+            open: openProposals.length,
+            expiringSoon: expiringSoon.length,
+            expired: expired.length,
+        };
+    }, [openProposals, maxAgeSeconds]);
 
     const handleConveneNewMeeting = async () => {
         if (!authenticatedWalletAddress) return;
@@ -76,7 +102,6 @@ export default function GovernanceView({
         setIsConvening(true);
         setConveneError(null);
 
-        // If meeting components aren't deployed yet, deploy them first
         if (!governanceMeetingAddress) {
             if (!activeOrg || !deploy.factoryConfigured) {
                 setConveneError("Meeting components factory not configured for this chain.");
@@ -96,8 +121,6 @@ export default function GovernanceView({
                     },
                 },
             );
-            // After deploy succeeds, the cache update will re-render with
-            // governanceMeetingAddress set. User clicks again to convene.
             setIsConvening(false);
             return;
         }
@@ -111,7 +134,6 @@ export default function GovernanceView({
                 walletAddress: authenticatedWalletAddress as `0x${string}`,
             });
 
-            // Poll indexer for the new meeting
             if (pollForNewGovernanceMeeting) {
                 const prevCount = indexedGovernanceMeetings.length;
                 const updated = await pollForNewGovernanceMeeting(prevCount);
@@ -135,7 +157,6 @@ export default function GovernanceView({
     const handleResumeIndexedMeeting = (
         m: import("../hooks/useGovernanceMeetingsFromIndexer").GovernanceMeeting,
     ) => {
-        // Create a local record and open the drawer
         conveneGovernanceMeeting({
             meetingId: m.id,
             circleId: m.circleId,
@@ -146,289 +167,427 @@ export default function GovernanceView({
 
     return (
         <div className="min-h-[calc(100dvh-60px)] pb-32 pt-8">
-            <div className="mx-auto max-w-[900px] px-5 sm:px-8">
+            <div className="mx-auto max-w-[920px] px-5 sm:px-8">
                 {/* Header */}
-                <motion.div
+                <motion.header
                     initial={{ opacity: 0, y: 18 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, ease: EXPO }}
+                    transition={{ duration: 0.55, ease: EXPO }}
                     className="mb-10"
                 >
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                        Governance · async by default
+                    </p>
+                    <h1 className="text-[2.15rem] font-bold leading-[1.05] tracking-[-0.035em] text-slate-900 dark:text-white">
                         Proposals
-                    </p>
-                    <h1 className="text-[2rem] font-bold leading-none tracking-[-0.03em] text-slate-900 dark:text-white">
-                        Structure changes
                     </h1>
-                    <p className="mt-3 max-w-[52ch] text-sm leading-relaxed text-slate-400">
-                        Change roles, policies, and structure through consent-based decision-making.
-                        Each proposal requires an issue, an example, and an explanation.
+                    <p className="mt-4 max-w-[54ch] text-[13.5px] leading-relaxed text-slate-500 dark:text-slate-400">
+                        Any member can file a tension. Adoption requires zero open objections —
+                        meetings are optional audit wrappers, not a gate.
                     </p>
+                    <div className="mt-4">
+                        <ExpiryWindowControl
+                            meetingFactoryAddress={governanceMeetingAddress}
+                            currentSeconds={maxAgeSeconds}
+                        />
+                    </div>
+                </motion.header>
+
+                {/* Primary surface — proposals */}
+                <motion.div
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.55, delay: 0.06, ease: EXPO }}
+                >
+                    <OpenProposalsPanel
+                        orgId={activeOrg?.id ?? null}
+                        onOpenComposer={handleConveneNewMeeting}
+                        composerPending={isConvening}
+                    />
                 </motion.div>
 
-                {/* Governance meeting CTA */}
-                <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.65, delay: 0.08, ease: EXPO }}
-                    className="mb-8"
-                >
-                    <div className="flex flex-col gap-2">
-                        {/* Resume indexed in-progress meeting */}
-                        {indexedInProgress.map((m) => (
-                            <button
-                                key={m.id}
-                                type="button"
-                                onClick={() => handleResumeIndexedMeeting(m)}
-                                className="group flex w-full items-center justify-between gap-4
-                                    rounded-[1.5rem]
-                                    border border-[#3481FF]/20
-                                    bg-[linear-gradient(135deg,rgba(52,129,255,0.1),rgba(52,129,255,0.05))]
-                                    p-5
-                                    transition-all duration-500
-                                    hover:border-[#3481FF]/35
-                                    hover:shadow-[0_0_40px_rgba(52,129,255,0.1)]
-                                    active:scale-[0.99]"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#3481FF]/25 bg-[#3481FF]/12">
-                                        <Scale
-                                            size={18}
-                                            className="text-[#6aabff]"
-                                            strokeWidth={1.75}
-                                        />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
-                                            Resume proposal review
-                                        </p>
-                                        <p className="mt-0.5 text-xs text-slate-400">
-                                            Meeting #{m.meetingId} · In progress
-                                        </p>
-                                    </div>
-                                </div>
-                                <motion.div
-                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-[#3481FF]/25 bg-[#3481FF]/10 text-[#6aabff]"
-                                    whileHover={{ x: 3 }}
-                                    transition={SPRING}
-                                >
-                                    <ArrowRight size={15} strokeWidth={2} />
-                                </motion.div>
-                            </button>
-                        ))}
+                {conveneError && (
+                    <div className="mb-6 rounded-xl border border-rose-500/20 bg-rose-500/[0.08] px-4 py-2.5 text-[12px] text-rose-500 dark:text-rose-300">
+                        {conveneError}
+                    </div>
+                )}
 
-                        {/* Convene new meeting on-chain */}
-                        {indexedInProgress.length === 0 && (
+                {/* Proposal-centric stats */}
+                <motion.div
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.55, delay: 0.12, ease: EXPO }}
+                    className="mb-8 grid gap-3 sm:grid-cols-3"
+                >
+                    <StatCard
+                        icon={<FileText size={12} strokeWidth={1.9} />}
+                        label="Open"
+                        value={proposalStats.open}
+                        tone="neutral"
+                    />
+                    <StatCard
+                        icon={<Clock3 size={12} strokeWidth={1.9} />}
+                        label="Expiring < 48h"
+                        value={proposalStats.expiringSoon}
+                        tone={proposalStats.expiringSoon > 0 ? "warning" : "neutral"}
+                    />
+                    <StatCard
+                        icon={<AlertTriangle size={12} strokeWidth={1.9} />}
+                        label="Expired"
+                        value={proposalStats.expired}
+                        tone={proposalStats.expired > 0 ? "danger" : "neutral"}
+                    />
+                </motion.div>
+
+                {/* Optional: reporting session */}
+                <motion.section
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.55, delay: 0.18, ease: EXPO }}
+                    className="mb-8 rounded-[1.5rem] border border-slate-200/80 bg-white/60 p-5 dark:border-white/[0.06] dark:bg-white/[0.02]"
+                >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="max-w-[48ch]">
+                            <div className="mb-1 flex items-center gap-2">
+                                <Radio size={12} className="text-slate-500" strokeWidth={1.9} />
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                                    Optional · reporting session
+                                </p>
+                            </div>
+                            <p className="text-[13.5px] font-medium text-slate-900 dark:text-white">
+                                Convene an on-chain audit marker for a live governance session.
+                            </p>
+                            <p className="mt-1 text-[12px] leading-relaxed text-slate-500 dark:text-slate-400">
+                                Emits <span className="font-mono text-[11px]">startMeeting</span> /{" "}
+                                <span className="font-mono text-[11px]">endMeeting</span> so
+                                indexers can attribute a proposal batch to a specific window.
+                                Governance writes do <em>not</em> require an open session.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            {indexedInProgress.map((m) => (
+                                <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={() => handleResumeIndexedMeeting(m)}
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-[#3481FF]/30 bg-[#3481FF]/[0.08] px-3.5 py-1.5 text-[11px] font-semibold text-[#3481FF] transition hover:border-[#3481FF]/55 hover:bg-[#3481FF]/[0.16]"
+                                >
+                                    <span className="relative inline-flex h-1.5 w-1.5">
+                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3481FF]/50" />
+                                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#3481FF]" />
+                                    </span>
+                                    Resume #{m.meetingId}
+                                </button>
+                            ))}
                             <button
                                 type="button"
                                 disabled={isConvening}
                                 onClick={handleConveneNewMeeting}
-                                className="group flex w-full items-center justify-between gap-4
-                                    rounded-[1.5rem]
-                                    border border-emerald-500/20
-                                    bg-[linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.03))]
-                                    p-5
-                                    transition-all duration-500
-                                    hover:border-emerald-500/35
-                                    hover:shadow-[0_0_40px_rgba(16,185,129,0.08)]
-                                    active:scale-[0.99]
-                                    disabled:opacity-60 disabled:pointer-events-none"
+                                className="inline-flex items-center gap-1.5 rounded-full border border-slate-300/70 bg-white px-3.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-transparent dark:text-slate-300 dark:hover:border-white/25 dark:hover:bg-white/[0.04]"
                             >
-                                <div className="flex items-center gap-4">
-                                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-500/25 bg-emerald-500/12">
-                                        {isConvening ? (
-                                            <Loader2
-                                                size={18}
-                                                className="text-emerald-400 animate-spin"
-                                                strokeWidth={1.75}
-                                            />
-                                        ) : (
-                                            <Scale
-                                                size={18}
-                                                className="text-emerald-400"
-                                                strokeWidth={1.75}
-                                            />
-                                        )}
-                                    </div>
-                                    <div className="text-left">
-                                        <p className="text-[15px] font-semibold text-slate-900 dark:text-white">
-                                            {isConvening
-                                                ? "Starting proposal review..."
-                                                : "Start proposal review"}
-                                        </p>
-                                        <p className="mt-0.5 text-xs text-slate-400">
-                                            Open a new onchain proposal session
-                                        </p>
-                                    </div>
-                                </div>
-                                <motion.div
-                                    className="flex h-8 w-8 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
-                                    whileHover={{ x: 3 }}
-                                    transition={SPRING}
-                                >
-                                    <ArrowRight size={15} strokeWidth={2} />
-                                </motion.div>
+                                {isConvening && (
+                                    <Loader2 size={11} className="animate-spin" strokeWidth={2} />
+                                )}
+                                Convene session
                             </button>
-                        )}
-
-                        {conveneError && (
-                            <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.08] px-4 py-2.5 text-[12px] text-rose-400">
-                                {conveneError}
-                            </div>
-                        )}
-                    </div>
-                </motion.div>
-
-                {/* Open proposals with full objection lifecycle */}
-                <OpenProposalsPanel orgId={activeOrg?.id ?? null} />
-
-                {/* Two-column: active proposals + recent meetings */}
-                <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.65, delay: 0.14, ease: EXPO }}
-                    className="mb-8 grid gap-4 sm:grid-cols-[1.1fr_1fr]"
-                >
-                    {/* Stats */}
-                    <div className="rounded-[1.5rem] border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-5">
-                        <div className="mb-4 flex items-center gap-2">
-                            <Scale size={14} className="text-slate-500" strokeWidth={1.75} />
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                On-chain governance
-                            </p>
-                        </div>
-                        <div className="grid grid-cols-3 gap-3">
-                            <div className="rounded-xl border border-slate-200 dark:border-white/[0.05] bg-slate-50 dark:bg-white/[0.02] px-4 py-3 text-center">
-                                <p className="text-[22px] font-bold tabular-nums text-slate-900 dark:text-white">
-                                    {indexedGovernanceMeetings.length}
-                                </p>
-                                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
-                                    Meetings
-                                </p>
-                            </div>
-                            <div className="rounded-xl border border-slate-200 dark:border-white/[0.05] bg-slate-50 dark:bg-white/[0.02] px-4 py-3 text-center">
-                                <p className="text-[22px] font-bold tabular-nums text-emerald-400">
-                                    {indexedGovernanceMeetings.filter((m) => m.completedAt).length}
-                                </p>
-                                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
-                                    Completed
-                                </p>
-                            </div>
-                            <div className="rounded-xl border border-slate-200 dark:border-white/[0.05] bg-slate-50 dark:bg-white/[0.02] px-4 py-3 text-center">
-                                <p className="text-[22px] font-bold tabular-nums text-[#6aabff]">
-                                    {indexedInProgress.length}
-                                </p>
-                                <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
-                                    In progress
-                                </p>
-                            </div>
                         </div>
                     </div>
 
-                    {/* Recent indexed meetings */}
-                    <div className="rounded-[1.5rem] border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-5">
-                        <div className="mb-4 flex items-center gap-2">
-                            <Clock3 size={14} className="text-slate-500" strokeWidth={1.75} />
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                                Meeting history
-                            </p>
-                        </div>
-                        {indexedGovernanceMeetings.length > 0 ? (
-                            <ul className="space-y-2">
+                    {indexedGovernanceMeetings.length > 0 && (
+                        <details className="mt-4 border-t border-slate-200/60 pt-4 dark:border-white/[0.06]">
+                            <summary className="flex cursor-pointer select-none items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+                                Session history ({indexedGovernanceMeetings.length})
+                            </summary>
+                            <ul className="mt-3 space-y-1.5">
                                 {indexedGovernanceMeetings.slice(0, 5).map((m) => (
                                     <li key={m.id}>
                                         <button
                                             type="button"
                                             onClick={() => handleResumeIndexedMeeting(m)}
-                                            className="group flex w-full items-center justify-between
-                                                rounded-xl border border-slate-200 dark:border-white/[0.05] bg-slate-50 dark:bg-white/[0.02]
-                                                px-3.5 py-2.5 text-left
-                                                transition-colors hover:border-slate-300 dark:hover:border-white/[0.1] hover:bg-slate-100 dark:hover:bg-white/[0.05]"
+                                            className="flex w-full items-center justify-between rounded-lg border border-transparent px-3 py-2 text-left transition hover:border-slate-200 hover:bg-slate-50 dark:hover:border-white/[0.08] dark:hover:bg-white/[0.03]"
                                         >
-                                            <div>
-                                                <p className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
-                                                    Meeting #{m.meetingId}
-                                                </p>
-                                                <p className="mt-0.5 text-[11px] text-slate-600">
-                                                    Circle {m.circleId} ·{" "}
-                                                    {m.completedAt ? "Completed" : "In progress"}
-                                                </p>
-                                            </div>
-                                            <ArrowRight
-                                                size={13}
-                                                className="text-slate-600 transition-transform group-hover:translate-x-0.5"
-                                            />
+                                            <span className="text-[12px] text-slate-700 dark:text-slate-200">
+                                                Session #{m.meetingId} · Circle {m.circleId}
+                                            </span>
+                                            <span
+                                                className={`text-[10px] font-mono uppercase tracking-[0.14em] ${
+                                                    m.completedAt
+                                                        ? "text-emerald-500 dark:text-emerald-400"
+                                                        : "text-[#3481FF]"
+                                                }`}
+                                            >
+                                                {m.completedAt ? "ended" : "open"}
+                                            </span>
                                         </button>
                                     </li>
                                 ))}
                             </ul>
-                        ) : (
-                            <p className="text-xs text-slate-600">
-                                No governance meetings recorded on-chain yet.
-                            </p>
-                        )}
-                    </div>
-                </motion.div>
+                        </details>
+                    )}
+                </motion.section>
 
-                {/* IDM process reference */}
+                {/* Optional: facilitator / secretary bootstrap */}
                 <motion.div
-                    initial={{ opacity: 0, y: 16 }}
+                    initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.65, delay: 0.22, ease: EXPO }}
+                    transition={{ duration: 0.55, delay: 0.22, ease: EXPO }}
                 >
-                    <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-                        Proposal review process
-                    </p>
-                    <div
-                        className="grid grid-cols-1 gap-px rounded-[1.5rem] overflow-hidden
-                        border border-slate-200 dark:border-white/[0.06] bg-slate-100 dark:bg-white/[0.04]"
+                    <FacilitatorsCard
+                        orgId={activeOrg?.id ?? null}
+                        meetingFactoryAddress={governanceMeetingAddress}
+                    />
+                </motion.div>
+
+                {/* Optional: live review ritual (collapsed) */}
+                <motion.section
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.55, delay: 0.24, ease: EXPO }}
+                >
+                    <button
+                        type="button"
+                        onClick={() => setRitualOpen((v) => !v)}
+                        className="group mb-3 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 transition hover:text-slate-700 dark:hover:text-slate-300"
+                        aria-expanded={ritualOpen}
                     >
-                        {REVIEW_STEPS.map((s) => (
-                            <div
-                                key={s.step}
-                                className="flex items-center gap-4 bg-white dark:bg-[#0a0a0f] px-5 py-3.5
-                                    first:rounded-t-[calc(1.5rem-1px)]
-                                    last:rounded-b-[calc(1.5rem-1px)]"
-                            >
-                                <span
-                                    className="flex h-6 w-6 shrink-0 items-center justify-center
-                                    rounded-full bg-slate-100 dark:bg-white/[0.05] text-[11px] font-semibold uppercase text-slate-500"
+                        If you run a live review · IDM
+                        <ChevronDown
+                            size={13}
+                            strokeWidth={2}
+                            className={`transition-transform duration-300 ${ritualOpen ? "rotate-180" : ""}`}
+                        />
+                    </button>
+                    <motion.div
+                        initial={false}
+                        animate={{
+                            height: ritualOpen ? "auto" : 0,
+                            opacity: ritualOpen ? 1 : 0,
+                        }}
+                        transition={{ duration: 0.35, ease: EXPO }}
+                        className="overflow-hidden"
+                    >
+                        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-slate-100 dark:border-white/[0.06] dark:bg-white/[0.04]">
+                            {REVIEW_STEPS.map((s) => (
+                                <div
+                                    key={s.step}
+                                    className="flex items-center gap-4 bg-white px-5 py-3 first:rounded-t-[calc(1.25rem-1px)] last:rounded-b-[calc(1.25rem-1px)] dark:bg-[#0a0a0f]"
                                 >
-                                    {s.step}
-                                </span>
-                                <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
-                                    {s.label}
-                                </span>
-                                <span className="ml-auto text-xs text-slate-500 dark:text-slate-600 text-right max-w-[22ch] hidden sm:block">
-                                    {s.desc}
-                                </span>
+                                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[11px] font-semibold uppercase text-slate-500 dark:bg-white/[0.05]">
+                                        {s.step}
+                                    </span>
+                                    <span className="text-[13px] font-medium text-slate-700 dark:text-slate-200">
+                                        {s.label}
+                                    </span>
+                                    <span className="ml-auto hidden max-w-[24ch] text-right text-[11.5px] text-slate-500 dark:text-slate-500 sm:block">
+                                        {s.desc}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                        <p className="mt-3 text-[11.5px] leading-relaxed text-slate-500 dark:text-slate-500">
+                            This is the Holacracy v5.0 Integrative Decision Making protocol.
+                            It&apos;s a useful ritual for humans-in-a-room, but nothing in the
+                            contract requires it — agents and async-first teams skip it entirely.
+                        </p>
+                    </motion.div>
+                </motion.section>
+            </div>
+        </div>
+    );
+}
+
+// ── Stat card ───────────────────────────────────────────────────────────────
+
+function StatCard({
+    icon,
+    label,
+    value,
+    tone,
+}: {
+    icon: React.ReactNode;
+    label: string;
+    value: number;
+    tone: "neutral" | "warning" | "danger";
+}) {
+    const valueClass =
+        tone === "warning"
+            ? "text-amber-500 dark:text-amber-400"
+            : tone === "danger"
+              ? "text-rose-500 dark:text-rose-400"
+              : "text-slate-900 dark:text-white";
+
+    return (
+        <div className="rounded-2xl border border-slate-200/80 bg-white/70 px-5 py-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+            <div className="mb-2 flex items-center gap-1.5 text-slate-500">
+                {icon}
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em]">{label}</p>
+            </div>
+            <p className={`text-[26px] font-semibold tabular-nums leading-none ${valueClass}`}>
+                {value}
+            </p>
+        </div>
+    );
+}
+
+// ── Expiry window setter ────────────────────────────────────────────────────
+
+/**
+ * Compact pill showing the current per-org proposal expiry window, with a
+ * popover for admins to change it. Contract enforces org-admin; we surface
+ * the control to everyone and let reverts communicate the rule (same pattern
+ * as the objection/adopt buttons in OpenProposalsPanel).
+ */
+const EXPIRY_PRESETS: { label: string; seconds: number }[] = [
+    { label: "1 hour", seconds: 60 * 60 },
+    { label: "1 day", seconds: 24 * 60 * 60 },
+    { label: "3 days", seconds: 3 * 24 * 60 * 60 },
+    { label: "7 days", seconds: 7 * 24 * 60 * 60 },
+    { label: "14 days", seconds: 14 * 24 * 60 * 60 },
+    { label: "30 days", seconds: 30 * 24 * 60 * 60 },
+];
+
+function formatWindow(seconds: number): string {
+    if (seconds < 24 * 60 * 60) {
+        const hours = Math.round(seconds / 3600);
+        return `${hours} hour${hours === 1 ? "" : "s"}`;
+    }
+    const days = Math.round(seconds / 86_400);
+    return `${days} day${days === 1 ? "" : "s"}`;
+}
+
+function ExpiryWindowControl({
+    meetingFactoryAddress,
+    currentSeconds,
+}: {
+    meetingFactoryAddress: `0x${string}` | undefined;
+    currentSeconds: number;
+}) {
+    const [open, setOpen] = useState(false);
+    const mutation = useSetProposalMaxAge();
+
+    // Reset local form error when re-opening.
+    const handleToggle = () => {
+        setOpen((v) => !v);
+        mutation.reset();
+    };
+
+    const handlePreset = (seconds: number) => {
+        if (!meetingFactoryAddress) return;
+        mutation.mutate(
+            { meetingFactoryAddress, maxAgeSeconds: seconds },
+            { onSuccess: () => setOpen(false) },
+        );
+    };
+
+    const disabled = !meetingFactoryAddress || mutation.isPending;
+
+    return (
+        <div className="relative inline-block">
+            <button
+                type="button"
+                onClick={handleToggle}
+                className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[11px] font-medium transition-colors ${
+                    open
+                        ? "border-[#3481FF]/40 bg-[#3481FF]/[0.08] text-[#3481FF]"
+                        : "border-slate-200/80 bg-white/60 text-slate-600 hover:border-slate-300 hover:text-slate-800 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-slate-300 dark:hover:border-white/[0.16] dark:hover:text-white"
+                }`}
+                aria-expanded={open}
+                title="Per-org proposal expiry window (admin only)"
+            >
+                <Clock3 size={11} strokeWidth={1.9} />
+                Expiry window
+                <span className="font-mono text-[10.5px] tabular-nums opacity-80">
+                    {formatWindow(currentSeconds)}
+                </span>
+                <ChevronDown
+                    size={11}
+                    strokeWidth={2}
+                    className={`transition-transform ${open ? "rotate-180" : ""}`}
+                />
+            </button>
+
+            {open && (
+                <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18, ease: EXPO }}
+                    className="absolute left-0 top-[calc(100%+8px)] z-20 w-[320px] rounded-2xl border border-slate-200/80 bg-white p-4 shadow-[0_12px_48px_-12px_rgba(15,23,42,0.2)] dark:border-white/[0.08] dark:bg-[#0c0c12] dark:shadow-[0_12px_48px_-12px_rgba(0,0,0,0.7)]"
+                >
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                            <div className="flex items-center gap-1.5">
+                                <SlidersHorizontal
+                                    size={11}
+                                    strokeWidth={1.9}
+                                    className="text-slate-500"
+                                />
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                                    Proposal expiry
+                                </p>
                             </div>
-                        ))}
+                            <p className="mt-1 text-[11.5px] leading-relaxed text-slate-500 dark:text-slate-400">
+                                Admin-only. Contract clamps to [1 hour, 30 days]. Changes apply
+                                immediately to all open drafts.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setOpen(false)}
+                            className="-mr-1 -mt-1 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/[0.06] dark:hover:text-slate-200"
+                            aria-label="Close"
+                        >
+                            <X size={12} strokeWidth={2.2} />
+                        </button>
                     </div>
 
-                    {/* Proposal requirements note */}
-                    <div
-                        className="mt-4 flex items-start gap-3 rounded-2xl
-                        border border-amber-400/15 bg-amber-500/[0.06] px-4 py-3.5"
-                    >
-                        <ShieldAlert
-                            size={15}
-                            className="mt-0.5 shrink-0 text-amber-400"
-                            strokeWidth={1.75}
-                        />
-                        <p className="text-xs leading-relaxed text-slate-400">
-                            A valid proposal requires: an{" "}
-                            <span className="text-slate-300 font-medium">issue</span> it would
-                            address, an <span className="text-slate-300 font-medium">example</span>{" "}
-                            of an actual past or present situation, and a{" "}
-                            <span className="text-slate-300 font-medium">
-                                reasonable explanation
-                            </span>{" "}
-                            of how it would resolve the issue.
-                        </p>
+                    <div className="grid grid-cols-3 gap-1.5">
+                        {EXPIRY_PRESETS.map((p) => {
+                            const active = p.seconds === currentSeconds;
+                            return (
+                                <button
+                                    key={p.seconds}
+                                    type="button"
+                                    disabled={disabled || active}
+                                    onClick={() => handlePreset(p.seconds)}
+                                    className={`flex items-center justify-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors ${
+                                        active
+                                            ? "border-emerald-400/40 bg-emerald-500/[0.1] text-emerald-600 dark:text-emerald-300"
+                                            : "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:border-white/[0.2] dark:hover:bg-white/[0.04]"
+                                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                                >
+                                    {active && <Check size={10} strokeWidth={2.4} />}
+                                    {p.label}
+                                </button>
+                            );
+                        })}
                     </div>
+
+                    {mutation.isPending && (
+                        <div className="mt-3 flex items-center gap-1.5 text-[11px] text-slate-500">
+                            <Loader2 size={10} className="animate-spin" strokeWidth={2} />
+                            Submitting transaction…
+                        </div>
+                    )}
+                    {mutation.isError && (
+                        <p className="mt-3 text-[11px] text-rose-500 dark:text-rose-400">
+                            {mutation.error instanceof Error
+                                ? mutation.error.message
+                                : "Transaction failed"}
+                        </p>
+                    )}
+                    {!meetingFactoryAddress && (
+                        <p className="mt-3 text-[11px] text-slate-500">
+                            Deploy meeting components first to configure the window.
+                        </p>
+                    )}
+
+                    <p className="mt-3 text-[10.5px] leading-relaxed text-slate-400 dark:text-slate-500">
+                        Contract range {Math.round(MIN_PROPOSAL_MAX_AGE_SECONDS / 3600)}h —{" "}
+                        {Math.round(MAX_PROPOSAL_MAX_AGE_SECONDS / 86_400)}d. Default 7 days.
+                    </p>
                 </motion.div>
-            </div>
+            )}
         </div>
     );
 }

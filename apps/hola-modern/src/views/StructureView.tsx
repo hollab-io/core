@@ -25,6 +25,7 @@ import { useChain } from "../context/ChainContext";
 import { useJoinRequest } from "../hooks/useJoinRequest";
 import { useOrgMemberActions } from "../hooks/useOrgMemberActions";
 import { useWorkspaceSnapshot } from "../hooks/useWorkspaceSnapshot";
+import AgentIdentityCard from "./AgentIdentityCard";
 import OrganizationChart from "./OrganizationChart";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -592,6 +593,11 @@ export default function StructureView({ org, isDarkMode, autoOpenInvite, onInvit
                             className="absolute inset-0 overflow-y-auto"
                         >
                             <div className="mx-auto w-full max-w-[900px] px-5 pb-32 sm:px-8">
+                                {/* Agent identity (self-service) */}
+                                <AgentIdentityCard
+                                    instanceAddress={org.instanceAddress as `0x${string}`}
+                                />
+
                                 {/* Add member button */}
                                 <button
                                     type="button"

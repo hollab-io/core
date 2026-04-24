@@ -2,16 +2,26 @@
  * OpenProposalsPanel — authenticated workspace view of the per-org Draft
  * proposal queue with the full objection lifecycle as write surfaces.
  *
- * Closes the gap flagged by UX-C-1: the frontend needs a surface where
- * members can `raiseObjection`, objectors/facilitators can `resolveObjection`,
+ * Primary surface of GovernanceView. Always rendered: shows drafts when
+ * present, otherwise an empty state that nudges toward filing a proposal.
+ * Members can `raiseObjection`, objectors/facilitators can `resolveObjection`,
  * admins can `adopt` / `discard`, and anyone can `discardExpiredProposal`
- * after the org's proposal expiry window. The public PublicProposalView remains read-only.
+ * after the org's proposal expiry window.
  *
  * Permission gating is delegated to the contract — reverts surface as
  * human-readable error text. Showing gated buttons always makes the state
  * machine legible instead of hiding it.
  */
-import { AlertTriangle, CheckCircle2, FileText, Loader2, MessageSquarePlus, X } from "lucide-react";
+import {
+    AlertTriangle,
+    ArrowRight,
+    CheckCircle2,
+    FileText,
+    Loader2,
+    MessageSquarePlus,
+    Sparkles,
+    X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 
@@ -44,38 +54,135 @@ const CHANGE_TYPE_LABELS: Record<number, string> = {
     11: "Amend policy (refs)",
 };
 
-type Props = { orgId: string | null };
+type Props = {
+    orgId: string | null;
+    /**
+     * Optional handler wired to the empty-state CTA. When provided, users with
+     * no open drafts see a "File a proposal" prompt that invokes this callback.
+     * Omitted on read-only / wallet-less surfaces.
+     */
+    onOpenComposer?: () => void;
+    composerPending?: boolean;
+};
 
-export default function OpenProposalsPanel({ orgId }: Props) {
+export default function OpenProposalsPanel({ orgId, onOpenComposer, composerPending }: Props) {
     const { data: openProposals = [], isLoading } = useOpenProposalsByOrg(orgId);
+    const { address } = useAccount();
+    const { maxAgeSeconds: defaultMaxAge } = useProposalMaxAge(undefined);
 
     if (!orgId) return null;
-    if (isLoading) {
-        return (
-            <div className="mb-8 flex items-center gap-2 rounded-2xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] px-5 py-4 text-[13px] text-slate-500">
-                <Loader2 size={13} className="animate-spin" strokeWidth={1.75} />
-                Loading open proposals…
-            </div>
-        );
-    }
-    if (openProposals.length === 0) return null;
+
+    const expiryDays = Math.round((defaultMaxAge || 7 * 24 * 60 * 60) / 86_400);
 
     return (
-        <section className="mb-8">
-            <div className="mb-3 flex items-baseline justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                    Open proposals
-                </p>
-                <p className="text-[11px] text-slate-500">
-                    {openProposals.length} draft{openProposals.length === 1 ? "" : "s"}
-                </p>
-            </div>
-            <ul className="space-y-3">
-                {openProposals.map((p) => (
-                    <ProposalRow key={p.id} proposal={p} />
-                ))}
-            </ul>
+        <section className="mb-10">
+            <header className="mb-4 flex items-end justify-between gap-4">
+                <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                        Open proposals
+                    </p>
+                    <h2 className="mt-1 text-[22px] font-semibold tracking-[-0.02em] text-slate-900 dark:text-white">
+                        {isLoading ? "…" : openProposals.length}
+                        <span className="ml-2 text-[13px] font-normal text-slate-500">
+                            draft{openProposals.length === 1 ? "" : "s"} awaiting adoption
+                        </span>
+                    </h2>
+                </div>
+                {onOpenComposer && openProposals.length > 0 && (
+                    <button
+                        type="button"
+                        onClick={onOpenComposer}
+                        disabled={composerPending || !address}
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#3481FF]/30 bg-[#3481FF]/[0.08] px-4 py-1.5 text-[11px] font-semibold text-[#3481FF] transition-colors hover:border-[#3481FF]/55 hover:bg-[#3481FF]/[0.16] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {composerPending ? (
+                            <Loader2 size={11} className="animate-spin" strokeWidth={2} />
+                        ) : (
+                            <Sparkles size={11} strokeWidth={2} />
+                        )}
+                        File a proposal
+                    </button>
+                )}
+            </header>
+
+            {isLoading ? (
+                <div className="flex items-center gap-2 rounded-2xl border border-slate-200/80 dark:border-white/[0.06] bg-white/70 dark:bg-white/[0.03] px-5 py-4 text-[13px] text-slate-500">
+                    <Loader2 size={13} className="animate-spin" strokeWidth={1.75} />
+                    Reading drafts from the indexer…
+                </div>
+            ) : openProposals.length === 0 ? (
+                <EmptyState
+                    onOpenComposer={onOpenComposer}
+                    composerPending={composerPending}
+                    connected={Boolean(address)}
+                    expiryDays={expiryDays}
+                />
+            ) : (
+                <ul className="space-y-3">
+                    {openProposals.map((p) => (
+                        <ProposalRow key={p.id} proposal={p} />
+                    ))}
+                </ul>
+            )}
         </section>
+    );
+}
+
+// ── Empty state ─────────────────────────────────────────────────────────────
+
+function EmptyState({
+    onOpenComposer,
+    composerPending,
+    connected,
+    expiryDays,
+}: {
+    onOpenComposer?: () => void;
+    composerPending?: boolean;
+    connected: boolean;
+    expiryDays: number;
+}) {
+    return (
+        <div className="group relative overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-gradient-to-br from-white to-slate-50/60 px-6 py-8 dark:border-white/[0.06] dark:from-white/[0.03] dark:to-transparent">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="max-w-[52ch]">
+                    <div className="mb-2 flex items-center gap-2">
+                        <FileText
+                            size={13}
+                            className="text-slate-400 dark:text-slate-500"
+                            strokeWidth={1.75}
+                        />
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                            No drafts yet
+                        </p>
+                    </div>
+                    <p className="text-[15px] font-medium leading-snug text-slate-900 dark:text-white">
+                        File a tension — propose a role, policy, or structure change.
+                    </p>
+                    <p className="mt-2 text-[12.5px] leading-relaxed text-slate-500 dark:text-slate-400">
+                        Any org member can propose. Objections stay strict to role-leads in the
+                        proposal&apos;s circle. Proposals expire after {expiryDays} day
+                        {expiryDays === 1 ? "" : "s"} by default.
+                    </p>
+                </div>
+                {onOpenComposer && (
+                    <button
+                        type="button"
+                        onClick={onOpenComposer}
+                        disabled={composerPending || !connected}
+                        className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#3481FF] px-5 py-2 text-[12px] font-semibold text-white shadow-[0_8px_24px_-8px_rgba(52,129,255,0.6)] transition hover:bg-[#2f75e8] disabled:cursor-not-allowed disabled:opacity-60"
+                        title={connected ? undefined : "Connect a wallet to propose"}
+                    >
+                        {composerPending ? (
+                            <Loader2 size={13} className="animate-spin" strokeWidth={2} />
+                        ) : (
+                            <Sparkles size={13} strokeWidth={2} />
+                        )}
+                        Open composer
+                        <ArrowRight size={12} strokeWidth={2.25} />
+                    </button>
+                )}
+            </div>
+        </div>
     );
 }
 
@@ -110,9 +217,17 @@ function ProposalRow({ proposal }: { proposal: Proposal }) {
     };
 
     return (
-        <li className="rounded-2xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] p-5">
+        <li
+            className={`group relative rounded-2xl border bg-white p-5 transition-colors dark:bg-white/[0.03] ${
+                expired
+                    ? "border-rose-400/25 dark:border-rose-400/20"
+                    : openObjectionCount > 0
+                      ? "border-amber-400/30 dark:border-amber-400/25"
+                      : "border-slate-200/80 hover:border-slate-300 dark:border-white/[0.06] dark:hover:border-white/[0.12]"
+            }`}
+        >
             {/* Header row */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
                 <FileText size={14} className="shrink-0 text-slate-500" strokeWidth={1.75} />
                 <p className="font-mono text-[11px] text-slate-500">#{proposal.proposalId}</p>
                 <span className="rounded-full border border-[#3481FF]/25 bg-[#3481FF]/[0.08] px-2.5 py-0.5 text-[11px] font-medium text-[#3481FF]">
@@ -124,19 +239,35 @@ function ProposalRow({ proposal }: { proposal: Proposal }) {
                             ? "border-[#3481FF]/30 bg-[#3481FF]/[0.08] text-[#3481FF]"
                             : "border-slate-200 text-slate-600 dark:border-white/[0.07] dark:text-slate-300"
                     }`}
+                    title={proposerIsAgent ? "Agent proposer" : "Member proposer"}
                 >
-                    {proposerIsAgent && <span>🤖</span>}
+                    {proposerIsAgent && <span aria-hidden>🤖</span>}
                     {proposal.proposer.slice(0, 6)}…{proposal.proposer.slice(-4)}
                 </span>
-                <span className={`ml-auto text-[11px] ${expiryTone}`}>
+                {openObjectionCount > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/[0.1] px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300">
+                        <AlertTriangle size={9} strokeWidth={2.2} />
+                        {openObjectionCount} open
+                    </span>
+                )}
+                <span
+                    className={`ml-auto font-mono text-[11px] tabular-nums ${expiryTone}`}
+                    title={`Submitted ${new Date(Number(proposal.submittedAt) * 1000).toLocaleString()}`}
+                >
                     {expired ? "Expired" : formatCountdown(secondsLeft)}
                 </span>
             </div>
 
-            {/* Tension hash — lets agents resolve off-chain content */}
-            <p className="mt-2 truncate font-mono text-[10px] text-slate-400 dark:text-slate-500">
-                tension: {proposal.tensionHash}
-            </p>
+            {/* Tension — plaintext when the proposer published it, hash otherwise */}
+            {proposal.tensionText ? (
+                <p className="mt-2.5 line-clamp-3 text-[13px] leading-relaxed text-slate-700 dark:text-slate-200">
+                    {proposal.tensionText}
+                </p>
+            ) : (
+                <p className="mt-2.5 truncate font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                    tension {proposal.tensionHash}
+                </p>
+            )}
 
             {/* Objection list */}
             {openObjectionCount > 0 && (

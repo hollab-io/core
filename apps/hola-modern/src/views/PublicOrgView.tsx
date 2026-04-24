@@ -217,9 +217,15 @@ export default function PublicOrgView({
                                             {p.proposer.slice(0, 6)}…{p.proposer.slice(-4)}
                                         </span>
                                     </div>
-                                    <p className="mt-1 font-mono text-[10px] text-slate-500 dark:text-slate-400">
-                                        {p.tensionHash}
-                                    </p>
+                                    {p.tensionText ? (
+                                        <p className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-slate-700 dark:text-slate-200">
+                                            {p.tensionText}
+                                        </p>
+                                    ) : (
+                                        <p className="mt-1 font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                                            {p.tensionHash}
+                                        </p>
+                                    )}
                                 </li>
                             );
                         })}

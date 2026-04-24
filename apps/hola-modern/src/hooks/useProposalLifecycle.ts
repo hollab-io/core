@@ -272,6 +272,14 @@ export function secondsUntilExpiry(
 }
 
 /**
+ * Contract bounds for the per-org proposal expiry window. Mirrors
+ * MeetingFactory.MIN_PROPOSAL_MAX_AGE / MAX_PROPOSAL_MAX_AGE — keep in sync
+ * if either constant changes.
+ */
+export const MIN_PROPOSAL_MAX_AGE_SECONDS = 60 * 60; // 1 hour
+export const MAX_PROPOSAL_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 days
+
+/**
  * Reads the per-org `proposalMaxAge` from the given MeetingFactory clone.
  * Value is authoritative; falls back to {@link DEFAULT_PROPOSAL_MAX_AGE_SECONDS}
  * during the initial load.
@@ -306,4 +314,186 @@ export function useProposalMaxAge(meetingFactoryAddress: `0x${string}` | undefin
         maxAgeSeconds: query.data ?? DEFAULT_PROPOSAL_MAX_AGE_SECONDS,
         isLoading: query.isLoading,
     };
+}
+
+// ── Read: elected-lock state for a circle's officers ───────────────────────
+
+export type CircleOfficerLocks = {
+    facilitatorLocked: boolean;
+    secretaryLocked: boolean;
+};
+
+/**
+ * Reads `isFacilitatorElected(circleId)` and `isSecretaryElected(circleId)`
+ * in parallel from the given MeetingFactory clone. Once a Facilitator/Secretary
+ * Election adopts for the circle, the corresponding admin bootstrap setter
+ * locks — surface that in the UI so users don't learn via a revert.
+ */
+export function useCircleOfficerLocks(
+    meetingFactoryAddress: `0x${string}` | undefined,
+    circleId: bigint | undefined,
+): { locks: CircleOfficerLocks; isLoading: boolean } {
+    const { chainConfig } = useChain();
+
+    const query = useQuery({
+        queryKey: [
+            "circleOfficerLocks",
+            chainConfig.chain.id,
+            meetingFactoryAddress,
+            circleId?.toString(),
+        ],
+        enabled: !!meetingFactoryAddress && circleId !== undefined,
+        queryFn: async (): Promise<CircleOfficerLocks> => {
+            if (!meetingFactoryAddress || circleId === undefined) {
+                return { facilitatorLocked: false, secretaryLocked: false };
+            }
+            const publicClient = createPublicClient({
+                chain: chainConfig.chain,
+                transport: http(chainConfig.chain.rpcUrls.default.http[0]),
+            });
+            const [facilitatorLocked, secretaryLocked] = await Promise.all([
+                publicClient.readContract({
+                    address: meetingFactoryAddress,
+                    abi: meetingFactoryAbi,
+                    functionName: "isFacilitatorElected",
+                    args: [circleId],
+                }),
+                publicClient.readContract({
+                    address: meetingFactoryAddress,
+                    abi: meetingFactoryAbi,
+                    functionName: "isSecretaryElected",
+                    args: [circleId],
+                }),
+            ]);
+            return {
+                facilitatorLocked: Boolean(facilitatorLocked),
+                secretaryLocked: Boolean(secretaryLocked),
+            };
+        },
+        // Lock state only flips once per election adoption — safe to cache.
+        staleTime: 60 * 1000,
+    });
+
+    return {
+        locks: query.data ?? { facilitatorLocked: false, secretaryLocked: false },
+        isLoading: query.isLoading,
+    };
+}
+
+// ── Bootstrap facilitator / secretary (admin only, pre-election) ───────────
+
+export type SetCircleOfficerParams = {
+    meetingFactoryAddress: `0x${string}`;
+    circleId: bigint;
+    holder: `0x${string}`;
+};
+
+/**
+ * Admin-only bootstrap setter for a circle's Facilitator. Locks once a
+ * FacilitatorElection adopts for the circle; subsequent changes must go
+ * through governance. Reverts surface via the mutation's error state.
+ */
+export function useSetCircleFacilitator() {
+    const { address } = useAccount();
+    const { send } = useSendTransaction();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (params: SetCircleOfficerParams) => {
+            if (!address) throw new Error("Connect a wallet to set the facilitator.");
+            const txHash = await send(
+                [
+                    {
+                        to: params.meetingFactoryAddress,
+                        abi: meetingFactoryAbi,
+                        functionName: "setCircleFacilitator",
+                        args: [params.circleId, params.holder],
+                    },
+                ],
+                address,
+            );
+            return { txHash };
+        },
+        onSuccess: () => {
+            // Circle snapshot refreshes on CircleFacilitatorSet — invalidate reads.
+            queryClient.invalidateQueries({ queryKey: ["circles"] });
+        },
+    });
+}
+
+/** Admin-only bootstrap setter for a circle's Secretary. Mirrors Facilitator. */
+export function useSetCircleSecretary() {
+    const { address } = useAccount();
+    const { send } = useSendTransaction();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (params: SetCircleOfficerParams) => {
+            if (!address) throw new Error("Connect a wallet to set the secretary.");
+            const txHash = await send(
+                [
+                    {
+                        to: params.meetingFactoryAddress,
+                        abi: meetingFactoryAbi,
+                        functionName: "setCircleSecretary",
+                        args: [params.circleId, params.holder],
+                    },
+                ],
+                address,
+            );
+            return { txHash };
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["circles"] });
+        },
+    });
+}
+
+// ── Set proposal max age (admin only) ───────────────────────────────────────
+
+export type SetProposalMaxAgeParams = {
+    meetingFactoryAddress: `0x${string}`;
+    /** New window in seconds. Must be in [MIN, MAX]_PROPOSAL_MAX_AGE_SECONDS. */
+    maxAgeSeconds: number;
+};
+
+/**
+ * Admin-only per-org setter for the proposal expiry window. The contract
+ * enforces `org.isAdmin(msg.sender)` and the [1h, 30d] range — we still
+ * clamp client-side to give a cleaner error than a revert.
+ */
+export function useSetProposalMaxAge() {
+    const { address } = useAccount();
+    const { send } = useSendTransaction();
+    const queryClient = useQueryClient();
+    const { chainConfig } = useChain();
+
+    return useMutation({
+        mutationFn: async (params: SetProposalMaxAgeParams) => {
+            if (!address) throw new Error("Connect a wallet to update the expiry window.");
+            const seconds = Math.floor(params.maxAgeSeconds);
+            if (seconds < MIN_PROPOSAL_MAX_AGE_SECONDS || seconds > MAX_PROPOSAL_MAX_AGE_SECONDS) {
+                throw new Error(
+                    `Expiry window must be between 1 hour and 30 days. Got ${seconds}s.`,
+                );
+            }
+            const txHash = await send(
+                [
+                    {
+                        to: params.meetingFactoryAddress,
+                        abi: meetingFactoryAbi,
+                        functionName: "setProposalMaxAge",
+                        args: [BigInt(seconds)],
+                    },
+                ],
+                address,
+            );
+            return { txHash };
+        },
+        onSuccess: (_data, params) => {
+            queryClient.invalidateQueries({
+                queryKey: ["proposalMaxAge", chainConfig.chain.id, params.meetingFactoryAddress],
+            });
+        },
+    });
 }

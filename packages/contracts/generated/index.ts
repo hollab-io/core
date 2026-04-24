@@ -907,6 +907,20 @@ export const meetingFactoryAbi = [
     },
     {
         type: "function",
+        inputs: [
+            { name: "_orgId", internalType: "uint256", type: "uint256" },
+            { name: "_circleId", internalType: "uint256", type: "uint256" },
+            { name: "_proposerRoleId", internalType: "uint256", type: "uint256" },
+            { name: "_tensionText", internalType: "string", type: "string" },
+            { name: "_changeType", internalType: "enum HolacracyTypes.ChangeType", type: "uint8" },
+            { name: "_changeData", internalType: "bytes", type: "bytes" },
+        ],
+        name: "createProposalWithTension",
+        outputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
+        stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
         inputs: [{ name: "_proposalId", internalType: "uint256", type: "uint256" }],
         name: "discardExpiredProposal",
         outputs: [],
@@ -1001,6 +1015,20 @@ export const meetingFactoryAbi = [
         name: "initialize",
         outputs: [],
         stateMutability: "nonpayable",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "isFacilitatorElected",
+        outputs: [{ name: "", internalType: "bool", type: "bool" }],
+        stateMutability: "view",
+    },
+    {
+        type: "function",
+        inputs: [{ name: "_circleId", internalType: "uint256", type: "uint256" }],
+        name: "isSecretaryElected",
+        outputs: [{ name: "", internalType: "bool", type: "bool" }],
+        stateMutability: "view",
     },
     {
         type: "function",
@@ -1311,6 +1339,15 @@ export const meetingFactoryAbi = [
             { name: "_secretary", internalType: "address", type: "address", indexed: true },
         ],
         name: "ProposalStruck",
+    },
+    {
+        type: "event",
+        anonymous: false,
+        inputs: [
+            { name: "_proposalId", internalType: "uint256", type: "uint256", indexed: true },
+            { name: "_text", internalType: "string", type: "string", indexed: false },
+        ],
+        name: "ProposalTensionPublished",
     },
     {
         type: "event",

@@ -27,7 +27,7 @@ export const POLICY_FIELDS = `
 
 export const PROPOSAL_FIELDS = `
     id proposalId processAddress orgId circleId proposer proposerRoleId
-    tensionHash changeType changeData changeResultId
+    tensionHash tensionText changeType changeData changeResultId
     status submittedAt resolvedAt resolvedBy txHash
 `;
 
