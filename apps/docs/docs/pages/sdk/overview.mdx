@@ -36,8 +36,15 @@ Interacts with IPFS (via the indexer pin-proxy) for encrypted blob storage:
 ```ts
 import { StorageClient } from "@hollab-io/hollab-sdk";
 
-const storage = new StorageClient(config);
+const storage = new StorageClient(keyManager, {
+    pinUrl: "http://localhost:42069/storage/pin",
+    gatewayUrl: "http://localhost:42069",
+});
 ```
+
+Writes encrypt and pin a blob, returning its bytes32 `contentHash`; reads take
+that hash, fetch from the gateway, and decrypt. The logical-key → `contentHash`
+mapping lives on-chain (`ContentRef`).
 
 ### OrgClient
 
