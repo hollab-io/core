@@ -745,6 +745,7 @@ export const govTokenDeployerAbi = [
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
+ * - [__View Contract on 0 G Galileo Testnet 0 G Block Chain Explorer__](https://chainscan-galileo.0g.ai/address/0xc7808AE1Bd393cc1d193eB48332Ab46bD01Ecf6C)
  * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xAd8223B6e9da5Cf0b4aE03d325CC385Fd1f6a825)
  */
@@ -831,17 +832,20 @@ export const meetingComponentsFactoryAbi = [
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
+ * - [__View Contract on 0 G Galileo Testnet 0 G Block Chain Explorer__](https://chainscan-galileo.0g.ai/address/0xc7808AE1Bd393cc1d193eB48332Ab46bD01Ecf6C)
  * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xAd8223B6e9da5Cf0b4aE03d325CC385Fd1f6a825)
  */
 export const meetingComponentsFactoryAddress = {
     1: "0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25",
+    16602: "0xc7808AE1Bd393cc1d193eB48332Ab46bD01Ecf6C",
     31337: "0x0165878A594ca255338adfa4d48449f69242Eb8F",
     11155111: "0xAd8223B6e9da5Cf0b4aE03d325CC385Fd1f6a825",
 } as const;
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25)
+ * - [__View Contract on 0 G Galileo Testnet 0 G Block Chain Explorer__](https://chainscan-galileo.0g.ai/address/0xc7808AE1Bd393cc1d193eB48332Ab46bD01Ecf6C)
  * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xAd8223B6e9da5Cf0b4aE03d325CC385Fd1f6a825)
  */
@@ -1528,6 +1532,7 @@ export const meetingFactoryAbi = [
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
+ * - [__View Contract on 0 G Galileo Testnet 0 G Block Chain Explorer__](https://chainscan-galileo.0g.ai/address/0x27127651B812604eff832cD726B241D4E2D20EE0)
  * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xEdB4Da78b5C759a651a72F8E4cEF07E606FfF051)
  */
@@ -1663,17 +1668,20 @@ export const organizationFactoryAbi = [
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
+ * - [__View Contract on 0 G Galileo Testnet 0 G Block Chain Explorer__](https://chainscan-galileo.0g.ai/address/0x27127651B812604eff832cD726B241D4E2D20EE0)
  * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xEdB4Da78b5C759a651a72F8E4cEF07E606FfF051)
  */
 export const organizationFactoryAddress = {
     1: "0xC0252342923238CF5509cfBd2fa46A45ADeDc921",
+    16602: "0x27127651B812604eff832cD726B241D4E2D20EE0",
     31337: "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
     11155111: "0xEdB4Da78b5C759a651a72F8E4cEF07E606FfF051",
 } as const;
 
 /**
  * - [__View Contract on Ethereum Etherscan__](https://etherscan.io/address/0xC0252342923238CF5509cfBd2fa46A45ADeDc921)
+ * - [__View Contract on 0 G Galileo Testnet 0 G Block Chain Explorer__](https://chainscan-galileo.0g.ai/address/0x27127651B812604eff832cD726B241D4E2D20EE0)
  * -
  * - [__View Contract on Sepolia Etherscan__](https://sepolia.etherscan.io/address/0xEdB4Da78b5C759a651a72F8E4cEF07E606FfF051)
  */

@@ -8,7 +8,7 @@ pnpm + turborepo monorepo. Node 24, pnpm only (`preinstall` blocks npm/yarn).
 
 -   `packages/contracts` — Solidity contracts (Foundry), deploy scripts, wagmi-generated TS bindings in `generated/`. Exports `@hollab-io/contracts/actions`.
 -   `packages/dao-contracts` — DAO layer contract extensions (ERC20Votes governor, timelock, treasury).
--   `packages/hollab-sdk` (`@hollab-io/hollab-sdk`) — Private data layer SDK: key management, encrypted 0G storage, event indexer. `tsc` build.
+-   `packages/hollab-sdk` (`@hollab-io/hollab-sdk`) — Private data layer SDK: key management, encrypted storage, event indexer. `tsc` build.
 -   `packages/agent-sdk` (`@hollab-io/agent-sdk`) — SDK for agents to integrate with hollab.eth governance. `tsup` build. Depends on `contracts` + `indexing-client`.
 -   `packages/indexing-client` — Typed client for the Ponder indexer. `tsup` build.
 -   `packages/viem-extension` — Viem client extensions.
@@ -111,7 +111,9 @@ on-chain events
 
 Frontend reads go through `useQuery` hooks wrapping the indexing-client; writes go through `useMutation` wrapping wagmi/viem calls. Multi-chain config (Sepolia default, Mainnet, 0G) lives in `apps/hola-modern/src/config/chains.ts`.
 
-**Private data layer** (`packages/hollab-sdk`): ContentRef hashes on-chain point to encrypted blobs stored on 0G. SDK handles key management and encrypted storage so proposal content / meeting transcripts stay off-chain but verifiably committed.
+**Private data layer** (`packages/hollab-sdk`): ContentRef hashes on-chain point to encrypted blobs stored on IPFS. SDK handles key management and encrypted storage so proposal content / meeting transcripts stay off-chain but verifiably committed.
+
+**IPFS pin proxy** (`apps/hollab-indexing`): the indexer's Hono API exposes `POST /storage/pin` and (in local mode) `GET /ipfs/:cid`. When `PINATA_JWT` is set the proxy forwards uploads to Pinata; otherwise it falls back to a local filesystem store under `LOCAL_IPFS_DIR` (default `.ponder/local-ipfs`). Both branches return CIDv0; the frontend extracts the 32-byte sha2-256 multihash digest as `bytes32` for on-chain `ContentRef.contentHash`. Reads in production hit `VITE_IPFS_GATEWAY/ipfs/<cid>`; in local dev, point that env at the indexer URL.
 
 ## Conventions
 

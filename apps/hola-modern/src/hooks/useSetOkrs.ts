@@ -2,7 +2,7 @@
  * useSetOkrs — propose updating the OKR blob for a (role, quarter) pair.
  *
  * OKR changes go through governance: the caller uploads the new objectives
- * to 0G and raises an AmendRoleWithRefs proposal that re-points the role's
+ * to IPFS and raises an AmendRoleWithRefs proposal that re-points the role's
  * on-chain content ref for fieldName=keccak256("okr:{quarter}") to the new
  * blob. Proposal adoption requires zero open objections (standard IDM).
  *
@@ -39,7 +39,7 @@ export type SetOkrsParams = {
 
 export type SetOkrsResult = {
     txHash: `0x${string}`;
-    rootHash: string;
+    contentHash: `0x${string}`;
 };
 
 export function useSetOkrs() {
@@ -71,16 +71,13 @@ export function useSetOkrs() {
 
             // 2. Serialize + upload + encrypt.
             const text = JSON.stringify(params.objectives);
-            const { rootHash } = await encryptAndUpload.mutateAsync({
+            const { contentHash } = await encryptAndUpload.mutateAsync({
                 text,
                 visibility,
                 orgId: params.orgId,
                 circleId: params.circleId,
                 roleId: params.roleId,
             });
-
-            const contentHash =
-                `0x${rootHash.replace(/^0x/, "").padStart(64, "0")}` as `0x${string}`;
 
             // 3. Build AmendRoleWithRefs payload with existing role fields + new OKR ref.
             const encodedData = encodeAmendRoleWithRefs({
@@ -118,7 +115,7 @@ export function useSetOkrs() {
                 address,
             );
 
-            return { txHash, rootHash };
+            return { txHash, contentHash };
         },
         onSuccess: (_result, params) => {
             queryClient.invalidateQueries({
