@@ -4,7 +4,7 @@ The `hollab-sdk` package (`packages/hollab-sdk/`) provides cryptographic key man
 
 ## Purpose
 
-While smart contracts handle on-chain commitments (org structure, votes, membership), some governance data is better kept private — internal issues, draft proposals, role descriptions, and meeting notes. The SDK provides end-to-end encryption for this data using the 0G Network for storage.
+While smart contracts handle on-chain commitments (org structure, votes, membership), some governance data is better kept private — internal issues, draft proposals, role descriptions, and meeting notes. The SDK provides end-to-end encryption for this data using IPFS for storage (encrypted blobs pinned via the indexer pin-proxy).
 
 For programmatic access by AI agents and automated systems, see the [Agent SDK](/sdk/agent-sdk).
 
@@ -31,7 +31,7 @@ See [Key Management](/sdk/key-management) for details.
 
 ### StorageClient
 
-Interacts with 0G Network for encrypted blob storage:
+Interacts with IPFS (via the indexer pin-proxy) for encrypted blob storage:
 
 ```ts
 import { StorageClient } from "@hollab-io/hollab-sdk";

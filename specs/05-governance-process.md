@@ -471,8 +471,7 @@ are `bytes32` content-addresses of the off-chain text. The contract is
 indifferent to the addressing scheme — it works equally with:
 
 -   `keccak256(utf8(rawText))` when the content is inline and small
--   CIDv1 sha256-truncated to 32 bytes when stored on IPFS / Filecoin
--   0G Merkle root when stored on 0G Storage
+-   the 32-byte sha2-256 multihash digest of a CIDv0 when the encrypted blob is pinned on IPFS (the MVP path — uploaded via the indexer pin-proxy, reconstructed to a full CID on read)
 
 This keeps `ContentRef` polymorphic across storage backends. See
 `CLAUDE.md` and `hollab-sdk` for the encryption layer that sits between the
