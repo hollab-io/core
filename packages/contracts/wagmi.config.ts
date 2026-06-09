@@ -17,7 +17,6 @@ function readDeployment(chainId: number): { orgFactory?: string; meetingFactory?
 
 const local = readDeployment(31337);
 const sepolia = readDeployment(11155111);
-const zgTestnet = readDeployment(16602);
 
 export default defineConfig({
   out: "generated/index.ts",
@@ -40,13 +39,11 @@ export default defineConfig({
         OrganizationFactory: {
           ...(local.orgFactory ? { 31337: local.orgFactory } : {}),
           ...(sepolia.orgFactory ? { 11155111: sepolia.orgFactory } : {}),
-          ...(zgTestnet.orgFactory ? { 16602: zgTestnet.orgFactory } : {}),
           1: "0xC0252342923238CF5509cfBd2fa46A45ADeDc921",
         },
         MeetingComponentsFactory: {
           ...(local.meetingFactory ? { 31337: local.meetingFactory } : {}),
           ...(sepolia.meetingFactory ? { 11155111: sepolia.meetingFactory } : {}),
-          ...(zgTestnet.meetingFactory ? { 16602: zgTestnet.meetingFactory } : {}),
           1: "0x876C1eDF90e1BcdFC3488a53Ce3EFf1759D27D25",
         },
       },

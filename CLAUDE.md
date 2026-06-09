@@ -39,7 +39,7 @@ forge build
 forge test -vvv
 forge coverage
 pnpm generate                       # wagmi generate → generated/ TS bindings
-pnpm deploy:infra:sepolia           # DeployInfrastructure.s.sol (also :mainnet, :0g-testnet, :0g-mainnet, :local)
+pnpm deploy:infra:sepolia           # DeployInfrastructure.s.sol (also :mainnet, :local)
 pnpm deploy:org:sepolia             # CreateOrganization.s.sol
 ```
 
@@ -109,7 +109,7 @@ on-chain events
                  └─ agent-sdk
 ```
 
-Frontend reads go through `useQuery` hooks wrapping the indexing-client; writes go through `useMutation` wrapping wagmi/viem calls. Multi-chain config (Sepolia default, Mainnet, 0G) lives in `apps/hola-modern/src/config/chains.ts`.
+Frontend reads go through `useQuery` hooks wrapping the indexing-client; writes go through `useMutation` wrapping wagmi/viem calls. Multi-chain config (Sepolia default, Mainnet coming soon) lives in `apps/hola-modern/src/config/chains.ts`.
 
 **Private data layer** (`packages/hollab-sdk`): ContentRef hashes on-chain point to encrypted blobs stored on IPFS. SDK handles key management and encrypted storage so proposal content / meeting transcripts stay off-chain but verifiably committed.
 
