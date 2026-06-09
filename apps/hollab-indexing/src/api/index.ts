@@ -1,15 +1,11 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { CID } from "multiformats/cid";
-import * as Digest from "multiformats/hashes/digest";
 import { and, asc, client, eq, graphql } from "ponder";
 import { db } from "ponder:api";
 import schema from "ponder:schema";
 
 import { assembleOrgIndex, assembleOrgManifest } from "./manifest.js";
+import storageApp from "./storage.js";
 
 const app = new Hono();
 
@@ -20,100 +16,10 @@ app.use("/", graphql({ db, schema }));
 app.use("/graphql", graphql({ db, schema }));
 
 // ── IPFS pin proxy ──────────────────────────────────────────────────────────
-// POST /storage/pin streams a raw byte body to either Pinata (when PINATA_JWT
-// is set) or a local filesystem mock (when it isn't — used in dev). Both
-// branches return CIDv0; the frontend extracts the 32-byte multihash digest
-// for on-chain ContentRef.contentHash so the layout matches in both modes.
-//
-// Local mode also exposes GET /ipfs/:cid as a stand-in gateway so the frontend
-// can fetch blobs by pointing VITE_IPFS_GATEWAY at the indexer URL.
-
-const PINATA_PIN_URL = "https://api.pinata.cloud/pinning/pinFileToIPFS";
-const MAX_PIN_BYTES = 5 * 1024 * 1024; // 5 MiB upload cap
-const LOCAL_STORAGE_DIR = process.env.LOCAL_IPFS_DIR ?? ".ponder/local-ipfs";
-
-const SHA2_256 = 0x12;
-
-function isLocalMode(): boolean {
-    return !process.env.PINATA_JWT;
-}
-
-function localCidFor(buffer: Uint8Array): string {
-    const digest = createHash("sha256").update(buffer).digest();
-    const mh = Digest.create(SHA2_256, new Uint8Array(digest));
-    return CID.createV0(mh).toString();
-}
-
-async function localStore(buffer: Uint8Array): Promise<string> {
-    const cid = localCidFor(buffer);
-    await mkdir(LOCAL_STORAGE_DIR, { recursive: true });
-    await writeFile(path.join(LOCAL_STORAGE_DIR, cid), buffer);
-    return cid;
-}
-
-async function pinataStore(buffer: ArrayBuffer): Promise<string> {
-    const jwt = process.env.PINATA_JWT!;
-    const form = new FormData();
-    form.append("file", new Blob([buffer]), "blob");
-    form.append("pinataOptions", JSON.stringify({ cidVersion: 0 }));
-
-    const res = await fetch(PINATA_PIN_URL, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${jwt}` },
-        body: form,
-    });
-    if (!res.ok) {
-        const detail = await res.text().catch(() => "");
-        throw new Error(`pinata upload failed (${res.status}): ${detail}`);
-    }
-    const result = (await res.json()) as { IpfsHash?: string };
-    if (!result.IpfsHash) throw new Error("pinata returned no CID");
-    return result.IpfsHash;
-}
-
-app.post("/storage/pin", async (c) => {
-    const buffer = await c.req.arrayBuffer();
-    if (buffer.byteLength === 0) {
-        return jsonResponse(c, { error: "empty body" }, 400);
-    }
-    if (buffer.byteLength > MAX_PIN_BYTES) {
-        return jsonResponse(c, { error: "payload too large", maxBytes: MAX_PIN_BYTES }, 413);
-    }
-
-    try {
-        const cid = isLocalMode()
-            ? await localStore(new Uint8Array(buffer))
-            : await pinataStore(buffer);
-        return jsonResponse(c, { cid });
-    } catch (err) {
-        return jsonResponse(c, { error: (err as Error).message }, 502);
-    }
-});
-
-// Local gateway — only serves blobs written by the local mock. In production
-// (with PINATA_JWT set), reads should go to a real IPFS gateway, not here.
-app.get("/ipfs/:cid", async (c) => {
-    if (!isLocalMode()) {
-        return jsonResponse(c, { error: "local gateway disabled when PINATA_JWT is set" }, 404);
-    }
-    const cid = c.req.param("cid");
-    try {
-        // Validate the CID before touching the filesystem so a path like ".."
-        // can't escape LOCAL_STORAGE_DIR.
-        CID.parse(cid);
-    } catch {
-        return jsonResponse(c, { error: "invalid CID" }, 400);
-    }
-    try {
-        const bytes = await readFile(path.join(LOCAL_STORAGE_DIR, cid));
-        return new Response(bytes, {
-            status: 200,
-            headers: { "content-type": "application/octet-stream" },
-        });
-    } catch {
-        return jsonResponse(c, { error: "not found", cid }, 404);
-    }
-});
+// POST /storage/pin + GET /ipfs/:cid, extracted to ./storage.ts so the routes
+// stay Ponder-free and unit-testable. See that module for the Pinata vs local
+// filesystem behaviour.
+app.route("/", storageApp);
 
 // ── Agent manifest endpoints ────────────────────────────────────────────────
 // Runtime-assembled `agent.json` per org. Schema v1 lives in
