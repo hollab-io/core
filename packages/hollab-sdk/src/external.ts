@@ -2,9 +2,9 @@
 export type {
     EncryptedPayload,
     KeyShare,
+    ContentHash,
     StreamId,
-    LogEntry,
-    StorageConfig,
+    IpfsStorageConfig,
     OrgMeta,
     CircleMeta,
     Tension,
@@ -23,9 +23,6 @@ export type {
 
 // Interfaces
 export type { IKeyManager, IStorageClient, IOrgClient, IEventIndexer } from "./internal.js";
-
-// 0G client interfaces (for DI)
-export type { ZeroGKvClient, ZeroGLogClient } from "./internal.js";
 
 // Exceptions
 export { HollabSdkError, EncryptionError, StorageError, KeyDerivationError } from "./internal.js";

@@ -1,6 +1,14 @@
 import type { IKeyManager } from "../interfaces/keyManager.interface.js";
 import type { IStorageClient } from "../interfaces/storageClient.interface.js";
-import type { EncryptedPayload, LogEntry, StreamId } from "../internal.js";
+import type { EncryptedPayload } from "../types/crypto.types.js";
+import type {
+    ContentHash,
+    FetchLike,
+    FetchResponse,
+    IpfsStorageConfig,
+} from "../types/storage.types.js";
+import { StorageError } from "../exceptions/storageError.exception.js";
+import { cidToContentHash, contentHashToCid } from "../lib/storage/cid.js";
 
 /**
  * Serializes an EncryptedPayload to a Uint8Array for storage.
@@ -26,70 +34,66 @@ function deserializePayload(data: Uint8Array): EncryptedPayload {
     return { nonce, ciphertext };
 }
 
-/** Interface for the 0G KV client operations we use */
-export interface ZeroGKvClient {
-    put(streamId: string, key: string, value: Uint8Array): Promise<void>;
-    get(streamId: string, key: string): Promise<Uint8Array | null>;
-    exists(streamId: string): Promise<boolean>;
-}
-
-/** Interface for the 0G Log client operations we use */
-export interface ZeroGLogClient {
-    append(streamId: string, data: Uint8Array): Promise<void>;
-    read(streamId: string, fromIndex: number, count: number): Promise<Uint8Array[]>;
-}
-
+/**
+ * Content-addressed encrypted storage backed by IPFS.
+ *
+ * Uploads encrypt → serialize → POST to the indexer pin-proxy, returning the
+ * blob's bytes32 content hash. Downloads reconstruct the CID from that hash,
+ * fetch from an IPFS gateway, deserialize, and decrypt. Mirrors the frontend's
+ * useIpfsStorage hook so both produce/consume identical `ContentRef` hashes.
+ */
 export class StorageClient implements IStorageClient {
     private readonly keyManager: IKeyManager;
-    private readonly kvClient: ZeroGKvClient;
-    private readonly logClient: ZeroGLogClient;
+    private readonly pinUrl: string;
+    private readonly gatewayUrl: string;
+    private readonly fetchImpl?: FetchLike;
 
-    constructor(keyManager: IKeyManager, kvClient: ZeroGKvClient, logClient: ZeroGLogClient) {
+    constructor(keyManager: IKeyManager, config: IpfsStorageConfig) {
         this.keyManager = keyManager;
-        this.kvClient = kvClient;
-        this.logClient = logClient;
+        this.pinUrl = config.pinUrl;
+        this.gatewayUrl = config.gatewayUrl.replace(/\/$/, "");
+        this.fetchImpl = config.fetchImpl;
+    }
+
+    private fetch(input: string, init?: Parameters<FetchLike>[1]): Promise<FetchResponse> {
+        const impl = this.fetchImpl ?? (globalThis as unknown as { fetch: FetchLike }).fetch;
+        return impl(input, init);
     }
 
     /** @inheritdoc */
-    async putEncrypted(
-        streamId: StreamId,
-        key: string,
-        value: Uint8Array,
-        encryptionKey: Uint8Array,
-    ): Promise<void> {
+    async putEncrypted(value: Uint8Array, encryptionKey: Uint8Array): Promise<ContentHash> {
         const payload = this.keyManager.encrypt(encryptionKey, value);
         const serialized = serializePayload(payload);
-        await this.kvClient.put(streamId, key, serialized);
+
+        // Copy into a fresh ArrayBuffer so the body type narrows correctly.
+        const body = new ArrayBuffer(serialized.byteLength);
+        new Uint8Array(body).set(serialized);
+
+        const res = await this.fetch(this.pinUrl, {
+            method: "POST",
+            headers: { "content-type": "application/octet-stream" },
+            body,
+        });
+        if (!res.ok) {
+            const detail = await res.text().catch(() => "");
+            throw new StorageError(`pin proxy upload failed (${res.status}): ${detail}`);
+        }
+        const json = (await res.json()) as { cid?: string; error?: string };
+        if (!json.cid) {
+            throw new StorageError(`pin proxy returned no CID: ${json.error ?? "unknown error"}`);
+        }
+        return cidToContentHash(json.cid);
     }
 
     /** @inheritdoc */
-    async getDecrypted(
-        streamId: StreamId,
-        key: string,
-        encryptionKey: Uint8Array,
-    ): Promise<Uint8Array | null> {
-        const data = await this.kvClient.get(streamId, key);
-        if (!data) return null;
-
-        const payload = deserializePayload(data);
+    async getDecrypted(contentHash: ContentHash, encryptionKey: Uint8Array): Promise<Uint8Array> {
+        const cid = contentHashToCid(contentHash);
+        const res = await this.fetch(`${this.gatewayUrl}/ipfs/${cid}`);
+        if (!res.ok) {
+            throw new StorageError(`IPFS gateway fetch failed (${res.status}) for ${cid}`);
+        }
+        const bytes = new Uint8Array(await res.arrayBuffer());
+        const payload = deserializePayload(bytes);
         return this.keyManager.decrypt(encryptionKey, payload);
-    }
-
-    /** @inheritdoc */
-    async appendLog(streamId: StreamId, entry: LogEntry): Promise<void> {
-        const encoded = new TextEncoder().encode(JSON.stringify(entry));
-        await this.logClient.append(streamId, encoded);
-    }
-
-    /** @inheritdoc */
-    async readLog(streamId: StreamId, fromIndex: number, count: number): Promise<LogEntry[]> {
-        const rawEntries = await this.logClient.read(streamId, fromIndex, count);
-        const decoder = new TextDecoder();
-        return rawEntries.map((raw) => JSON.parse(decoder.decode(raw)) as LogEntry);
-    }
-
-    /** @inheritdoc */
-    async streamExists(streamId: StreamId): Promise<boolean> {
-        return this.kvClient.exists(streamId);
     }
 }
