@@ -2,7 +2,7 @@
 
 > **MVP status (2026-04-13): descoped.** The Aztec-flavored privacy posture described here is **not** in the MVP scope. The MVP ships the agent-native public org surface (see `docs/sprint-agent-native-mvp.md`); private data and agent execution are held as the v2 direction. This spec remains **authoritative for the v2 design** — treat it as the target architecture, not the current implementation.
 
-> **Storage update (2026-06-09):** the private storage substrate in this spec has moved from 0G Storage to **IPFS** — encrypted blobs pinned via the indexer pin-proxy and addressed on-chain by `ContentRef`. Storage references below have been restated accordingly. The **0G Compute** inference layer (§5.5) is unaffected: IPFS is a storage substrate, not a compute one. 0G also still appears as a _chain_ target elsewhere in the repo; only off-chain storage changed.
+> **0G fully removed (2026-06-10).** This spec originally targeted the 0G stack (Storage + Compute + ERC-7857 INFTs). The 0G relationship ended, so every 0G specific has been neutralized: storage → **IPFS** (encrypted blobs via the indexer pin-proxy, addressed on-chain by `ContentRef`); inference → a provider-neutral **verifiable-compute** layer (§5.5); agent identity → **ERC-8004** (the shipped standard) instead of ERC-7857. The design intent is unchanged — only the vendor is gone.
 >
 > Extends the HolLab on-chain governance system with off-chain private storage (IPFS), encryption key management, and an AI agent execution layer.
 
@@ -16,7 +16,7 @@ This spec defines:
 
 -   A **private data layer** built on IPFS (content-addressed encrypted blobs, pinned via the indexer pin-proxy) with client-side AES-256-CTR encryption
 -   A **hierarchical key management** scheme tied to on-chain roles
--   An **AI agent adapter** that bridges on-chain role authority with off-chain agent execution via 0G Compute
+-   An **AI agent adapter** that bridges on-chain role authority with off-chain agent execution via a verifiable-compute provider
 -   An **event indexer** that mirrors on-chain governance events to IPFS for agent consumption
 
 ---
@@ -30,7 +30,7 @@ This spec defines:
 │  ├── AccessManager (per org)                          │
 │  ├── CircleRegistry / RoleRegistry / GovernanceProcess│
 │  ├── CircleTreasury (TimelockController per circle)   │
-│  └── AgentRegistry (ERC-7857 INFTs)        [new]      │
+│  └── AgentRegistry (ERC-8004 identity)     [new]      │
 └──────────────┬───────────────────────────────────────┘
                │ events + role checks
 ┌──────────────▼───────────────────────────────────────┐
@@ -42,7 +42,7 @@ This spec defines:
 └──────────────┬───────────────────────────────────────┘
                │ encrypted read/write          │ inference
 ┌──────────────▼────────────┐  ┌───────────────▼───────┐
-│  IPFS (pinned blobs)      │  │  0G Compute            │
+│  IPFS (pinned blobs)      │  │  Verifiable Compute    │
 │  ├── private org data     │  │  ├── LLM inference     │
 │  └── public audit log     │  │  └── TEE verification  │
 └───────────────────────────┘  └───────────────────────┘
@@ -147,7 +147,7 @@ Rotation is an off-chain operation. The SDK handles re-encryption and key share 
 
 Each AI agent in an org is represented by:
 
-1. **On-chain**: An INFT (ERC-7857) token held by the role it fills. The INFT metadata (encrypted) contains the agent's model config, system prompt, and capabilities.
+1. **On-chain**: An ERC-8004 agent identity bound to the role it fills. Its (off-chain, encrypted) metadata contains the agent's model config, system prompt, and capabilities.
 2. **On-chain**: A role assignment in RoleRegistry — the agent's address is a role lead.
 3. **Off-chain**: Agent state pinned on IPFS — persistent memory, current tasks, heartbeat timestamp.
 
@@ -219,17 +219,17 @@ interface AgentAdapter {
 }
 ```
 
-### 5.5 0G Compute Integration
+### 5.5 Verifiable Compute Integration
 
-Agents use 0G Compute for inference:
+Agents use a verifiable-compute provider for inference:
 
 | Feature              | Usage                                                                                                                    |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **Chat completions** | Agent reasoning about proposals, tensions, and role assignments. OpenAI-compatible API via 0G Compute.                   |
+| **Chat completions** | Agent reasoning about proposals, tensions, and role assignments. OpenAI-compatible API via the compute provider.         |
 | **TEE verification** | Verifiable inference — proofs that the agent's reasoning matches the claimed model + input.                              |
 | **Fine-tuning**      | Org-specific model fine-tuning on governance history. Dataset = historical proposals + outcomes from the IPFS audit log. |
 
-The SDK wraps 0G Compute's OpenAI-compatible endpoint:
+The SDK wraps the provider's OpenAI-compatible endpoint:
 
 ```typescript
 interface AgentInference {
@@ -240,7 +240,7 @@ interface AgentInference {
 
     // Config
     setModel(modelId: string): void;
-    setProvider(endpoint: string): void; // 0G Compute endpoint
+    setProvider(endpoint: string): void; // inference provider endpoint
 }
 ```
 
@@ -314,7 +314,7 @@ packages/hollab-sdk/
 │   │   └── handlers.ts         — per-event-type handlers
 │   ├── agent/
 │   │   ├── AgentAdapter.ts     — agent ↔ governance bridge
-│   │   ├── AgentInference.ts   — 0G Compute wrapper
+│   │   ├── AgentInference.ts   — verifiable-compute wrapper
 │   │   └── heartbeat.ts        — heartbeat protocol implementation
 │   ├── types/
 │   │   └── index.ts            — shared TypeScript types
@@ -351,7 +351,7 @@ packages/hollab-sdk/
 ### 8.2 Trust Assumptions
 
 1. **IPFS / pinning service** — trusted for availability, NOT for confidentiality. All sensitive data is encrypted client-side.
-2. **0G Compute TEE** — trusted for inference integrity. The TEE attestation proves the model and input match the output.
+2. **Verifiable-compute TEE** — trusted for inference integrity. The TEE attestation proves the model and input match the output.
 3. **On-chain contracts** — trusted as the source of truth for role assignments, circle membership, and treasury state.
 4. **Wallet security** — the master key derives from a wallet signature. Wallet compromise = org compromise.
 
@@ -367,5 +367,5 @@ packages/hollab-sdk/
 | **Phase 4** | `EventIndexer` — chain events → IPFS sync                                           | Phase 3    |
 | **Phase 5** | `AgentRegistry` contract — on-chain agent identity + heartbeat                      | —          |
 | **Phase 6** | `AgentAdapter` — agent ↔ governance bridge                                         | Phase 3, 5 |
-| **Phase 7** | `AgentInference` — 0G Compute integration for reasoning                             | Phase 6    |
-| **Phase 8** | INFT (ERC-7857) integration — tokenized agent identities                            | Phase 5    |
+| **Phase 7** | `AgentInference` — verifiable-compute integration for reasoning                     | Phase 6    |
+| **Phase 8** | ERC-8004 agent-identity integration                                                 | Phase 5    |

@@ -426,5 +426,5 @@ The off-chain storage backend referenced throughout the earlier (dated) sections
 
 -   **Frontend** now uploads encrypted blobs through the indexer pin-proxy (`POST /storage/pin`) and reads them back from `VITE_IPFS_GATEWAY`. The hook is `apps/hola-modern/src/hooks/useIpfsStorage.ts` (replaces the deleted `useZgStorage.ts`); `useEncryptedStorage` and the OKR/role-content hooks now thread a `bytes32` `contentHash` (sha2-256 multihash digest of a CIDv0) instead of a 0G `rootHash`.
 -   **Indexer** exposes the pin-proxy: Pinata when `PINATA_JWT` is set, otherwise a local filesystem mock under `LOCAL_IPFS_DIR` (`.ponder/local-ipfs`) with a `GET /ipfs/:cid` gateway for dev.
--   **0G remains a chain target** (`chains.ts`, deploy scripts) — only the _storage substrate_ changed.
--   The broader 0G-based private-data/agent vision (0G Compute inference, ERC-7857 INFTs) in `specs/07` is still v2/descoped; its storage substrate is likewise restated as IPFS there.
+-   **0G fully removed (2026-06-10).** Storage moved to IPFS (above); the 0G _chain_ target was then dropped too (the 0G relationship ended) — the repo now targets Sepolia + Mainnet only.
+-   `specs/07` has been neutralized to a provider-neutral verifiable-compute layer + ERC-8004 agent identity (was 0G Compute + ERC-7857 INFTs); it remains v2/descoped.
