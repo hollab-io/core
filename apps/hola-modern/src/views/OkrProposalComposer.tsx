@@ -3,7 +3,7 @@
  *
  * The caller must be a role lead of the receiving role (so the proposal is
  * raised under the representation rule). On submit, the aggregate objectives
- * list is uploaded to 0G and an AmendRoleWithRefs proposal is created that
+ * list is uploaded to IPFS and an AmendRoleWithRefs proposal is created that
  * re-points the role's `keccak256("okr:{quarter}")` content ref.
  */
 import type { OkrKeyResult, OkrObjective } from "@hollab-io/hollab-sdk";

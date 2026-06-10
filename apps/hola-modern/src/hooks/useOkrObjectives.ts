@@ -2,7 +2,7 @@
  * useOkrObjectives — reads the aggregate OKR blob for a (role, quarter) pair.
  *
  * Flow: read contentRef on-chain for fieldName = keccak256("okr:{quarter}") →
- *       download 0G blob by rootHash → decrypt with the role key →
+ *       download IPFS blob by contentHash → decrypt with the role key →
  *       parse JSON into OkrObjective[].
  *
  * Writes go through governance via useCreateOkrObjective (AmendRoleWithRefs
@@ -62,7 +62,7 @@ export function useOkrObjectives(params: {
             }
             const visibility = contentRef.visibility as DataVisibilityValue;
             const text = await fetchAndDecrypt({
-                rootHash: contentRef.contentHash,
+                contentHash: contentRef.contentHash as `0x${string}`,
                 visibility: visibility ?? DataVisibility.Public,
                 orgId,
                 circleId,

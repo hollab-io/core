@@ -52,17 +52,18 @@ Concurrency groups cancel in-progress runs on the same branch.
 
 ### IPFS Deployment
 
-On push to `release` branch (or manual trigger), `deploy-ipfs.yml`:
+Frontend deploys are **not** run in CI — they go through a local script, [`scripts/deploy-ipfs.sh`](https://github.com/hollab-io/hollab-cannes-26/blob/dev/scripts/deploy-ipfs.sh), so the deployer key never lives in CI and every production push is multisig-approved. The script:
 
-1. Builds the frontend with production env vars
-2. Deploys to IPFS via **omnipin** (Filecoin pinning)
-3. Updates the `hollab.eth` ENS **contenthash** through a Safe multisig transaction
+1. Builds the frontend with production env vars (`pnpm --filter hola-modern build`)
+2. Pins `dist/` to IPFS via **omnipin** (Filecoin pinning)
+3. Emits the new CID plus the encoded `setContenthash` calldata for a human-signed **Safe** transaction that updates the `hollab.eth` ENS **contenthash**
 
-Required secrets:
+Required env (local shell, not CI secrets):
 
 -   `OMNIPIN_FILECOIN_TOKEN` — Filecoin pinning API token
--   `OMNIPIN_PK` — Deployer private key
--   `SAFE_ADDRESS` — Safe multisig address for ENS updates
+-   production `VITE_*` build vars (gateway, indexer URLs, WalletConnect project id) — typically in `apps/hola-modern/.env.production`
+
+See [IPFS Deployment](/operations/ipfs) for the full flow.
 
 ### Shared Setup
 

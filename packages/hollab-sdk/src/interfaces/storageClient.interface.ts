@@ -1,30 +1,19 @@
-import type { LogEntry, StreamId } from "../types/storage.types.js";
+import type { ContentHash } from "../types/storage.types.js";
 
 /**
- * Wrapper around 0G Storage (KV + Log) with client-side encryption.
+ * Content-addressed encrypted storage over IPFS (via the indexer pin-proxy).
+ *
+ * Writes encrypt a value, pin the ciphertext, and return its bytes32 content
+ * hash; reads take that hash, fetch the blob from a gateway, and decrypt it.
+ * The logical-key → contentHash mapping lives on-chain (`ContentRef`) or in the
+ * caller — IPFS is immutable and content-addressed, so there is no mutable
+ * (streamId, key) lookup and no append-only log here (the Ponder indexer is the
+ * queryable audit trail).
  */
 export interface IStorageClient {
-    /** Encrypts value with the given key and stores it in KV. */
-    putEncrypted(
-        streamId: StreamId,
-        key: string,
-        value: Uint8Array,
-        encryptionKey: Uint8Array,
-    ): Promise<void>;
+    /** Encrypts a value and pins it to IPFS; returns the bytes32 content hash. */
+    putEncrypted(value: Uint8Array, encryptionKey: Uint8Array): Promise<ContentHash>;
 
-    /** Fetches from KV and decrypts with the given key. Returns null if not found. */
-    getDecrypted(
-        streamId: StreamId,
-        key: string,
-        encryptionKey: Uint8Array,
-    ): Promise<Uint8Array | null>;
-
-    /** Appends a plaintext entry to the 0G Storage Log. */
-    appendLog(streamId: StreamId, entry: LogEntry): Promise<void>;
-
-    /** Reads entries from the 0G Storage Log. */
-    readLog(streamId: StreamId, fromIndex: number, count: number): Promise<LogEntry[]>;
-
-    /** Checks whether a stream exists. */
-    streamExists(streamId: StreamId): Promise<boolean>;
+    /** Fetches the blob by content hash and decrypts it. Throws if not found. */
+    getDecrypted(contentHash: ContentHash, encryptionKey: Uint8Array): Promise<Uint8Array>;
 }

@@ -37,14 +37,20 @@ The frontend uses hash-based routing (`#/org/:id/tactical`) instead of path-base
 -   There is no server to handle path-based routing fallbacks
 -   Hash fragments (`#/...`) are handled entirely client-side
 
-## Manual Deployment
+## Deployment
+
+Deployment is driven by a single local script, [`scripts/deploy-ipfs.sh`](https://github.com/hollab-io/hollab-cannes-26/blob/dev/scripts/deploy-ipfs.sh):
 
 ```bash
-# Build the frontend
-pnpm --filter hola-modern build
-
-# The dist/ folder is ready for IPFS upload
-ls apps/hola-modern/dist/
+# Pin token in env; production VITE_* vars in apps/hola-modern/.env.production
+OMNIPIN_FILECOIN_TOKEN=… ./scripts/deploy-ipfs.sh
 ```
 
-The actual IPFS upload and ENS update are handled by the `deploy-ipfs.yml` GitHub Action, which uses omnipin CLI tools and Safe SDK for the multisig transaction.
+The script:
+
+1. **Preflights** the required env (pin token, production `VITE_*` vars) and the `omnipin` CLI
+2. **Builds** the frontend (`pnpm --filter hola-modern build`, including the `dist/index.html` → `dist/404.html` copy)
+3. **Pins** `apps/hola-modern/dist/` to IPFS/Filecoin via omnipin and captures the CID
+4. **Emits** the resulting CID, a gateway preview URL, and the encoded `setContenthash` calldata to paste into the **Safe Transaction Builder**
+
+The script never submits the multisig transaction — the `hollab.eth` contenthash update is a human-signed Safe step (see [ENS Contenthash](#ens-contenthash) above). This keeps the deployer key out of CI and ensures every production push is multisig-approved.

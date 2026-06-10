@@ -53,7 +53,7 @@ This maps directly to the `ContentRef` struct used in RoleRegistry for on-chain 
 
 ## Stream IDs
 
-Data is addressed on the 0G Network using stream IDs built from org/circle/role identifiers:
+Data is addressed by content hash on IPFS; logical stream IDs built from org/circle/role identifiers name each blob and resolve to its latest CID:
 
 ```ts
 import { buildCircleMetaKey, buildOrgMetaKey, buildStreamId } from "@hollab-io/hollab-sdk";

@@ -1,7 +1,6 @@
 import type { PublicClient } from "viem";
 
 import type { IEventIndexer } from "../interfaces/eventIndexer.interface.js";
-import type { IStorageClient } from "../interfaces/storageClient.interface.js";
 import type {
     ContentRefEvent,
     EventIndexerConfig,
@@ -10,7 +9,6 @@ import type {
 } from "../types/events.types.js";
 import { contentRefEvents, roleRegistryEvents } from "../lib/chain/abis.js";
 import { decodeContentRefEvent, decodeRoleRegistryEvent } from "../lib/chain/eventDecoder.js";
-import { buildStreamId } from "../lib/storage/schema.js";
 
 const DEFAULT_CHUNK_SIZE = 2000;
 
@@ -19,8 +17,6 @@ type UnwatchFn = () => void;
 export class EventIndexer implements IEventIndexer {
     private readonly config: EventIndexerConfig;
     private readonly publicClient: PublicClient;
-    private readonly storageClient: IStorageClient;
-    private readonly streamId: string;
     private readonly chunkSize: number;
 
     private unwatchFns: UnwatchFn[] = [];
@@ -29,15 +25,9 @@ export class EventIndexer implements IEventIndexer {
     private roleHandlers: ((event: RoleChange) => void)[] = [];
     private contentRefHandlers: ((event: ContentRefEvent) => void)[] = [];
 
-    constructor(
-        config: EventIndexerConfig,
-        publicClient: PublicClient,
-        storageClient: IStorageClient,
-    ) {
+    constructor(config: EventIndexerConfig, publicClient: PublicClient) {
         this.config = config;
         this.publicClient = publicClient;
-        this.storageClient = storageClient;
-        this.streamId = buildStreamId(config.orgId);
         this.chunkSize = config.chunkSize ?? DEFAULT_CHUNK_SIZE;
     }
 
@@ -159,13 +149,6 @@ export class EventIndexer implements IEventIndexer {
         for (const handler of this.contentRefHandlers) {
             handler(event);
         }
-
-        void this.storageClient.appendLog(this.streamId, {
-            type: `contentref:${event.type}`,
-            data: event as unknown as Record<string, unknown>,
-            timestamp: event.timestamp,
-            txHash: event.transactionHash,
-        });
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -177,12 +160,5 @@ export class EventIndexer implements IEventIndexer {
         for (const handler of this.roleHandlers) {
             handler(event);
         }
-
-        void this.storageClient.appendLog(this.streamId, {
-            type: `role:${event.type}`,
-            data: event as unknown as Record<string, unknown>,
-            timestamp: event.timestamp,
-            txHash: event.transactionHash,
-        });
     }
 }

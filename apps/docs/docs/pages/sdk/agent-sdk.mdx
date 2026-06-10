@@ -114,7 +114,7 @@ import { ChangeType, encodeCreateRole } from "@hollab-io/agent-sdk";
 
 // 1. Any member creates a Draft proposal. tensionText is hashed client-side
 //    with keccak256 — only the hash is committed on-chain. Pass tensionHash
-//    directly if the full text is already pinned to IPFS / 0G.
+//    directly if the full text is already pinned to IPFS.
 const { proposalId } = await agent.governance.createProposal(meetingFactoryAddr, {
     orgId,
     circleId: 1n,

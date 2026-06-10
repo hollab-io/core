@@ -5,6 +5,7 @@ import { db } from "ponder:api";
 import schema from "ponder:schema";
 
 import { assembleOrgIndex, assembleOrgManifest } from "./manifest.js";
+import storageApp from "./storage.js";
 
 const app = new Hono();
 
@@ -13,6 +14,12 @@ app.use("*", cors());
 app.use("/sql/*", client({ db, schema }));
 app.use("/", graphql({ db, schema }));
 app.use("/graphql", graphql({ db, schema }));
+
+// ── IPFS pin proxy ──────────────────────────────────────────────────────────
+// POST /storage/pin + GET /ipfs/:cid, extracted to ./storage.ts so the routes
+// stay Ponder-free and unit-testable. See that module for the Pinata vs local
+// filesystem behaviour.
+app.route("/", storageApp);
 
 // ── Agent manifest endpoints ────────────────────────────────────────────────
 // Runtime-assembled `agent.json` per org. Schema v1 lives in

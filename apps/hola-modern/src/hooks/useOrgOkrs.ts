@@ -3,7 +3,7 @@
  *
  * Queries the indexer for every content ref across the org's RoleRegistry
  * matching fieldName = keccak256("okr:{quarter}"), then fetches + decrypts
- * each 0G blob to produce a flat list of `OkrObjective` with their owning role.
+ * each IPFS blob to produce a flat list of `OkrObjective` with their owning role.
  */
 import type { OkrObjective } from "@hollab-io/hollab-sdk";
 import type { ContentRef } from "@hollab-io/indexing-client";
@@ -46,7 +46,7 @@ export function useOrgOkrs(params: {
                     const visibility = ref.visibility as DataVisibilityValue;
                     try {
                         const text = await fetchAndDecrypt({
-                            rootHash: ref.contentHash,
+                            contentHash: ref.contentHash as `0x${string}`,
                             visibility: visibility ?? DataVisibility.Public,
                             orgId,
                             circleId: circleId ?? BigInt(0),

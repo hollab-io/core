@@ -29,6 +29,22 @@
         <meta name="apple-mobile-web-app-title" content="hollab" />
         <link rel="apple-touch-icon" href="./favicon.svg" />
         <title>hollab.eth</title>
+        <script>
+            // Pre-seed process polyfill so readable-stream@2.3.8 (pulled in by
+            // create-hash → ripemd160 → hash-base → readable-stream via wagmi/
+            // 0g-ts-sdk deps) doesn't crash on process.version.slice() during
+            // module init. vite-plugin-node-polyfills' setup is ESM-hoisted
+            // and races with __commonJS init under Vite dev — this runs first.
+            window.process = window.process || {
+                browser: true,
+                version: "",
+                versions: {},
+                env: {},
+                nextTick: function (cb) {
+                    Promise.resolve().then(cb);
+                },
+            };
+        </script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
