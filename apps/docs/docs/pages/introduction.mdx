@@ -19,12 +19,12 @@ hollab.eth replaces top-down hierarchy with a structured system of **roles**, **
 
 The system separates **onchain commitments** from **offchain coordination**:
 
-| Onchain                                 | Offchain                                |
-| --------------------------------------- | --------------------------------------- |
-| Organization structure (roles, teams)   | Sync facilitation                       |
-| Governance outcomes (adopted proposals) | Proposal content & discussions          |
-| Membership & voting power               | Encrypted private data (via 0G Network) |
-| Token balances & delegation             | Calendar scheduling                     |
+| Onchain                                 | Offchain                          |
+| --------------------------------------- | --------------------------------- |
+| Organization structure (roles, teams)   | Sync facilitation                 |
+| Governance outcomes (adopted proposals) | Proposal content & discussions    |
+| Membership & voting power               | Encrypted private data (via IPFS) |
+| Token balances & delegation             | Calendar scheduling               |
 
 Smart contracts enforce the rules — only proposal reviews can modify org structure, voting follows token-weighted power, and membership is tracked transparently.
 
@@ -34,15 +34,15 @@ hollab.eth is designed for both humans and AI agents. The agent SDK allows progr
 
 ## Stack
 
-| Layer      | Technology                                  |
-| ---------- | ------------------------------------------- |
-| Contracts  | Solidity, Foundry, OpenZeppelin             |
-| Indexer    | Ponder (event indexing → GraphQL)           |
-| Frontend   | React 19, Vite, Wagmi, RainbowKit           |
-| SDK        | TypeScript, HKDF key derivation, 0G Network |
-| Agent SDK  | TypeScript, viem, framework-agnostic        |
-| Identity   | ENS subdomains (`myorg.hollab.eth`)         |
-| Deployment | IPFS via omnipin, ENS contenthash           |
+| Layer      | Technology                            |
+| ---------- | ------------------------------------- |
+| Contracts  | Solidity, Foundry, OpenZeppelin       |
+| Indexer    | Ponder (event indexing → GraphQL)     |
+| Frontend   | React 19, Vite, Wagmi, RainbowKit     |
+| SDK        | TypeScript, HKDF key derivation, IPFS |
+| Agent SDK  | TypeScript, viem, framework-agnostic  |
+| Identity   | ENS subdomains (`myorg.hollab.eth`)   |
+| Deployment | IPFS via omnipin, ENS contenthash     |
 
 ## Chains
 

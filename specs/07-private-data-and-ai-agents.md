@@ -2,7 +2,9 @@
 
 > **MVP status (2026-04-13): descoped.** The Aztec-flavored privacy posture described here is **not** in the MVP scope. The MVP ships the agent-native public org surface (see `docs/sprint-agent-native-mvp.md`); private data and agent execution are held as the v2 direction. This spec remains **authoritative for the v2 design** — treat it as the target architecture, not the current implementation.
 
-> Extends the HolLab on-chain governance system with off-chain private storage (0G Network), encryption key management, and an AI agent execution layer.
+> **0G fully removed (2026-06-10).** This spec originally targeted the 0G stack (Storage + Compute + ERC-7857 INFTs). The 0G relationship ended, so every 0G specific has been neutralized: storage → **IPFS** (encrypted blobs via the indexer pin-proxy, addressed on-chain by `ContentRef`); inference → a provider-neutral **verifiable-compute** layer (§5.5); agent identity → **ERC-8004** (the shipped standard) instead of ERC-7857. The design intent is unchanged — only the vendor is gone.
+>
+> Extends the HolLab on-chain governance system with off-chain private storage (IPFS), encryption key management, and an AI agent execution layer.
 
 ---
 
@@ -12,10 +14,10 @@ HolLab's on-chain contracts (RoleRegistry, CircleRegistry, GovernanceProcess, Ci
 
 This spec defines:
 
--   A **private data layer** built on 0G Storage (KV + Log) with client-side AES-256-CTR encryption
+-   A **private data layer** built on IPFS (content-addressed encrypted blobs, pinned via the indexer pin-proxy) with client-side AES-256-CTR encryption
 -   A **hierarchical key management** scheme tied to on-chain roles
--   An **AI agent adapter** that bridges on-chain role authority with off-chain agent execution via 0G Compute
--   An **event indexer** that mirrors on-chain governance events to 0G Storage for agent consumption
+-   An **AI agent adapter** that bridges on-chain role authority with off-chain agent execution via a verifiable-compute provider
+-   An **event indexer** that mirrors on-chain governance events to IPFS for agent consumption
 
 ---
 
@@ -28,21 +30,21 @@ This spec defines:
 │  ├── AccessManager (per org)                          │
 │  ├── CircleRegistry / RoleRegistry / GovernanceProcess│
 │  ├── CircleTreasury (TimelockController per circle)   │
-│  └── AgentRegistry (ERC-7857 INFTs)        [new]      │
+│  └── AgentRegistry (ERC-8004 identity)     [new]      │
 └──────────────┬───────────────────────────────────────┘
                │ events + role checks
 ┌──────────────▼───────────────────────────────────────┐
 │  HolLab SDK (TypeScript)                    [new]     │
 │  ├── OrgClient — org-level read/write                 │
 │  ├── KeyManager — hierarchical key derivation         │
-│  ├── EventIndexer — chain → 0G Storage sync           │
+│  ├── EventIndexer — chain → IPFS sync                 │
 │  └── AgentAdapter — agent ↔ governance bridge         │
 └──────────────┬───────────────────────────────────────┘
                │ encrypted read/write          │ inference
 ┌──────────────▼────────────┐  ┌───────────────▼───────┐
-│  0G Storage               │  │  0G Compute            │
-│  ├── KV: private org data │  │  ├── LLM inference     │
-│  └── Log: audit trail     │  │  └── TEE verification  │
+│  IPFS (pinned blobs)      │  │  Verifiable Compute    │
+│  ├── private org data     │  │  ├── LLM inference     │
+│  └── public audit log     │  │  └── TEE verification  │
 └───────────────────────────┘  └───────────────────────┘
 ```
 
@@ -52,7 +54,7 @@ This spec defines:
 
 ### 3.1 Storage Schema
 
-All private org data is stored in 0G Storage KV, organized by stream ID and key prefix.
+All private org data is stored as encrypted blobs on IPFS, pinned via the indexer pin-proxy and addressed by content hash. The logical keys below name each blob; because IPFS is immutable and content-addressed, the latest CID for a key is tracked on-chain (`ContentRef`) or by the indexer rather than mutated in place.
 
 | Stream ID     | Key Pattern                       | Value                      | Encryption | Description                |
 | ------------- | --------------------------------- | -------------------------- | ---------- | -------------------------- |
@@ -67,7 +69,7 @@ All private org data is stored in 0G Storage KV, organized by stream ID and key 
 
 ### 3.2 Audit Trail (Public)
 
-Governance actions are mirrored to 0G Storage Log (append-only, plaintext) for public verifiability:
+Governance actions are mirrored to a plaintext IPFS audit log (append-only) for public verifiability:
 
 | Entry Type                     | Content                                                 |
 | ------------------------------ | ------------------------------------------------------- |
@@ -145,9 +147,9 @@ Rotation is an off-chain operation. The SDK handles re-encryption and key share 
 
 Each AI agent in an org is represented by:
 
-1. **On-chain**: An INFT (ERC-7857) token held by the role it fills. The INFT metadata (encrypted) contains the agent's model config, system prompt, and capabilities.
+1. **On-chain**: An ERC-8004 agent identity bound to the role it fills. Its (off-chain, encrypted) metadata contains the agent's model config, system prompt, and capabilities.
 2. **On-chain**: A role assignment in RoleRegistry — the agent's address is a role lead.
-3. **Off-chain**: Agent state in 0G Storage KV — persistent memory, current tasks, heartbeat timestamp.
+3. **Off-chain**: Agent state pinned on IPFS — persistent memory, current tasks, heartbeat timestamp.
 
 ### 5.2 AgentRegistry Contract
 
@@ -160,15 +162,15 @@ AgentRegistry
 └── agentHeartbeat(agentId) — updates last-seen timestamp
 ```
 
-| Property        | Type    | Description                                             |
-| --------------- | ------- | ------------------------------------------------------- |
-| `id`            | uint256 | Auto-incrementing agent ID                              |
-| `roleId`        | uint256 | The role this agent fills                               |
-| `account`       | address | The agent's wallet address (EOA or smart account)       |
-| `modelUri`      | string  | 0G Storage root hash pointing to encrypted model config |
-| `registeredAt`  | uint256 | Registration timestamp                                  |
-| `lastHeartbeat` | uint256 | Last heartbeat timestamp                                |
-| `active`        | bool    | Whether the agent is currently active                   |
+| Property        | Type    | Description                                                |
+| --------------- | ------- | ---------------------------------------------------------- |
+| `id`            | uint256 | Auto-incrementing agent ID                                 |
+| `roleId`        | uint256 | The role this agent fills                                  |
+| `account`       | address | The agent's wallet address (EOA or smart account)          |
+| `modelUri`      | string  | IPFS content hash (CID) pointing to encrypted model config |
+| `registeredAt`  | uint256 | Registration timestamp                                     |
+| `lastHeartbeat` | uint256 | Last heartbeat timestamp                                   |
+| `active`        | bool    | Whether the agent is currently active                      |
 
 ### 5.3 Agent Heartbeat Protocol
 
@@ -177,15 +179,15 @@ Inspired by Paperclip's heartbeat model, adapted for on-chain authority:
 ```
 1. WAKE      — Agent runtime starts (cron or event-triggered)
 2. IDENTIFY  — Read role assignment from RoleRegistry
-3. AUTHORIZE — Derive role key, decrypt agent config from 0G Storage
-4. CHECK     — Read pending governance proposals, treasury operations, tensions from 0G KV
+3. AUTHORIZE — Derive role key, decrypt agent config from IPFS
+4. CHECK     — Read pending governance proposals, treasury operations, tensions from IPFS
 5. PRIORITIZE— Select highest-priority work item
 6. ACT       — Execute action:
                a. Submit governance proposal (on-chain via GovernanceProcess)
                b. Schedule treasury operation (on-chain via CircleTreasury)
-               c. Write analysis/recommendation (off-chain to 0G KV)
+               c. Write analysis/recommendation (off-chain to IPFS)
                d. Delegate sub-task to another agent (on-chain role assignment)
-7. REPORT    — Write status update to 0G KV (encrypted with circle key)
+7. REPORT    — Write status update to IPFS (encrypted with circle key)
 8. HEARTBEAT — Call AgentRegistry.agentHeartbeat(agentId) on-chain
 9. SLEEP     — Agent runtime stops until next trigger
 ```
@@ -217,17 +219,17 @@ interface AgentAdapter {
 }
 ```
 
-### 5.5 0G Compute Integration
+### 5.5 Verifiable Compute Integration
 
-Agents use 0G Compute for inference:
+Agents use a verifiable-compute provider for inference:
 
-| Feature              | Usage                                                                                                                |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Chat completions** | Agent reasoning about proposals, tensions, and role assignments. OpenAI-compatible API via 0G Compute.               |
-| **TEE verification** | Verifiable inference — proofs that the agent's reasoning matches the claimed model + input.                          |
-| **Fine-tuning**      | Org-specific model fine-tuning on governance history. Dataset = historical proposals + outcomes from 0G Storage Log. |
+| Feature              | Usage                                                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Chat completions** | Agent reasoning about proposals, tensions, and role assignments. OpenAI-compatible API via the compute provider.         |
+| **TEE verification** | Verifiable inference — proofs that the agent's reasoning matches the claimed model + input.                              |
+| **Fine-tuning**      | Org-specific model fine-tuning on governance history. Dataset = historical proposals + outcomes from the IPFS audit log. |
 
-The SDK wraps 0G Compute's OpenAI-compatible endpoint:
+The SDK wraps the provider's OpenAI-compatible endpoint:
 
 ```typescript
 interface AgentInference {
@@ -238,7 +240,7 @@ interface AgentInference {
 
     // Config
     setModel(modelId: string): void;
-    setProvider(endpoint: string): void; // 0G Compute endpoint
+    setProvider(endpoint: string): void; // inference provider endpoint
 }
 ```
 
@@ -248,7 +250,7 @@ interface AgentInference {
 
 ### 6.1 Purpose
 
-The EventIndexer watches on-chain events and mirrors them to 0G Storage for agent consumption. This decouples agents from direct chain RPC access and provides a queryable data layer.
+The EventIndexer watches on-chain events and mirrors them to IPFS for agent consumption. This decouples agents from direct chain RPC access and provides a queryable data layer.
 
 ### 6.2 Indexed Events
 
@@ -269,10 +271,10 @@ The EventIndexer watches on-chain events and mirrors them to 0G Storage for agen
 
 ### 6.3 Storage Format
 
-Events are written to 0G Storage in two places:
+Events are written to IPFS in two forms:
 
-1. **KV (queryable, encrypted)**: Latest state snapshot per entity. Agents read this for current context.
-2. **Log (append-only, plaintext)**: Full event history. Used for audit and AI fine-tuning datasets.
+1. **State snapshots (queryable, encrypted)**: Latest snapshot blob per entity, its CID tracked by the indexer. Agents read this for current context.
+2. **Audit log (append-only, plaintext)**: Full event history pinned as plaintext blobs. Used for audit and AI fine-tuning datasets.
 
 ### 6.4 SDK Interface
 
@@ -301,18 +303,18 @@ packages/hollab-sdk/
 ├── src/
 │   ├── client/
 │   │   ├── OrgClient.ts        — high-level org read/write
-│   │   ├── StorageClient.ts    — 0G Storage KV + Log wrapper
+│   │   ├── StorageClient.ts    — IPFS pin/fetch wrapper (encrypted blobs)
 │   │   └── ChainClient.ts      — on-chain contract interactions
 │   ├── crypto/
 │   │   ├── KeyManager.ts       — HKDF key derivation + key shares
 │   │   ├── encrypt.ts          — AES-256-CTR encrypt/decrypt
 │   │   └── keyshare.ts         — public-key encrypted key distribution
 │   ├── indexer/
-│   │   ├── EventIndexer.ts     — chain event → 0G Storage sync
+│   │   ├── EventIndexer.ts     — chain event → IPFS sync
 │   │   └── handlers.ts         — per-event-type handlers
 │   ├── agent/
 │   │   ├── AgentAdapter.ts     — agent ↔ governance bridge
-│   │   ├── AgentInference.ts   — 0G Compute wrapper
+│   │   ├── AgentInference.ts   — verifiable-compute wrapper
 │   │   └── heartbeat.ts        — heartbeat protocol implementation
 │   ├── types/
 │   │   └── index.ts            — shared TypeScript types
@@ -324,12 +326,12 @@ packages/hollab-sdk/
 
 ### 7.1 Dependencies
 
-| Dependency                | Purpose                            |
-| ------------------------- | ---------------------------------- |
-| `@0gfoundation/0g-ts-sdk` | 0G Storage KV + Log operations     |
-| `ethers`                  | Chain interactions, wallet signing |
-| `@noble/hashes`           | HKDF-SHA256 key derivation         |
-| `@noble/ciphers`          | AES-256-CTR encryption             |
+| Dependency                 | Purpose                                 |
+| -------------------------- | --------------------------------------- |
+| `multiformats` + pin-proxy | CID/multihash handling + IPFS pin/fetch |
+| `ethers`                   | Chain interactions, wallet signing      |
+| `@noble/hashes`            | HKDF-SHA256 key derivation              |
+| `@noble/ciphers`           | AES-256-CTR encryption                  |
 
 ---
 
@@ -337,19 +339,19 @@ packages/hollab-sdk/
 
 ### 8.1 Threat Model
 
-| Threat                            | Mitigation                                                                                                                       |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| 0G node operator reads ciphertext | Client-side AES-256-CTR encryption. Operator sees only ciphertext.                                                               |
-| Compromised circle lead key       | Key rotation: new circle key, re-encrypt all data, revoke old key shares.                                                        |
-| Agent wallet compromised          | Deregister agent on-chain, rotate role key, revoke proposer/canceller roles.                                                     |
-| Replay of old encrypted data      | Each encryption uses a random nonce (0G SDK standard). KV updates overwrite old values.                                          |
-| Unauthorized treasury spending    | TimelockController enforces delay. Facilitator can cancel. All ops are on-chain and auditable.                                   |
-| Agent acts outside authority      | Agent's on-chain transactions are gated by AccessManager / circle lead checks. Agent can only act within its role's permissions. |
+| Threat                                       | Mitigation                                                                                                                                        |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| IPFS node / pinning service reads ciphertext | Client-side AES-256-CTR encryption. The pinning service sees only ciphertext.                                                                     |
+| Compromised circle lead key                  | Key rotation: new circle key, re-encrypt all data, revoke old key shares.                                                                         |
+| Agent wallet compromised                     | Deregister agent on-chain, rotate role key, revoke proposer/canceller roles.                                                                      |
+| Replay of old encrypted data                 | Each encryption uses a random IV/nonce. New versions pin as new CIDs and the on-chain `ContentRef` advances, so stale CIDs fall out of reference. |
+| Unauthorized treasury spending               | TimelockController enforces delay. Facilitator can cancel. All ops are on-chain and auditable.                                                    |
+| Agent acts outside authority                 | Agent's on-chain transactions are gated by AccessManager / circle lead checks. Agent can only act within its role's permissions.                  |
 
 ### 8.2 Trust Assumptions
 
-1. **0G Storage** — trusted for availability, NOT for confidentiality. All sensitive data is encrypted client-side.
-2. **0G Compute TEE** — trusted for inference integrity. The TEE attestation proves the model and input match the output.
+1. **IPFS / pinning service** — trusted for availability, NOT for confidentiality. All sensitive data is encrypted client-side.
+2. **Verifiable-compute TEE** — trusted for inference integrity. The TEE attestation proves the model and input match the output.
 3. **On-chain contracts** — trusted as the source of truth for role assignments, circle membership, and treasury state.
 4. **Wallet security** — the master key derives from a wallet signature. Wallet compromise = org compromise.
 
@@ -360,10 +362,10 @@ packages/hollab-sdk/
 | Phase       | Deliverable                                                                         | Depends On |
 | ----------- | ----------------------------------------------------------------------------------- | ---------- |
 | **Phase 1** | `KeyManager` — HKDF derivation, AES-256-CTR encrypt/decrypt, key share distribution | —          |
-| **Phase 2** | `StorageClient` — 0G KV + Log wrapper with encryption integration                   | Phase 1    |
+| **Phase 2** | `StorageClient` — IPFS pin/fetch wrapper with encryption integration                | Phase 1    |
 | **Phase 3** | `OrgClient` — high-level org data read/write (roles, proposals, tensions)           | Phase 2    |
-| **Phase 4** | `EventIndexer` — chain events → 0G Storage sync                                     | Phase 3    |
+| **Phase 4** | `EventIndexer` — chain events → IPFS sync                                           | Phase 3    |
 | **Phase 5** | `AgentRegistry` contract — on-chain agent identity + heartbeat                      | —          |
 | **Phase 6** | `AgentAdapter` — agent ↔ governance bridge                                         | Phase 3, 5 |
-| **Phase 7** | `AgentInference` — 0G Compute integration for reasoning                             | Phase 6    |
-| **Phase 8** | INFT (ERC-7857) integration — tokenized agent identities                            | Phase 5    |
+| **Phase 7** | `AgentInference` — verifiable-compute integration for reasoning                     | Phase 6    |
+| **Phase 8** | ERC-8004 agent-identity integration                                                 | Phase 5    |

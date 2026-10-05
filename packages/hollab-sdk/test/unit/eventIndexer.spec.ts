@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { IStorageClient } from "../../src/interfaces/storageClient.interface.js";
 import type { EventIndexerConfig } from "../../src/types/events.types.js";
 import { EventIndexer } from "../../src/internal.js";
 
@@ -18,16 +17,6 @@ function createMockPublicClient(): MockPublicClient {
     };
 }
 
-function createMockStorageClient(): IStorageClient {
-    return {
-        putEncrypted: vi.fn(),
-        getDecrypted: vi.fn(),
-        appendLog: vi.fn(),
-        readLog: vi.fn(),
-        streamExists: vi.fn(),
-    };
-}
-
 const config: EventIndexerConfig = {
     rpcUrl: "http://localhost:8545",
     contracts: {
@@ -40,18 +29,14 @@ const config: EventIndexerConfig = {
 describe("EventIndexer", () => {
     let indexer: EventIndexer;
     let mockPublicClient: MockPublicClient;
-    let mockStorage: IStorageClient;
 
     beforeEach(() => {
         mockPublicClient = createMockPublicClient();
-        mockStorage = createMockStorageClient();
         // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-        indexer = new EventIndexer(config, mockPublicClient as any, mockStorage);
+        indexer = new EventIndexer(config, mockPublicClient as any);
     });
 
-    afterEach(() => {
-        vi.clearAllMocks();
-    });
+    afterEach(() => vi.clearAllMocks());
 
     describe("start/stop lifecycle", () => {
         it("starts watching events", async () => {
@@ -136,35 +121,6 @@ describe("EventIndexer", () => {
 
             expect(handler).toHaveBeenCalledWith(
                 expect.objectContaining({ type: "RoleCreated", roleId: 5n }),
-            );
-        });
-    });
-
-    describe("log storage", () => {
-        it("appends decoded events to 0G log", async () => {
-            mockPublicClient.getContractEvents.mockImplementation(
-                (params: { abi: readonly { name: string }[] }) => {
-                    if (params.abi[0]?.name === "RoleCreated") {
-                        return [
-                            {
-                                eventName: "RoleLeadAssigned",
-                                args: { _roleId: 1n, _lead: "0xAlice" },
-                                blockNumber: 50n,
-                                transactionHash: "0xabc",
-                                logIndex: 0,
-                            },
-                        ];
-                    }
-                    return [];
-                },
-            );
-
-            mockPublicClient.getBlockNumber.mockResolvedValue(100n);
-            await indexer.syncOrg(1n, 0n);
-
-            expect(mockStorage.appendLog).toHaveBeenCalledWith(
-                "org:1",
-                expect.objectContaining({ type: "role:RoleLeadAssigned" }),
             );
         });
     });

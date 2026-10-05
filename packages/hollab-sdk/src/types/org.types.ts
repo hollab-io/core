@@ -1,4 +1,4 @@
-/** Organization-level metadata stored in 0G KV */
+/** Organization-level metadata stored off-chain (encrypted, on IPFS) */
 export interface OrgMeta {
     name: string;
     purpose: string;
@@ -86,5 +86,4 @@ export interface OkrObjective {
 /** Configuration for OrgClient */
 export interface OrgClientConfig {
     orgId: bigint;
-    storageConfig: import("./storage.types.js").StorageConfig;
 }

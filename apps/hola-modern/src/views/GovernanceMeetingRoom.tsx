@@ -94,7 +94,7 @@ type PendingGovernanceAction = {
     destinationCircleId?: string;
     // Encrypted storage
     visibility?: DataVisibilityValue;
-    contentRefs?: { fieldName: string; rootHash: string; visibility: number }[];
+    contentRefs?: { fieldName: string; contentHash: `0x${string}`; visibility: number }[];
 };
 
 type ProposalDraft = {
@@ -307,8 +307,7 @@ function buildGovernanceCalls(
                 ...roleParams,
                 fieldNames: action.contentRefs.map((r) => fieldNameHash(r.fieldName)),
                 refs: action.contentRefs.map((r) => ({
-                    contentHash:
-                        `0x${r.rootHash.replace("0x", "").padStart(64, "0")}` as `0x${string}`,
+                    contentHash: r.contentHash,
                     visibility: r.visibility,
                 })),
             });
@@ -336,8 +335,7 @@ function buildGovernanceCalls(
                 ...roleParams,
                 fieldNames: action.contentRefs.map((r) => fieldNameHash(r.fieldName)),
                 refs: action.contentRefs.map((r) => ({
-                    contentHash:
-                        `0x${r.rootHash.replace("0x", "").padStart(64, "0")}` as `0x${string}`,
+                    contentHash: r.contentHash,
                     visibility: r.visibility,
                 })),
             });
@@ -1813,7 +1811,7 @@ export default function GovernanceMeetingRoom({
     const [isTxPending, setIsTxPending] = useState(false);
     const [txError, setTxError] = useState<string | null>(null);
 
-    // Encrypted storage (0G + key management)
+    // Encrypted storage (IPFS + key management)
     const { encryptAndUpload, unlockKeys, isKeyUnlocked } = useEncryptedStorage();
 
     // Proposal wizard state
@@ -2099,8 +2097,10 @@ export default function GovernanceMeetingRoom({
         // Queue the on-chain action for batched execution at meeting completion
         const actionLabel = `${changeLabel}: ${title}`;
 
-        // Encrypt + upload to 0G when visibility is non-public and this is a role action
-        let contentRefs: { fieldName: string; rootHash: string; visibility: number }[] | undefined;
+        // Encrypt + upload to IPFS when visibility is non-public and this is a role action
+        let contentRefs:
+            | { fieldName: string; contentHash: `0x${string}`; visibility: number }[]
+            | undefined;
         const vis = proposalDraft.visibility;
         if (
             isRoleAction &&
@@ -2128,14 +2128,14 @@ export default function GovernanceMeetingRoom({
                     : undefined;
                 const results = await Promise.all(
                     fields.map(async (f) => {
-                        const { rootHash } = await encryptAndUpload.mutateAsync({
+                        const { contentHash } = await encryptAndUpload.mutateAsync({
                             text: f.text,
                             visibility: vis,
                             orgId: BigInt(orgId ?? "0"),
                             circleId: cId,
                             roleId: rId,
                         });
-                        return { fieldName: f.name, rootHash, visibility: vis };
+                        return { fieldName: f.name, contentHash, visibility: vis };
                     }),
                 );
                 contentRefs = results;

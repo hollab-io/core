@@ -33,12 +33,8 @@ fs_permissions = [{ access = "read-write", path = "./deployments" }]
 localhost = "http://127.0.0.1:8545"
 mainnet = "${ETH_MAINNET_RPC_URL}"
 sepolia = "${ETH_SEPOLIA_RPC_URL}"
-0g-testnet = "https://evmrpc-testnet.0g.ai"
-0g-mainnet = "https://evmrpc.0g.ai"
 
 # ── Etherscan verification ───────────────────────────────────────────────────
 [etherscan]
 mainnet = { key = "${ETHERSCAN_API_KEY}", chain = 1 }
 sepolia = { key = "${ETHERSCAN_API_KEY}", chain = 11155111 }
-0g-testnet = { key = "PLACEHOLDER", chain = 16602, url = "https://chainscan-galileo.0g.ai/open/api" }
-0g-mainnet = { key = "PLACEHOLDER", chain = 16661, url = "https://chainscan.0g.ai/open/api" }

@@ -6,45 +6,40 @@ import type {
     RoleConfig,
     Tension,
 } from "../types/org.types.js";
+import type { ContentHash } from "../types/storage.types.js";
 
 /**
- * High-level interface for reading and writing org private data
- * in 0G Storage with appropriate key scope.
+ * High-level interface for reading and writing an org's private data on IPFS
+ * with the appropriate key scope.
+ *
+ * Storage is content-addressed: `set*` returns the bytes32 `contentHash` of the
+ * pinned blob (which the caller persists, e.g. in an on-chain `ContentRef`), and
+ * `get*` takes that hash to fetch and decrypt.
  */
 export interface IOrgClient {
-    getOrgMeta(): Promise<OrgMeta | null>;
-    setOrgMeta(meta: OrgMeta): Promise<void>;
+    getOrgMeta(contentHash: ContentHash): Promise<OrgMeta>;
+    setOrgMeta(meta: OrgMeta): Promise<ContentHash>;
 
-    getCircleMeta(circleId: bigint): Promise<CircleMeta | null>;
-    setCircleMeta(circleId: bigint, meta: CircleMeta): Promise<void>;
+    getCircleMeta(circleId: bigint, contentHash: ContentHash): Promise<CircleMeta>;
+    setCircleMeta(circleId: bigint, meta: CircleMeta): Promise<ContentHash>;
 
-    getTension(circleId: bigint, tensionId: string): Promise<Tension | null>;
-    setTension(circleId: bigint, tension: Tension): Promise<void>;
+    getTension(circleId: bigint, contentHash: ContentHash): Promise<Tension>;
+    setTension(circleId: bigint, tension: Tension): Promise<ContentHash>;
 
-    getProposal(circleId: bigint, proposalId: bigint): Promise<Proposal | null>;
-    setProposal(circleId: bigint, proposal: Proposal): Promise<void>;
+    getProposal(circleId: bigint, contentHash: ContentHash): Promise<Proposal>;
+    setProposal(circleId: bigint, proposal: Proposal): Promise<ContentHash>;
 
-    getRoleConfig(circleId: bigint, roleId: bigint): Promise<RoleConfig | null>;
-    setRoleConfig(circleId: bigint, roleId: bigint, config: RoleConfig): Promise<void>;
+    getRoleConfig(circleId: bigint, roleId: bigint, contentHash: ContentHash): Promise<RoleConfig>;
+    setRoleConfig(circleId: bigint, roleId: bigint, config: RoleConfig): Promise<ContentHash>;
 
-    getOkrs(circleId: bigint, roleId: bigint, quarter: string): Promise<OkrObjective[]>;
-    setOkrs(
-        circleId: bigint,
-        roleId: bigint,
-        quarter: string,
-        objectives: OkrObjective[],
-    ): Promise<void>;
+    getOkrs(circleId: bigint, roleId: bigint, contentHash: ContentHash): Promise<OkrObjective[]>;
+    setOkrs(circleId: bigint, roleId: bigint, objectives: OkrObjective[]): Promise<ContentHash>;
 
-    shareCircleKey(
-        circleId: bigint,
-        recipientAddress: `0x${string}`,
-        recipientPublicKey: Uint8Array,
-    ): Promise<void>;
+    shareCircleKey(circleId: bigint, recipientPublicKey: Uint8Array): Promise<ContentHash>;
 
     shareRoleKey(
         circleId: bigint,
         roleId: bigint,
-        recipientAddress: `0x${string}`,
         recipientPublicKey: Uint8Array,
-    ): Promise<void>;
+    ): Promise<ContentHash>;
 }

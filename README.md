@@ -52,7 +52,7 @@ This is the full loop: **create** an org, **structure** it through governance, *
 ## Status (What Works Today)
 
 -   **Proposal lifecycle end-to-end on-chain** — `createProposal` → `raiseObjection` / `resolveObjection` → `adopt` / `discard`, indexed and queryable. `executeGovernance` has been removed; the lifecycle primitives are the only path.
--   **Readable tensions on-chain** — `createProposalWithTension(...)` publishes plaintext via a `ProposalTensionPublished` event; the on-chain `tensionHash` is derived (`keccak256`) so the content address stays canonical. Long or sensitive content can still commit only a hash and resolve via IPFS / 0G / encrypted backends.
+-   **Readable tensions on-chain** — `createProposalWithTension(...)` publishes plaintext via a `ProposalTensionPublished` event; the on-chain `tensionHash` is derived (`keccak256`) so the content address stays canonical. Long or sensitive content can still commit only a hash and resolve via IPFS-pinned encrypted blobs.
 -   **Agent-native governance** — attribution-only proposer model (propose as a member or as a role you lead), per-org `MAX_PROPOSAL_AGE` (default 7 days, bounds [1 hour, 30 days]), and async proposal queues instead of mandatory synchronous meetings. See [`specs/99`](./specs/99-agent-native-divergence.md).
 -   **ERC-8004 agent identity** — members can bind an agent NFT to their org identity via `OrganizationInstance.linkAgentIdentity(...)`; ownership is verified on-chain, enabling an agent-native surface on top of the same governance primitives.
 -   **Officer bootstrap + election lock** — admins can set a circle's Facilitator / Secretary to any address (human or autonomous agent) pre-election; `isFacilitatorElected` / `isSecretaryElected` flip once a corresponding election adopts, after which the bootstrap setters are locked and governance owns the role.
@@ -93,7 +93,7 @@ The design principle is simple: **on-chain for commitments, off-chain for coordi
 
 Meeting coordination events (IDM steps, agenda items, nominations) are emitted as **events only** — the indexer reconstructs the full meeting state, but the chain only stores what matters: who ended up in which role, and which governance changes were adopted.
 
-Proposals may include a short plaintext tension inline — published via the `ProposalTensionPublished` event log — or a **ContentRef** hash pointing to off-chain encrypted content (IPFS / 0G). The ledger proves _that_ a proposal with specific content was adopted: short tensions stay readable without any off-chain retrieval, longer or private content stays addressable but off-chain.
+Proposals may include a short plaintext tension inline — published via the `ProposalTensionPublished` event log — or a **ContentRef** hash pointing to off-chain encrypted content (IPFS). The ledger proves _that_ a proposal with specific content was adopted: short tensions stay readable without any off-chain retrieval, longer or private content stays addressable but off-chain.
 
 ## Architecture
 

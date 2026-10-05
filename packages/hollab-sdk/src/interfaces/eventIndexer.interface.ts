@@ -1,7 +1,9 @@
 import type { ContentRefEvent, ProposalEvent, RoleChange } from "../types/events.types.js";
 
 /**
- * Watches on-chain governance events and mirrors them to 0G Storage.
+ * Watches on-chain governance events and dispatches them to registered
+ * handlers. (The Ponder indexer is the queryable audit trail; this no longer
+ * mirrors events to off-chain storage.)
  */
 export interface IEventIndexer {
     /** Start watching for new events, optionally from a specific block. */

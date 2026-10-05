@@ -1,5 +1,5 @@
 export type { EncryptedPayload, KeyShare } from "./crypto.types.js";
-export type { StreamId, LogEntry, StorageConfig } from "./storage.types.js";
+export type { ContentHash, StreamId, IpfsStorageConfig } from "./storage.types.js";
 export type {
     OrgMeta,
     CircleMeta,

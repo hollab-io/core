@@ -16,12 +16,9 @@
     "scripts": {
         "build": "command -v forge >/dev/null 2>&1 && forge build || echo 'forge not found, skipping contracts build'",
         "clean": "rm -rf out && rm -rf cache",
-        "deploy:infra:0g-mainnet": "forge script script/DeployInfrastructure.s.sol --tc DeployInfrastructure --rpc-url 0g-mainnet --browser --broadcast --verify --slow --legacy --with-gas-price 10gwei -vvvv",
-        "deploy:infra:0g-testnet": "forge script script/DeployInfrastructure.s.sol --tc DeployInfrastructure --rpc-url 0g-testnet --browser --broadcast --verify --slow --legacy --with-gas-price 10gwei -vvvv",
         "deploy:infra:mainnet": "forge script script/DeployInfrastructure.s.sol --tc DeployInfrastructure --rpc-url mainnet --browser --broadcast --verify --slow -vvvv",
         "deploy:infra:sepolia": "forge script script/DeployInfrastructure.s.sol --tc DeployInfrastructure --rpc-url sepolia --browser --broadcast --verify --slow --legacy -vvvv",
         "deploy:local": "forge script script/DeployLocal.s.sol --tc DeployLocal --rpc-url localhost --broadcast -vvv",
-        "deploy:org:0g-testnet": "forge script script/CreateOrganization.s.sol --rpc-url 0g-testnet --browser --broadcast --verify --slow --legacy --with-gas-price 10gwei -vvvv",
         "deploy:org:mainnet": "forge script script/CreateOrganization.s.sol --rpc-url mainnet --browser --broadcast --verify --slow -vvvv",
         "deploy:org:sepolia": "forge script script/CreateOrganization.s.sol --rpc-url sepolia --browser --broadcast --verify --slow --legacy -vvvv",
         "generate": "wagmi generate",

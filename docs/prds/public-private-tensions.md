@@ -17,7 +17,7 @@ encoded in a small off-chain envelope stored under the existing `tensionHash`.
 Today `PublicProposalView` renders a hex hash where the tension text should
 be. The MVP permalink is agent-legible but not human-legible, so the share
 loop breaks: nobody lands on the page and understands why the proposal
-exists. We also have a v2 privacy narrative (0G + encryption via
+exists. We also have a v2 privacy narrative (IPFS + encryption via
 `hollab-sdk`) that is built but unused on the write path.
 
 A single always-public model is too blunt — some orgs will want to use
@@ -105,9 +105,9 @@ Rules:
 
 ### Storage
 
--   Public envelopes: stored on 0G as-is (or whatever the existing
-    `hollab-sdk` storage backend is). The envelope is public, but storage can
-    still go through 0G for consistency — no reason to fork transports.
+-   Public envelopes: pinned to IPFS as-is (via the `hollab-sdk` storage
+    backend / indexer pin-proxy). The envelope is public, but storage still
+    goes through the same transport — no reason to fork it.
 -   Private envelopes: same storage, with the `body` field pre-encrypted by
     `hollab-sdk` before upload.
 
@@ -222,7 +222,7 @@ metadata. This is the whole point.
 -   **Envelope hash binding means you can't re-upload to "fix a typo"
     without breaking the on-chain hash.** This is correct behavior but will
     surprise authors. Surface "tensions are immutable" in the propose UI.
--   **0G availability.** If the envelope is unreachable, the permalink
+-   **IPFS availability.** If the envelope is unreachable, the permalink
     degrades to the hex-hash state we have today. Acceptable fallback;
     document it.
 -   **Private + public in the same org = UX complexity.** Readers will see

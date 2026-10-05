@@ -43,9 +43,6 @@ interface IENS {
  * Production broadcast (Sepolia):
  *   pnpm deploy:infra:sepolia
  *
- * Production broadcast (0G testnet):
- *   pnpm deploy:infra:0g-testnet
- *
  * Resume a failed broadcast:
  *   forge script script/DeployInfrastructure.s.sol \
  *     --rpc-url sepolia \

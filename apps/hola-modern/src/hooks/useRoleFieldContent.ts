@@ -1,9 +1,9 @@
 /**
- * useRoleFieldContent — read a role field's content from 0G via on-chain ContentRef.
+ * useRoleFieldContent — read a role field's content from IPFS via on-chain ContentRef.
  *
  * 1. Reads ContentRef from RoleRegistry (on-chain)
  * 2. If zero hash → returns undefined (backward compat with non-Refs roles)
- * 3. Downloads from 0G + decrypts based on visibility tier
+ * 3. Downloads from IPFS + decrypts based on visibility tier
  *
  * For encrypted fields, returns { needsUnlock: true } when keys are not yet
  * derived, so the UI can show a lock icon + "Unlock to view" button.
@@ -50,11 +50,8 @@ export function useRoleFieldContent(params: {
         queryFn: async () => {
             if (!contentRef || contentRef.contentHash === ZERO_HASH) return undefined;
 
-            // Convert bytes32 contentHash to 0G root hash string
-            const rootHash = contentRef.contentHash;
-
             return fetchAndDecrypt({
-                rootHash,
+                contentHash: contentRef.contentHash as `0x${string}`,
                 visibility: contentRef.visibility as 0 | 1 | 2,
                 orgId: params.orgId,
                 circleId: params.circleId,

@@ -2,7 +2,7 @@
     "name": "@hollab-io/hollab-sdk",
     "version": "0.0.1",
     "private": true,
-    "description": "HolLab private data layer SDK — key management, encrypted 0G storage, org client, event indexer",
+    "description": "HolLab private data layer SDK — key management, encrypted IPFS storage, org client, event indexer",
     "license": "MIT",
     "author": "Wonderland",
     "type": "module",
@@ -30,6 +30,7 @@
     "dependencies": {
         "@noble/ciphers": "^1.2.1",
         "@noble/hashes": "^1.7.1",
+        "multiformats": "^13.3.7",
         "viem": "2.21.4"
     }
 }

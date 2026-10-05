@@ -76,7 +76,7 @@ Any org member can create a proposal or raise an objection. Only org admins can 
 | `circleId`       | Circle the change targets (anchor = 0)                            |
 | `proposer`       | `msg.sender` at create time                                       |
 | `proposerRoleId` | 0 if the proposer is not currently a role lead                    |
-| `tensionHash`    | `bytes32` — CIDv1 / 0G root / keccak256 of off-chain tension text |
+| `tensionHash`    | `bytes32` — sha2-256 digest of an IPFS CIDv0, or keccak256 inline |
 | `changeType`     | `HolacracyTypes.ChangeType` (CreateRole, AmendRole, Election, …)  |
 | `changeData`     | ABI-encoded payload, decoded by `_applyChange` on adopt           |
 | `status`         | `Draft` → `Adopted` or `Discarded` (MVP uses these three)         |

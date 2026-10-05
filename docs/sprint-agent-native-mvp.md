@@ -395,7 +395,7 @@ The Day-2 finding ("no proposal lifecycle on-chain, manifest `openProposals: []`
 
 ### What is still intentionally missing (do not re-enter without a call)
 
--   **ContentRef → text resolution.** Proposals carry `tensionHash` but the public view does not yet resolve it to human-readable content. The 0G private-data path exists in `hollab-sdk` but is not wired into `PublicProposalView`. This is the next highest-leverage gap (see "Next bets" below).
+-   **ContentRef → text resolution.** Proposals carry `tensionHash` but the public view does not yet resolve it to human-readable content. The IPFS private-data path exists in `hollab-sdk` (and the frontend `useIpfsStorage` hook) but is not wired into `PublicProposalView`. This is the next highest-leverage gap (see "Next bets" below).
 -   **Objection integration flow.** `raiseObjection` + `resolveObjection` exist on-chain; there is no UX for a facilitator-style integration loop. Only terminal states render well.
 -   **Agent-authored proposal discovery for humans.** The `🤖` chip is rendered, but there is no "agents proposing in this org right now" surface — which is the clearest paperclip-ish hook we have.
 -   **Meeting lifecycle on-chain.** Proposals exist outside meetings currently; the `GovernanceMeeting` surface is still the pre-lifecycle shape. Not blocking.
@@ -417,3 +417,14 @@ Bets 1 and 3 above have been shaped into product specs. Bet 1 was refined — vi
 -   [docs/prds/public-objection-flow.md](./prds/public-objection-flow.md) — progressive wallet-connect + `raiseObjection` from `PublicProposalView`, reusing the same envelope for concerns. Key product decision: **org-member advisory gate** (contract remains authoritative).
 
 Bet 2 (agent proposal firehose) is still on the roadmap but not yet shaped.
+
+---
+
+## Storage substrate migration: 0G → IPFS (2026-06-09)
+
+The off-chain storage backend referenced throughout the earlier (dated) sections — "0G storage", "the 0G upload", "the 0G path" — has been **replaced by IPFS**. Those historical references are left intact as a record of what the sprint decided at the time; this note supersedes them for current state.
+
+-   **Frontend** now uploads encrypted blobs through the indexer pin-proxy (`POST /storage/pin`) and reads them back from `VITE_IPFS_GATEWAY`. The hook is `apps/hola-modern/src/hooks/useIpfsStorage.ts` (replaces the deleted `useZgStorage.ts`); `useEncryptedStorage` and the OKR/role-content hooks now thread a `bytes32` `contentHash` (sha2-256 multihash digest of a CIDv0) instead of a 0G `rootHash`.
+-   **Indexer** exposes the pin-proxy: Pinata when `PINATA_JWT` is set, otherwise a local filesystem mock under `LOCAL_IPFS_DIR` (`.ponder/local-ipfs`) with a `GET /ipfs/:cid` gateway for dev.
+-   **0G fully removed (2026-06-10).** Storage moved to IPFS (above); the 0G _chain_ target was then dropped too (the 0G relationship ended) — the repo now targets Sepolia + Mainnet only.
+-   `specs/07` has been neutralized to a provider-neutral verifiable-compute layer + ERC-8004 agent identity (was 0G Compute + ERC-7857 INFTs); it remains v2/descoped.

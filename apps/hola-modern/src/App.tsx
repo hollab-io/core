@@ -274,9 +274,16 @@ function App() {
                     />
                 );
             case "structure":
+                if (!activeOrg) {
+                    return (
+                        <div className="flex h-full items-center justify-center text-sm text-slate-400">
+                            Loading organization…
+                        </div>
+                    );
+                }
                 return (
                     <StructureView
-                        org={activeOrg!}
+                        org={activeOrg}
                         isDarkMode={isDark}
                         autoOpenInvite={autoOpenInvite}
                         onInviteOpened={() => setAutoOpenInvite(false)}
